@@ -37,7 +37,7 @@
       name: 'あなた', avatar: { type: 'preset', id: 0 },
       rating: START_RATE, games: 0, wins: 0, streak: 0, earnedDan: -1,
       bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [],
-      settings: { confirm: true, fx: true, sound: true }
+      settings: { confirm: true, fx: true, sound: true }, botLevel: 'auto'
     };
   }
   let S = fresh();
@@ -348,7 +348,7 @@
     const g = G, id = G.id, mv = G.moveNo;
     g.thinking = true;
     const t0 = performance.now();
-    const r = await ask({ type: 'think', board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: KOMI, moveNum: g.moveNo, oppPassed: g.passes === 1 });
+    const r = await ask({ type: 'think', board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: KOMI, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last });
     const wait = Math.max(0, 500 + Math.random() * 600 - (performance.now() - t0));
     await new Promise(res => setTimeout(res, wait));
     if (!G || G.id !== id || G.over || G.moveNo !== mv) return;
@@ -469,20 +469,21 @@
     $('#mtFound').hidden = true; $('#cancelMatch').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
     const myRank = rankFromRating(S.rating);
+    const fixed = S.botLevel !== 'auto';
     const t0 = Date.now();
     const tick = () => {
       const s = Math.floor((Date.now() - t0) / 1000);
-      $('#mtSub').textContent = `${RANKS[Math.max(0, myRank - 1)]}〜${RANKS[Math.min(13, myRank + 1)]} のプレイヤーを検索中 ・ ${s}秒`;
+      $('#mtSub').textContent = `${fixed ? RANKS[S.botLevel] : RANKS[Math.max(0, myRank - 1)] + '〜' + RANKS[Math.min(13, myRank + 1)]} のプレイヤーを検索中 ・ ${s}秒`;
     };
     tick();
     const iv = setInterval(tick, 500);
     matchT.push(setTimeout(() => {
       clearInterval(iv);
-      const lv = Math.max(0, Math.min(13, myRank + Math.floor(Math.random() * 3) - 1));
+      const lv = fixed ? S.botLevel : Math.max(0, Math.min(13, myRank + Math.floor(Math.random() * 3) - 1));
       const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
       const myColor = Math.random() < 0.5 ? 1 : 2;
       $('#mtTitle').textContent = '対局者が見つかりませんでした';
-      $('#mtSub').textContent = '同じ強さのBotとマッチしました';
+      $('#mtSub').textContent = fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました';
       paintAvatar($('#mtAvatar'), BOT_AV);
       $('#mtName').textContent = bot.name;
       $('#mtRank').textContent = `レート ${bot.rating}`;
@@ -565,6 +566,16 @@
     Object.assign(S, { rating: START_RATE, games: 0, wins: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [] });
     save(); renderHome(); $('#settings').hidden = true; toast('レートをリセットしました');
   });
+
+  /* ---------- Botの強さ ---------- */
+  (function setupBotPick() {
+    const sel = $('#botLevel');
+    const o = document.createElement('option'); o.value = 'auto'; o.textContent = '自動（自分のレートの近く）'; sel.append(o);
+    RANKS.forEach((r, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = `${r}（レート ${botRating(i)}）`; sel.append(op); });
+    if (S.botLevel !== 'auto' && !(S.botLevel >= 0 && S.botLevel < RANKS.length)) S.botLevel = 'auto';
+    sel.value = String(S.botLevel);
+    sel.addEventListener('change', () => { S.botLevel = sel.value === 'auto' ? 'auto' : +sel.value; save(); });
+  })();
 
   /* ---------- 起動：前回の対局が途中で切れていたら負け ---------- */
   try {
