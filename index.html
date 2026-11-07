@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>九路 Blitz</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11162a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Saira+Condensed:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ホーム -->
+  <section id="home" class="screen">
+    <header class="brand">
+      <div class="logo"><span class="logo-k">九路</span><span class="logo-b">BLITZ</span></div>
+      <button class="icon-btn" id="openSettings" aria-label="設定">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg>
+      </button>
+    </header>
+
+    <div class="player-card">
+      <div class="avatar xl" id="homeAvatar"></div>
+      <div class="pc-main">
+        <div class="pc-name" id="homeName"></div>
+        <div class="pc-rank"><span id="homeRank"></span><span class="pc-rate"><small>RATE</small><b id="homeRate"></b></span></div>
+        <div class="rank-bar"><i id="rankBar"></i></div>
+        <div class="rank-next" id="rankNext"></div>
+      </div>
+    </div>
+
+    <button class="match-btn" id="startMatch">
+      <span class="mb-main">ランダムマッチ</span>
+      <span class="mb-sub">9路 ・ 5分 + 1手5秒 ・ コミ7目半</span>
+    </button>
+
+    <div class="stats">
+      <div><small>対局</small><b id="stGames">0</b></div>
+      <div><small>勝率</small><b id="stWin">—</b></div>
+      <div><small>連勝</small><b id="stStreak">0</b></div>
+      <div><small>黒番</small><b id="stBlack">0-0</b></div>
+      <div><small>白番</small><b id="stWhite">0-0</b></div>
+    </div>
+
+    <h3 class="sec-h">最近の対局</h3>
+    <ol class="history" id="history"></ol>
+  </section>
+
+  <!-- 対局 -->
+  <section id="game" class="screen" hidden>
+    <div class="pbar op" id="opBar">
+      <div class="avatar" id="opAvatar"></div>
+      <div class="pb-info">
+        <div class="pb-name"><i class="mini-stone" id="opStone"></i><span id="opName"></span></div>
+        <div class="pb-sub"><span id="opRank"></span> ・ アゲハマ <b id="opCaps">0</b></div>
+      </div>
+      <div class="clock" id="opClock">5:00</div>
+    </div>
+
+    <div class="board-wrap" id="boardWrap">
+      <svg id="board" viewBox="-0.15 -0.15 9.3 9.3" role="img" aria-label="9路盤">
+        <defs>
+          <radialGradient id="gB" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#6b6f7a"/><stop offset=".45" stop-color="#22242b"/><stop offset="1" stop-color="#0b0c10"/></radialGradient>
+          <radialGradient id="gW" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#ecebe6"/><stop offset="1" stop-color="#b9b6ad"/></radialGradient>
+          <pattern id="grain" width="9" height="0.7" patternUnits="userSpaceOnUse"><rect width="9" height=".7" fill="none"/><path d="M0 .2 Q 4.5 .32 9 .18" stroke="#8a5a1c" stroke-opacity=".10" stroke-width=".05" fill="none"/><path d="M0 .52 Q 4.5 .44 9 .56" stroke="#8a5a1c" stroke-opacity=".07" stroke-width=".035" fill="none"/></pattern>
+        </defs>
+        <rect x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".18" fill="#d8ac62"/>
+        <rect x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".18" fill="url(#grain)"/>
+        <g id="grid"></g>
+        <g id="terr"></g>
+        <g id="stones"></g>
+        <g id="marks"></g>
+      </svg>
+      <div id="fxLayer" aria-live="polite"></div>
+      <div class="netdown" id="netdown" hidden>
+        <b>通信が切れています</b>
+        <span>3分以内に戻らないと負けになります</span>
+        <div class="nd-time" id="ndTime">3:00</div>
+      </div>
+    </div>
+
+    <div class="pbar me" id="meBar">
+      <div class="avatar" id="meAvatar"></div>
+      <div class="pb-info">
+        <div class="pb-name"><i class="mini-stone" id="meStone"></i><span id="meName"></span></div>
+        <div class="pb-sub"><span id="meRank"></span> ・ アゲハマ <b id="meCaps">0</b></div>
+      </div>
+      <div class="clock" id="meClock">5:00</div>
+    </div>
+
+    <div class="actions">
+      <div class="turn-msg" id="turnMsg"></div>
+      <button class="btn ghost" id="passBtn">パス</button>
+      <button class="btn danger" id="resignBtn">投了</button>
+    </div>
+  </section>
+
+  <!-- マッチング -->
+  <div class="overlay" id="matching" hidden>
+    <div class="radar"><i></i><i></i><i></i><span class="radar-stone"></span></div>
+    <div class="mt-title" id="mtTitle">対戦相手を探しています</div>
+    <div class="mt-sub" id="mtSub"></div>
+    <div class="mt-found" id="mtFound" hidden>
+      <div class="avatar xl" id="mtAvatar"></div>
+      <div class="mt-vs">
+        <b id="mtName"></b>
+        <span id="mtRank"></span>
+        <span class="mt-color" id="mtColor"></span>
+      </div>
+    </div>
+    <button class="btn ghost" id="cancelMatch">キャンセル</button>
+  </div>
+
+  <!-- 結果 -->
+  <div class="overlay" id="result" hidden>
+    <div class="res-kanji" id="resKanji">勝</div>
+    <div class="res-reason" id="resReason"></div>
+    <div class="res-score" id="resScore"></div>
+    <div class="res-rate">
+      <span id="resOld"></span><span class="arrow">→</span><b id="resNew"></b><em id="resDelta"></em>
+    </div>
+    <div class="res-promo" id="resPromo" hidden></div>
+    <div class="res-btns">
+      <button class="btn ghost" id="resBoard">盤面を見る</button>
+      <button class="btn ghost" id="resHome">ホーム</button>
+      <button class="btn primary" id="resAgain">もう一局</button>
+    </div>
+  </div>
+
+  <!-- 設定 -->
+  <div class="sheet-back" id="settings" hidden>
+    <div class="sheet" role="dialog" aria-labelledby="setTitle">
+      <div class="sheet-h"><h2 id="setTitle">プロフィールと設定</h2><button class="icon-btn" id="closeSettings" aria-label="閉じる">✕</button></div>
+
+      <label class="field" for="nameInput"><span>名前</span>
+        <input id="nameInput" maxlength="12" autocomplete="off" placeholder="名前（12文字まで）">
+      </label>
+
+      <div class="field"><span>アバター</span>
+        <div class="av-grid" id="avGrid"></div>
+        <label class="btn ghost small" for="avUpload">写真を使う</label>
+        <input type="file" id="avUpload" accept="image/*" hidden>
+      </div>
+
+      <div class="field"><span>対局</span>
+        <label class="toggle"><input type="checkbox" id="optConfirm"><i></i>着手は2回タップで確定</label>
+        <label class="toggle"><input type="checkbox" id="optFx"><i></i>技のエフェクト</label>
+        <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
+      </div>
+
+      <div class="field danger-zone"><span>レート</span>
+        <p class="note">レートを1050（10級）に戻し、成績と対局履歴を消します。</p>
+        <button class="btn danger" id="resetRate">レートをリセット</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 確認ダイアログ -->
+  <div class="overlay dim" id="confirm" hidden>
+    <div class="dialog">
+      <p id="cfText"></p>
+      <div class="res-btns">
+        <button class="btn ghost" id="cfNo">やめる</button>
+        <button class="btn danger" id="cfYes">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
