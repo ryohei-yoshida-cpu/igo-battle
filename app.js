@@ -3,7 +3,7 @@
   'use strict';
   const E = window.GoEngine;
   const $ = s => document.querySelector(s);
-  const KOMI = 7.5;
+  const KOMI = 7; // 同点は持碁（引き分け）
   const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000;
   const NET_LIMIT = 180; // 秒
   const MATCH_SEARCH_MS = 8000;
@@ -20,7 +20,7 @@
   function eloDelta(my, op, score, games) {
     const exp = 1 / (1 + Math.pow(10, (op - my) / 400));
     let d = Math.round(kFactor(games) * (score - exp));
-    if (d === 0) d = score ? 1 : -1;
+    if (d === 0 && score !== 0.5) d = score ? 1 : -1;
     return d;
   }
 
@@ -35,7 +35,7 @@
   function fresh() {
     return {
       name: 'あなた', avatar: { type: 'preset', id: 0 },
-      rating: START_RATE, games: 0, wins: 0, streak: 0, earnedDan: -1,
+      rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1,
       bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [],
       settings: { confirm: true, fx: true, sound: true }, botLevel: 'auto'
     };
@@ -228,7 +228,9 @@
     }
     for (const h of S.history.slice(0, 15)) {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="hk ${h.win ? 'w' : 'l'}">${h.win ? '勝' : '負'}</span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
+      const hk = h.draw ? ['d', '持'] : h.win ? ['w', '勝'] : ['l', '負'];
+      if (h.rec) { li.className = 'rec'; li.title = 'タップで検討'; li.onclick = () => openReview(h.rec); }
+      li.innerHTML = `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
       li.querySelector('.hn').textContent = h.op; const sm = document.createElement('small'); sm.textContent = h.color === 1 ? '黒番' : '白番'; li.querySelector('.hn').append(sm);
       li.querySelector('.hr').textContent = h.reason;
       ol.append(li);
@@ -236,7 +238,7 @@
   }
 
   /* ---------- 対局 ---------- */
-  let G = null, gameSeq = 0;
+  let G = null, gameSeq = 0, R = null;
   const clockOf = c => G.clock[c] - (G.toPlay === c && !G.over ? performance.now() - G.turnStart : 0);
   const fmt = ms => { ms = Math.max(0, ms); const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -245,10 +247,10 @@
     G = {
       id: gameSeq, board: new Array(81).fill(0), toPlay: 1, ko: -1, me: myColor, bot,
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
-      passes: 0, moveNo: 0, last: -1, over: false, pend: -1, thinking: false, net: null, final: null, lastDrop: -1
+      passes: 0, moveNo: 0, last: -1, over: false, record: [], pend: -1, thinking: false, net: null, final: null, lastDrop: -1
     };
     try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name })); } catch (e) {}
-    $('#home').hidden = true; $('#game').hidden = false;
+    $('#home').hidden = true; $('#game').hidden = false; setMode('play');
     paintAvatar($('#meAvatar'), S.avatar); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
     paintAvatar($('#opAvatar'), BOT_AV); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
@@ -325,6 +327,7 @@
     const prev = G.board;
     G.moveNo++;
     const tech = techOf(prev, r.board, p, c, r.cap, r.ko, G.moveNo);
+    G.record.push(p);
     G.board = r.board; G.ko = r.ko; G.caps[c] += r.cap.length; G.last = p; G.lastDrop = p; G.passes = 0; G.pend = -1;
     sound(r.cap.length ? 'cap' : 'stone');
     switchTurn();
@@ -335,6 +338,7 @@
   }
 
   function doPass(c) {
+    G.record.push(-1);
     G.moveNo++; G.passes++; G.ko = -1; G.pend = -1; G.last = -1;
     switchTurn();
     render();
@@ -382,21 +386,22 @@
     for (const p of dead) G.final.terr[p] = 3 - G.board[p];
     render();
     const margin = black - (white + KOMI);
-    const winner = margin > 0 ? 1 : 2;
+    const winner = margin > 0 ? 1 : margin < 0 ? 2 : 0;
     const pts = Math.abs(margin);
-    endGame(winner, `${Math.floor(pts)}目半${winner === G.me ? '勝ち' : '負け'}`, `黒 ${black}  ／  白 ${white} + コミ ${KOMI}`, true);
+    endGame(winner, winner === 0 ? '持碁' : `${pts}目${winner === G.me ? '勝ち' : '負け'}`, `黒 ${black}  ／  白 ${white} + コミ ${KOMI}`, true);
   }
 
-  function applyRating(win, opRating, color, opName, reason) {
+  function applyRating(score, opRating, color, opName, reason, rec) {
+    const win = score === 1, draw = score === 0.5;
     const old = S.rating, oldRank = displayRank();
-    const d = eloDelta(S.rating, opRating, win ? 1 : 0, S.games);
+    const d = eloDelta(S.rating, opRating, score, S.games);
     S.rating = Math.max(800, S.rating + d);
     S.games++;
-    if (win) { S.wins++; S.streak++; } else S.streak = 0;
-    if (color === 1) win ? S.bw.bw++ : S.bw.bl++; else win ? S.bw.ww++ : S.bw.wl++;
+    if (win) { S.wins++; S.streak++; } else if (draw) S.draws = (S.draws || 0) + 1; else S.streak = 0;
+    if (!draw) { if (color === 1) win ? S.bw.bw++ : S.bw.bl++; else win ? S.bw.ww++ : S.bw.wl++; }
     const rr = rankFromRating(S.rating);
     if (rr >= DAN_FROM && S.streak >= DAN_STREAK && rr > S.earnedDan) S.earnedDan = rr;
-    S.history.unshift({ win, op: opName, color, reason, delta: d, t: Date.now() });
+    S.history.unshift({ win, draw, op: opName, color, reason, delta: d, t: Date.now(), rec: rec || null });
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
@@ -408,21 +413,21 @@
     G.over = true; G.thinking = false;
     if (G.wake) { G.wake.release().catch(() => {}); G.wake = null; }
     if (G.net) { clearInterval(G.net.timer); G.net = null; $('#netdown').hidden = true; }
-    const win = winner === G.me;
+    const win = winner === G.me, draw = winner === 0;
     let label = reason;
     if (reason === '中押し') label = win ? '中押し勝ち' : '中押し負け';
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = '切断負け';
-    const r = applyRating(win, G.bot.rating, G.me, G.bot.name, label);
+    const r = applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
-    setTimeout(() => showResult(win, label, scoreText || '', r), scored ? 900 : 500);
+    setTimeout(() => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r), scored ? 900 : 500);
   }
 
   function showResult(win, label, scoreText, r) {
     const k = $('#resKanji');
-    k.textContent = win ? '勝' : '負';
-    k.className = 'res-kanji ' + (win ? '' : 'lose');
+    k.textContent = win > 0 ? '勝' : win === 0 ? '持' : '負';
+    k.className = 'res-kanji ' + (win > 0 ? '' : 'lose');
     void k.offsetWidth; k.classList.add('pop');
     $('#resReason').textContent = label;
     $('#resScore').textContent = scoreText;
@@ -497,11 +502,12 @@
 
   /* ---------- 入力 ---------- */
   $('#board').addEventListener('click', e => {
-    if (!G || G.over || G.toPlay !== G.me || G.net) return;
     const r = e.currentTarget.getBoundingClientRect();
     const x = Math.floor(((e.clientX - r.left) / r.width * 9.3) - 0.15);
     const y = Math.floor(((e.clientY - r.top) / r.height * 9.3) - 0.15);
     if (x < 0 || x > 8 || y < 0 || y > 8) return;
+    if (R) { reviewTap(y * 9 + x); return; }
+    if (!G || G.over || G.toPlay !== G.me || G.net) return;
     const p = y * 9 + x;
     if (G.board[p]) return;
     if (!E.play(G.board, p, G.me, G.ko)) { toast(p === G.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
@@ -516,9 +522,7 @@
   $('#startMatch').onclick = () => { sound('stone'); startMatch(); };
   $('#resHome').onclick = leaveGame;
   $('#resAgain').onclick = () => { leaveGame(); startMatch(); };
-  $('#resBoard').onclick = () => { $('#result').hidden = true; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '結果'; $('#resignBtn').onclick = () => { $('#result').hidden = false; }; };
-  const restoreResign = () => { $('#resignBtn').onclick = () => { if (G && !G.over) confirmBox('投了しますか？ 負けになります。', () => G && !G.over && endGame(3 - G.me, '中押し')); }; };
-  $('#resHome').addEventListener('click', restoreResign); $('#resAgain').addEventListener('click', restoreResign);
+  $('#resBoard').onclick = () => { const rec = G ? G.record.slice() : []; $('#result').hidden = true; G = null; openReview(rec); };
 
   /* ---------- 設定 ---------- */
   function renderSettings() {
@@ -567,6 +571,107 @@
     save(); renderHome(); $('#settings').hidden = true; toast('レートをリセットしました');
   });
 
+  /* ---------- 検討モード ---------- */
+  const COLS = 'ABCDEFGHJ';
+  const coord = p => p < 0 ? 'パス' : COLS[p % 9] + (9 - ((p / 9) | 0));
+  function setMode(m) {
+    const rv = m === 'review';
+    $('#rvTop').hidden = !rv; $('#rvPanel').hidden = !rv;
+    $('#opBar').hidden = rv; $('#meBar').hidden = rv; $('#playActions').hidden = rv;
+    $('#game').classList.toggle('reviewing', rv);
+  }
+  function openReview(rec) {
+    R = { main: rec.slice(), line: rec.slice(), idx: rec.length, hint: null, hintReq: 0 };
+    $('#home').hidden = true; $('#game').hidden = false; $('#result').hidden = true;
+    setMode('review');
+    $('#fxLayer').innerHTML = '';
+    reviewRender();
+  }
+  function replay(line, n) {
+    let b = new Array(81).fill(0), ko = -1, c = 1, last = -1;
+    const caps = { 1: 0, 2: 0 };
+    for (let i = 0; i < n; i++) {
+      const p = line[i];
+      if (p >= 0) { const r = E.play(b, p, c, ko); if (!r) break; b = r.board; ko = r.ko; caps[c] += r.cap.length; last = p; }
+      else { ko = -1; last = -1; }
+      c = 3 - c;
+    }
+    return { b, ko, c, last, caps };
+  }
+  function reviewRender() {
+    const st = replay(R.line, R.idx);
+    R.st = st;
+    let s = '';
+    for (let p = 0; p < 81; p++) {
+      const v = st.b[p]; if (!v) continue;
+      const x = p % 9 + 0.5, y = ((p / 9) | 0) + 0.5;
+      s += `<g class="stone${p === R.drop ? ' drop' : ''}"><circle cx="${x + .04}" cy="${y + .06}" r=".46" fill="#000" opacity=".28"/><circle cx="${x}" cy="${y}" r=".46" fill="url(#g${v === 1 ? 'B' : 'W'})"/></g>`;
+    }
+    $('#stones').innerHTML = s; R.drop = -1;
+    $('#terr').innerHTML = '';
+    let m = '';
+    if (st.last >= 0) {
+      const x = st.last % 9 + 0.5, y = ((st.last / 9) | 0) + 0.5;
+      m += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${st.b[st.last] === 1 ? '#f3d27e' : '#c2412b'}" stroke-width=".07"/>`;
+    }
+    if (R.hint && R.hint.at === R.idx + ':' + R.line.slice(0, R.idx).join(',')) {
+      R.hint.cands.forEach((h, i) => {
+        if (h.move < 0) return;
+        const x = h.move % 9 + 0.5, y = ((h.move / 9) | 0) + 0.5;
+        m += `<circle cx="${x}" cy="${y}" r=".38" fill="${i === 0 ? '#e9c46a' : '#e9c46aaa'}" stroke="#1b1405" stroke-width=".04"/><text x="${x}" y="${y + .14}" text-anchor="middle" font-size=".42" font-weight="700" fill="#1b1405" font-family="system-ui">${i + 1}</text>`;
+      });
+    } else if (R.hint && !R.hint.loading) { R.hint = null; $('#rvHintOut').hidden = true; }
+    $('#marks').innerHTML = m;
+    const branch = R.line.length !== R.main.length || R.line.some((p, i) => p !== R.main[i]);
+    $('#rvMove').textContent = `${R.idx}手目` + (R.line.length ? ` / ${R.line.length}` : '');
+    $('#rvBranch').hidden = !branch;
+    $('#rvMain').disabled = !branch;
+    $('#rvTurn').innerHTML = `<b>次は${st.c === 1 ? '黒' : '白'}番</b><small>アゲハマ 黒${st.caps[1]}・白${st.caps[2]}</small>`;
+    $('#rvPrev').disabled = $('#rvFirst').disabled = R.idx === 0;
+    $('#rvNext').disabled = $('#rvLast').disabled = R.idx >= R.line.length;
+  }
+  function reviewPlay(p) {
+    if (R.idx < R.line.length && R.line[R.idx] === p) R.idx++;
+    else { R.line = R.line.slice(0, R.idx); R.line.push(p); R.idx++; }
+    if (p >= 0) { R.drop = p; sound('stone'); }
+    reviewRender();
+  }
+  function reviewTap(p) {
+    const st = R.st;
+    if (st.b[p]) return;
+    if (!E.play(st.b, p, st.c, st.ko)) { toast(p === st.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
+    reviewPlay(p);
+  }
+  $('#rvFirst').onclick = () => { R.idx = 0; reviewRender(); };
+  $('#rvPrev').onclick = () => { if (R.idx > 0) { R.idx--; reviewRender(); } };
+  $('#rvNext').onclick = () => { if (R.idx < R.line.length) { R.idx++; reviewRender(); } };
+  $('#rvLast').onclick = () => { R.idx = R.line.length; reviewRender(); };
+  $('#rvPass').onclick = () => reviewPlay(-1);
+  $('#rvMain').onclick = () => { const keep = Math.min(R.idx, R.main.length); let i = 0; while (i < keep && R.line[i] === R.main[i]) i++; R.line = R.main.slice(); R.idx = i; reviewRender(); };
+  $('#rvClose').onclick = () => { R = null; $('#marks').innerHTML = ''; $('#rvHintOut').hidden = true; $('#game').hidden = true; $('#home').hidden = false; renderHome(); };
+  $('#rvHint').onclick = async () => {
+    if (!R || (R.hint && R.hint.loading)) return;
+    const st = R.st, at = R.idx + ':' + R.line.slice(0, R.idx).join(',');
+    const out = $('#rvHintOut');
+    out.hidden = false; out.innerHTML = '<small>AIが考えています…（約5秒）</small>';
+    R.hint = { loading: true, at, cands: [] };
+    $('#rvHint').disabled = true;
+    const res = await ask({ type: 'analyze', board: st.b, toPlay: st.c, ko: st.ko, komi: KOMI, last: st.last, ms: 5000 });
+    $('#rvHint').disabled = false;
+    if (!R) return;
+    const nowAt = R.idx + ':' + R.line.slice(0, R.idx).join(',');
+    if (nowAt !== at) { R.hint = null; out.hidden = true; return; }
+    R.hint = { loading: false, at, cands: res.cands };
+    const who = st.c === 1 ? '黒' : '白';
+    if (!res.cands.length) out.innerHTML = '<small>打てる手がありません。パスが妥当です。</small>';
+    else {
+      out.innerHTML = `<small>${who}番の候補（${res.playouts.toLocaleString()}局面を読みました）</small><ol>` +
+        res.cands.map((h, i) => `<li><i>${i + 1}</i><b>${coord(h.move)}</b><span>${who}の勝率 ${Math.round(h.wr * 100)}%</span></li>`).join('') + '</ol>';
+    }
+    reviewRender();
+  };
+  $('#openReview').onclick = () => openReview([]);
+
   /* ---------- Botの強さ ---------- */
   (function setupBotPick() {
     const sel = $('#botLevel');
@@ -581,7 +686,7 @@
   try {
     const act = JSON.parse(localStorage.getItem(KEY + '.active') || 'null');
     if (act) {
-      const r = applyRating(false, act.op, act.color, act.name, '切断負け');
+      const r = applyRating(0, act.op, act.color, act.name, '切断負け');
       setTimeout(() => toast(`前回の対局は途中で終了したため切断負けになりました（${r.d}）`, 4500), 400);
     }
   } catch (e) {}

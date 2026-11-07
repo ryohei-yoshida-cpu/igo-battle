@@ -34,13 +34,15 @@
 
     <button class="match-btn" id="startMatch">
       <span class="mb-main">ランダムマッチ</span>
-      <span class="mb-sub">9路 ・ 5分 + 1手5秒 ・ コミ7目半</span>
+      <span class="mb-sub">9路 ・ 5分 + 1手5秒 ・ コミ7目・持碁あり</span>
     </button>
 
     <label class="bot-pick" for="botLevel">
       <span>Botの強さ</span>
       <select id="botLevel"></select>
     </label>
+
+    <button class="btn ghost wide" id="openReview">検討モード（盤面を自由に並べる）</button>
 
     <div class="stats">
       <div><small>対局</small><b id="stGames">0</b></div>
@@ -56,6 +58,10 @@
 
   <!-- 対局 -->
   <section id="game" class="screen" hidden>
+    <div class="rv-top" id="rvTop" hidden>
+      <div class="rv-title"><b>検討</b><span id="rvMove">0手目</span><em id="rvBranch" hidden>変化図</em></div>
+      <button class="btn ghost small" id="rvClose">閉じる</button>
+    </div>
     <div class="pbar op" id="opBar">
       <div class="avatar" id="opAvatar"></div>
       <div class="pb-info">
@@ -96,7 +102,24 @@
       <div class="clock" id="meClock">5:00</div>
     </div>
 
-    <div class="actions">
+    <div class="rv-panel" id="rvPanel" hidden>
+      <div class="rv-nav">
+        <button class="btn ghost" id="rvFirst" aria-label="最初へ">⏮</button>
+        <button class="btn ghost" id="rvPrev" aria-label="1手戻る">◀</button>
+        <span class="rv-turn" id="rvTurn"></span>
+        <button class="btn ghost" id="rvNext" aria-label="1手進む">▶</button>
+        <button class="btn ghost" id="rvLast" aria-label="最後へ">⏭</button>
+      </div>
+      <div class="rv-tools">
+        <button class="btn primary" id="rvHint">AIの次の一手</button>
+        <button class="btn ghost" id="rvPass">パス</button>
+        <button class="btn ghost" id="rvMain" disabled>本譜に戻る</button>
+      </div>
+      <div class="rv-hint" id="rvHintOut" hidden></div>
+      <p class="rv-note">盤をタップすると次の手を自由に打てます。AIはまだ強くありません（目安は初段くらい）。初心者向けの参考としてお使いください。</p>
+    </div>
+
+    <div class="actions" id="playActions">
       <div class="turn-msg" id="turnMsg"></div>
       <button class="btn ghost" id="passBtn">パス</button>
       <button class="btn danger" id="resignBtn">投了</button>
@@ -129,7 +152,7 @@
     </div>
     <div class="res-promo" id="resPromo" hidden></div>
     <div class="res-btns">
-      <button class="btn ghost" id="resBoard">盤面を見る</button>
+      <button class="btn ghost" id="resBoard">検討する</button>
       <button class="btn ghost" id="resHome">ホーム</button>
       <button class="btn primary" id="resAgain">もう一局</button>
     </div>

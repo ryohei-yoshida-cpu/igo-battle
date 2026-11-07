@@ -339,16 +339,17 @@
         if (ch.N < 3) break;
       }
       playout(f, c, 160, amaf, lastMv);
-      const winner = f.score() - komi > 0 ? 1 : 2;
+      const sc = f.score() - komi;
+      const winner = sc > 0 ? 1 : sc < 0 ? 2 : 0; // 0 = 持碁
       for (let p = 0; p < NN; p++) { const o = f.ownerOf(p); if (o === 1) own[p]++; else if (o === 2) own[p]--; }
       for (let i = 0; i < path.length; i++) {
         const nd = path[i];
         nd.N++;
-        if (nd.color === winner) nd.W++;
+        if (nd.color === winner) nd.W++; else if (winner === 0) nd.W += 0.5;
         const chs = nd.children;
         if (chs) for (let k = 0; k < chs.length; k++) {
           const ch = chs[k];
-          if (amaf[ch.move] === ch.color) { ch.aN++; if (ch.color === winner) ch.aW++; }
+          if (amaf[ch.move] === ch.color) { ch.aN++; if (ch.color === winner) ch.aW++; else if (winner === 0) ch.aW += 0.5; }
         }
       }
       n++;
@@ -356,14 +357,38 @@
     return { root, own, n };
   }
 
-  // botの強さ: level 0 = 10級 … 13 = 四段
+  // まだ打つべき点（駄目・コウ・アタリの石）が残っているか
+  function needsPlay(f, c) {
+    for (let p = 0; p < NN; p++) {
+      if (f.col[p] !== 0) {
+        if (f.rep[p] === p && f.inAtari(p)) {
+          const l = f.lib1(p);
+          if (f.legal(l, c) && !f.selfAtari(l, c)) return true;
+        }
+        continue;
+      }
+      let b = false, w = false;
+      for (const q of NB[p]) { if (f.col[q] === 1) b = true; else if (f.col[q] === 2) w = true; }
+      if (b && w && f.legal(p, c) && !f.selfAtari(p, c)) return true;
+    }
+    return f.ko >= 0;
+  }
+
+  // 強さの段階 s（0〜16）ごとの読みの量と時間。表示の段級 level は s = level + 3
+  function budget(s, timeLeft) {
+    const playouts = Math.round(300 * Math.pow(1.5, s));
+    const ms = Math.max(300, Math.min(500 + s * 380 + Math.max(0, s - 13) * 1500, timeLeft / 14));
+    return { playouts, ms };
+  }
+
+  // botの着手: level 0 = 10級 … 13 = 四段
   function think(d) {
-    const L = d.level, c = d.toPlay;
+    const L = d.level, S = L + 3, c = d.toPlay;
     const f = FB.fromArray(d.board, d.ko);
-    const playouts = Math.round(300 * Math.pow(1.5, L));                // 10級 300 … 四段 約58000
-    const ms = Math.max(300, Math.min(500 + L * 380, d.timeLeft / 14)); // 四段は最大約5.4秒
+    const { playouts, ms } = budget(S, d.timeLeft);
     const last = d.last === undefined ? -1 : d.last;
     const { root, own, n } = search(f, c, playouts, ms, d.komi, last);
+    const must = needsPlay(f, c);
     if (!n) return { move: -1 };
     let est = 0, settled = true;
     for (let p = 0; p < NN; p++) {
@@ -373,28 +398,37 @@
     }
     est -= d.komi;
     const margin = c === 1 ? est : -est; // botから見た推定の差（目）
-    const ahead = margin > 0;
+    const ahead = margin >= 0;
     const sorted = root.children.slice().sort((a, z) => z.N - a.N);
     const best = sorted[0];
     const wr = best.N ? best.W / best.N : 0.5;
     const out = { winrate: wr, margin, playouts: n };
     // 投了：はっきり負けている（勝率8%未満、または15目以上の差で勝率25%未満）
-    if (d.moveNum >= 16 && n >= 150 && (wr < 0.08 || (margin < -15 && wr < 0.25))) return Object.assign(out, { resign: true });
-    if (d.oppPassed && !ahead && wr < 0.3) return Object.assign(out, { resign: true });
-    if (d.oppPassed && ahead) return Object.assign(out, { move: -1 });
-    if (d.moveNum >= 30 && settled && ahead) return Object.assign(out, { move: -1 });
+    if (!d.noResign && d.moveNum >= 16 && n >= 150 && (wr < 0.08 || (margin < -15 && wr < 0.25))) return Object.assign(out, { resign: true });
+    if (!d.noResign && d.oppPassed && !ahead && wr < 0.3) return Object.assign(out, { resign: true });
+    // パスは、駄目・コウ・アタリが残っていないときだけ
+    if (!must && ((d.oppPassed && ahead) || (d.moveNum >= 30 && settled && ahead))) return Object.assign(out, { move: -1 });
     let choice = best;
-    // 弱いbotほど、2〜5番手の手もときどき選ぶ（10級〜6級）
-    const T = Math.max(0, 0.7 - 0.15 * L);
+    // 弱いbotほど、2〜5番手の手もときどき選ぶ
+    const T = Math.max(0, 0.7 - 0.15 * S);
     if (T > 0.05) {
       const top = sorted.slice(0, 5);
       const w = top.map(ch => Math.pow(ch.N + 1, 1 / T));
       let r = Math.random() * w.reduce((a, z) => a + z, 0);
       for (let i = 0; i < top.length; i++) { r -= w[i]; if (r <= 0) { choice = top[i]; break; } }
     }
-    const blunder = Math.max(0, 0.1 - 0.025 * L);
+    const blunder = Math.max(0, 0.1 - 0.025 * S);
     if (Math.random() < blunder) choice = sorted[(Math.random() * Math.min(10, sorted.length)) | 0];
     return Object.assign(out, { move: choice.move });
+  }
+
+  // 検討用：一番強い設定で読んだ候補手（上位3つ）
+  function analyze(d) {
+    const f = FB.fromArray(d.board, d.ko);
+    const { root, n } = search(f, d.toPlay, 400000, d.ms || 5000, d.komi, d.last === undefined ? -1 : d.last);
+    if (!n) return { cands: [], playouts: 0 };
+    const sorted = root.children.slice().sort((a, z) => z.N - a.N).slice(0, 3);
+    return { cands: sorted.map(ch => ({ move: ch.move, wr: ch.N ? ch.W / ch.N : 0.5, visits: ch.N })), playouts: n };
   }
 
   // 終局時の死活判定用：各点の所有率（+1 黒 / -1 白）
@@ -409,13 +443,14 @@
     return Array.from(own, v => v / n);
   }
 
-  const api = { N, NN, NB, DG, group, play, think, ownership, FB };
+  const api = { N, NN, NB, DG, group, play, think, analyze, ownership, FB };
   root.GoEngine = api;
 
   if (typeof window === 'undefined' && typeof self !== 'undefined') {
     self.onmessage = e => {
       const d = e.data;
       if (d.type === 'think') self.postMessage(Object.assign({ id: d.id }, think(d)));
+      else if (d.type === 'analyze') self.postMessage(Object.assign({ id: d.id }, analyze(d)));
       else if (d.type === 'score') self.postMessage({ id: d.id, own: ownership(d.board, d.n || 800) });
     };
   }
