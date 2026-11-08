@@ -1,132 +1,33 @@
 /* 九路 Blitz — イラストと演出（和）
- * キャラクター（小春・玄斎）、幽玄の間の背景、桜吹雪、タップの光。すべてコードで描画。 */
+ * キャラクター（画像）、幽玄の間の背景、桜吹雪、タップの光。 */
 (function () {
   'use strict';
 
   /* ================= キャラクター ================= */
-  // kind: 'koharu'（少女）/ 'gensai'（けだるい師匠）
+  // 画像は img/ フォルダ。<名前>.jpg が上半身、<名前>_face.jpg が顔。
+  // kind は口調（小春＝明るい少女／玄斎＝けだるい師匠）を選ぶのに使う。
   const VARIANTS = [
-    { kind: 'koharu', name: '小春・桜', kimono: ['#f6b3c4', '#e0809b', '#a94a68'], flower: '#ffe3ea', obi: '#d8b25a' },
-    { kind: 'koharu', name: '小春・藤', kimono: ['#c6b0ec', '#8f72c9', '#55408f'], flower: '#f1e8ff', obi: '#d8b25a' },
-    { kind: 'koharu', name: '小春・若草', kimono: ['#bfe3a8', '#7fbf73', '#3f7a45'], flower: '#fff7d6', obi: '#e07a5f' },
-    { kind: 'koharu', name: '小春・紺', kimono: ['#6c86c4', '#34508f', '#1b2a52'], flower: '#ffd1dc', obi: '#d8b25a' },
-    { kind: 'gensai', name: '玄斎・鉄紺', haori: ['#3d4a66', '#262f45', '#141a28'], inner: '#8d8a80' },
-    { kind: 'gensai', name: '玄斎・焦茶', haori: ['#6b4b36', '#43301f', '#24180f'], inner: '#9a9184' }
+    { key: 'koharu', name: '小春', kind: 'koharu', note: '囲碁好きの看板娘' },
+    { key: 'gensai', name: '玄斎', kind: 'gensai', note: 'けだるい師匠' },
+    { key: 'hinata', name: 'ひなた', kind: 'koharu', note: 'にぎやか担当' },
+    { key: 'shima', name: '静馬', kind: 'koharu', note: '片眼鏡の書生' },
+    { key: 'tomoe', name: '巴', kind: 'koharu', note: '女武者' },
+    { key: 'mike', name: 'みけ＆こむぎ', kind: 'koharu', note: '猫と柴の門下生' },
+    { key: 'tono', name: '殿', kind: 'gensai', note: '碁好きのお殿様' }
   ];
-  let uid = 0;
-
-  function koharu(v) {
-    const k = 'k' + (uid++);
-    const eye = (cx, flip) => {
-      const s = flip ? -1 : 1, X = x => cx + s * x;
-      return `
-  <ellipse cx="${cx}" cy="124" rx="8" ry="9.6" fill="url(#${k}i)"/>
-  <ellipse cx="${X(0.4)}" cy="125.5" rx="3.4" ry="4.4" fill="#4a2418"/>
-  <circle cx="${X(-2.8)}" cy="119.6" r="2.9" fill="#fff"/>
-  <circle cx="${X(2.6)}" cy="128.6" r="1.3" fill="#fff" opacity=".85"/>
-  <path d="M${X(-10.5)} 117.5 Q ${cx} 109.5 ${X(10)} 116.5" stroke="#3a2430" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <path d="M${X(-10.5)} 117.5 Q ${X(-13)} 117 ${X(-14)} 114.6" stroke="#3a2430" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  <path d="M${X(-6)} 133.6 Q ${cx} 135.2 ${X(6)} 133" stroke="#b07a72" stroke-width=".9" fill="none" opacity=".55"/>`;
-    };
-    const flower = (x, y, r, c) => {
-      let p = '';
-      for (let i = 0; i < 5; i++) {
-        const a = i * 72 - 90;
-        p += `<ellipse cx="${x}" cy="${y - r * .55}" rx="${r * .42}" ry="${r * .6}" fill="${c}" transform="rotate(${a + 90} ${x} ${y})"/>`;
-      }
-      return p + `<circle cx="${x}" cy="${y}" r="${r * .22}" fill="#e8a23a"/>`;
-    };
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240">
-<defs>
-  <linearGradient id="${k}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2838"/><stop offset="1" stop-color="#140c14"/></linearGradient>
-  <radialGradient id="${k}s" cx="45%" cy="40%" r="70%"><stop offset="0" stop-color="#fff3ea"/><stop offset="1" stop-color="#f6d4c2"/></radialGradient>
-  <linearGradient id="${k}m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${v.kimono[0]}"/><stop offset=".6" stop-color="${v.kimono[1]}"/><stop offset="1" stop-color="${v.kimono[2]}"/></linearGradient>
-  <linearGradient id="${k}i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b3424"/><stop offset=".55" stop-color="#b8693c"/><stop offset="1" stop-color="#f3c47e"/></linearGradient>
-</defs>
-<path d="M36 238 C 28 170 32 96 62 64 C 80 46 120 46 138 64 C 168 96 172 170 164 238 Z" fill="url(#${k}h)"/>
-<path d="M12 240 C 20 206 56 192 100 190 C 144 192 180 206 188 240 Z" fill="url(#${k}m)"/>
-${flower(40, 222, 9, v.flower)}${flower(160, 216, 8, v.flower)}${flower(58, 236, 6, v.flower)}
-<path d="M88 158 L 86 194 L 114 194 L 112 158 Z" fill="#efc6b2"/>
-<path d="M70 192 L 100 238 L 108 230 L 80 190 Z" fill="#c73e3a"/>
-<path d="M130 192 L 100 238 L 92 230 L 120 190 Z" fill="#c73e3a"/>
-<path d="M80 190 L 100 226 L 120 190 L 113 189 L 100 212 L 87 189 Z" fill="#fffaf4"/>
-<rect x="60" y="234" width="80" height="8" fill="${v.obi}"/>
-<path d="M100 64 C 128 64 141 88 139 114 C 138 138 124 156 100 161 C 76 156 62 138 61 114 C 59 88 72 64 100 64 Z" fill="url(#${k}s)"/>
-<ellipse cx="78" cy="138" rx="8" ry="4.2" fill="#ffa3b5" opacity=".38"/>
-<ellipse cx="122" cy="138" rx="8" ry="4.2" fill="#ffa3b5" opacity=".38"/>
-${eye(82, false)}${eye(118, true)}
-<path d="M100 137 L 99 140" stroke="#d29a86" stroke-width="1.4" stroke-linecap="round"/>
-<path d="M95 147.5 Q 100 152 105 147.5" stroke="#c4566e" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-<path d="M59 112 C 55 78 74 52 100 50 C 126 52 145 78 141 112 Q 138 100 131 103 Q 126 92 118 100 Q 110 90 100 99 Q 90 90 82 100 Q 74 92 69 103 Q 62 100 59 112 Z" fill="url(#${k}h)"/>
-<path d="M61 98 C 51 130 53 170 62 204 L 73 202 C 66 168 66 132 71 108 Z" fill="url(#${k}h)"/>
-<path d="M139 98 C 149 130 147 170 138 204 L 127 202 C 134 168 134 132 129 108 Z" fill="url(#${k}h)"/>
-<path d="M76 68 C 90 58 112 58 126 68" stroke="#fff" stroke-opacity=".22" stroke-width="4" fill="none" stroke-linecap="round"/>
-<g>${flower(66, 76, 11, '#ffc4d2')}${flower(78, 66, 7, '#ffe0e8')}</g>
-<path d="M62 84 L 58 104 M66 86 L 68 102" stroke="#d8b25a" stroke-width="1.2"/>
-<circle cx="58" cy="107" r="3.4" fill="#151217"/><circle cx="68" cy="105" r="3.4" fill="#f6f3ea" stroke="#bdb4a4" stroke-width=".6"/>
-</svg>`;
+  const clampI = i => (i >= 0 && i < VARIANTS.length) ? i : 0;
+  const charaUri = i => 'img/' + VARIANTS[clampI(i)].key + '.jpg';
+  const faceUri = i => 'img/' + VARIANTS[clampI(i)].key + '_face.jpg';
+  // Botの強さで対局相手が変わる：10〜9級 みけ＆こむぎ → ひなた → 静馬 → 巴 → 殿 → 1級 玄斎
+  const RIVAL_BY_LEVEL = [5, 5, 2, 2, 3, 3, 4, 4, 6, 1];
+  function rivalOf(me, level) {
+    const r = RIVAL_BY_LEVEL[Math.max(0, Math.min(9, level | 0))];
+    return r === me ? (me === 0 ? 1 : 0) : r;
   }
-
-  function gensai(v) {
-    const k = 'g' + (uid++);
-    const eye = (cx, flip) => {
-      const s = flip ? -1 : 1, X = x => cx + s * x;
-      return `
-  <ellipse cx="${cx}" cy="123" rx="9" ry="4" fill="#f8f2ea"/>
-  <circle cx="${X(1)}" cy="125" r="4.2" fill="#3b2618"/>
-  <path d="M${X(-11)} 116 C ${X(-6)} 113 ${X(6)} 113 ${X(11)} 117 L ${X(11)} 123.5 C ${X(5)} 122.5 ${X(-5)} 122 ${X(-11)} 124 Z" fill="#cfa688"/>
-  <path d="M${X(-11)} 124 C ${X(-5)} 122 ${X(5)} 122.5 ${X(11)} 123.5" stroke="#2b1d16" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <path d="M${X(-9)} 118.5 C ${X(-3)} 117 ${X(4)} 117 ${X(9)} 119" stroke="#a87c60" stroke-width="1" fill="none" opacity=".7"/>
-  <path d="M${X(-8)} 129.5 C ${X(-3)} 132.5 ${X(4)} 132.5 ${X(9)} 128.5" stroke="#9b7258" stroke-width="1.2" fill="none" opacity=".8"/>
-  <path d="M${X(-15)} 113 C ${X(-9)} 106 ${X(3)} 104 ${X(12)} 108" stroke="#2a2622" stroke-width="3.6" fill="none" stroke-linecap="round"/>`;
-    };
-    let stub = '';
-    const R = rnd(7);
-    for (let i = 0; i < 0; i++) {
-      const t = R(), side = R() * 2 - 1;
-      const x = 100 + side * (16 + 22 * (1 - Math.abs(side) * .3)) * (0.6 + t * .4);
-      const y = 142 + R() * 20 - Math.abs(side) * 8;
-      stub += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r=".7" fill="#4a3a30" opacity=".55"/>`;
-    }
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240">
-<defs>
-  <linearGradient id="${k}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b4741"/><stop offset="1" stop-color="#1f1c19"/></linearGradient>
-  <radialGradient id="${k}s" cx="45%" cy="40%" r="75%"><stop offset="0" stop-color="#f3d6bc"/><stop offset="1" stop-color="#d7ad8c"/></radialGradient>
-  <linearGradient id="${k}m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${v.haori[0]}"/><stop offset=".6" stop-color="${v.haori[1]}"/><stop offset="1" stop-color="${v.haori[2]}"/></linearGradient>
-</defs>
-<path d="M8 240 C 18 202 56 188 100 186 C 144 188 182 202 192 240 Z" fill="url(#${k}m)"/>
-<path d="M82 154 L 79 192 L 121 192 L 118 154 Z" fill="#cfa283"/>
-<path d="M82 188 L 100 236 L 118 188 Z" fill="#d3a888"/>
-<path d="M92 206 C 96 210 104 210 108 206" stroke="#a87c60" stroke-width="1.2" fill="none"/>
-<path d="M68 190 L 98 240 L 106 232 L 82 188 Z" fill="${v.inner}"/>
-<path d="M132 190 L 102 240 L 94 232 L 118 188 Z" fill="${v.inner}"/>
-<path d="M58 196 L 92 240 M142 196 L 108 240" stroke="#000" stroke-opacity=".25" stroke-width="6"/>
-<ellipse cx="58" cy="120" rx="6" ry="10" fill="#d7ad8c"/><ellipse cx="142" cy="120" rx="6" ry="10" fill="#d7ad8c"/>
-<path d="M100 60 C 130 60 143 86 141 114 C 140 138 128 160 100 167 C 72 160 60 138 59 114 C 57 86 70 60 100 60 Z" fill="url(#${k}s)"/>
-<path d="M64 132 C 70 156 86 167 100 168 C 114 167 130 156 136 132 C 128 148 114 158 100 158 C 86 158 72 148 64 132 Z" fill="#4b3a2e" opacity=".3"/>
-<path d="M88 144 C 94 141 106 141 112 144 C 106 146 94 146 88 144 Z" fill="#4b3a2e" opacity=".3"/>
-${stub}
-${eye(84, false)}${eye(116, true)}
-<path d="M101 120 L 98 137 C 100 139 104 139 105 136" stroke="#b38466" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-<path d="M90 150 C 97 151.5 104 151 111 148.5" stroke="#5e3a2c" stroke-width="2.3" fill="none" stroke-linecap="round"/>
-<path d="M108 149.5 L 128 144" stroke="#e2c391" stroke-width="2.2" stroke-linecap="round"/>
-<path d="M55 112 C 49 74 66 48 100 44 C 134 48 153 74 147 112 L 141 92 L 135 101 L 128 80 L 119 95 L 110 74 L 101 92 L 90 72 L 82 93 L 72 77 L 66 99 L 60 89 Z" fill="url(#${k}h)"/>
-<path d="M74 54 C 70 46 72 40 78 36 C 80 44 86 48 92 49 Z M110 47 C 114 40 120 37 126 38 C 122 42 120 48 120 54 Z M58 80 C 52 76 50 70 52 64 C 56 70 60 72 64 72 Z" fill="#35312c"/>
-<path d="M84 56 C 92 50 104 50 112 54 M120 62 C 128 66 134 74 138 84" stroke="#9a948a" stroke-width="1.8" fill="none" opacity=".7"/>
-<path d="M58 100 C 56 112 57 122 60 130 M142 100 C 144 112 143 122 140 130" stroke="#8d877c" stroke-width="2" fill="none" opacity=".8"/>
-</svg>`;
-  }
+  // 先に読みこんでおく（対局中のカットインが一瞬で出るように）
+  setTimeout(() => VARIANTS.forEach((v, i) => { new Image().src = charaUri(i); new Image().src = faceUri(i); }), 400);
 
   function rnd(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
-  const uri = svg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  const cache = {};
-  function charaUri(i) {
-    i = (i >= 0 && i < VARIANTS.length) ? i : 0;
-    if (!cache[i]) { const v = VARIANTS[i]; cache[i] = uri(v.kind === 'koharu' ? koharu(v) : gensai(v)); }
-    return cache[i];
-  }
-  // 対局相手のキャラ：自分が小春なら玄斎、玄斎なら小春（藤）
-  const rivalOf = i => (VARIANTS[i] && VARIANTS[i].kind === 'gensai') ? 1 : 4;
 
   /* ================= 幽玄の間（背景） ================= */
   function paintRoom(cv) {
@@ -374,5 +275,5 @@ ${eye(84, false)}${eye(116, true)}
     if (kind === 'win') for (let i = 0; i < 30; i++) { const a = Math.random() * 6.3, v = 3 + Math.random() * 5; parts.push(Object.assign(newPetal(true), { type: 'petal', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, t: 0, life: 80 })); }
   }
 
-  window.ART = { VARIANTS, charaUri, rivalOf, startRoom, startFx, setPetals, burst };
+  window.ART = { VARIANTS, charaUri, faceUri, rivalOf, startRoom, startFx, setPetals, burst };
 })();

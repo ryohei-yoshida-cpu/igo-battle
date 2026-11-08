@@ -42,6 +42,8 @@
   S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
   if (S.settings.board !== 'washi') S.settings.board = 'kaya';
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
+  // 旧バージョン（コード描画のキャラ：0〜3小春、4〜5玄斎）からの引っ越し
+  if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
   if (S.avatar.type === 'preset') S.avatar.id = ((S.avatar.id | 0) % A.VARIANTS.length + A.VARIANTS.length) % A.VARIANTS.length;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -112,9 +114,12 @@
   /* ---------- アバター・キャラ ---------- */
   const charaIdx = () => S.avatar.type === 'preset' ? S.avatar.id : 0;
   const myCharaSrc = () => A.charaUri(charaIdx());
-  const rivalSrc = () => A.charaUri(A.rivalOf(charaIdx()));
-  const rivalName = () => A.VARIANTS[A.rivalOf(charaIdx())].kind === 'gensai' ? '玄斎' : '小春';
-  const myAvatarSrc = () => (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : myCharaSrc();
+  const myFaceSrc = () => A.faceUri(charaIdx());
+  const rivalIdx = lv => A.rivalOf(charaIdx(), lv);
+  const rivalSrc = lv => A.charaUri(rivalIdx(lv));
+  const rivalFace = lv => A.faceUri(rivalIdx(lv));
+  const rivalName = lv => A.VARIANTS[rivalIdx(lv)].name;
+  const myAvatarSrc = () => (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : myFaceSrc();
   const setImg = (el, src) => { if (el.getAttribute('src') !== src) el.src = src; };
   function applyBoardStyle() { document.body.classList.toggle('washi', S.settings.board === 'washi'); }
 
@@ -214,7 +219,7 @@
     el.className = `cut t${tier} ${mine ? 'me' : 'op'}`;
     el.style.setProperty('--y', cy + 'px');
     el.innerHTML = `${tier === 2 ? '<div class="flash"></div>' : ''}<div class="band"></div><img class="chara" alt=""><div class="name"></div>`;
-    el.querySelector('.chara').src = mine ? myCharaSrc() : rivalSrc();
+    el.querySelector('.chara').src = mine ? myCharaSrc() : rivalSrc(G.bot.level);
     el.querySelector('.name').textContent = name;
     layer.append(el);
     if (tier === 2) { const bw = $('#boardWrap'); bw.classList.remove('shake'); void bw.offsetWidth; bw.classList.add('shake'); }
@@ -305,7 +310,7 @@
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
-    setImg($('#opAvatar'), rivalSrc()); $('#opName').textContent = `${rivalName()}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
+    setImg($('#opAvatar'), rivalFace(bot.level)); $('#opName').textContent = `${rivalName(bot.level)}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
@@ -552,7 +557,7 @@
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
-    setImg($('#mtMe'), myCharaSrc());
+    setImg($('#mtMe'), myFaceSrc());
     $('#optNoBot').checked = !!S.noBot;
     $('#mtNoBotNote').hidden = !S.noBot;
     M.timer = setInterval(matchTick, 250);
@@ -582,8 +587,8 @@
     $('#matching').hidden = false; $('#mtOpts').hidden = true;
     $('#mtTitle').textContent = '対戦相手が見つかりました';
     $('#mtSub').textContent = M.fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました';
-    setImg($('#mtAvatar'), rivalSrc());
-    $('#mtName').textContent = `${rivalName()}（${bot.name}）`;
+    setImg($('#mtAvatar'), rivalFace(bot.level));
+    $('#mtName').textContent = `${rivalName(bot.level)}（${bot.name}）`;
     $('#mtRank').textContent = `レート ${bot.rating}`;
     $('#mtColor').textContent = myColor === 1 ? 'あなたは黒番（先手）' : 'あなたは白番（後手）';
     $('#mtFound').hidden = false;
@@ -640,7 +645,7 @@
       b.type = 'button';
       b.setAttribute('aria-label', 'アバター ' + v.name);
       b.setAttribute('aria-pressed', String(S.avatar.type === 'preset' && S.avatar.id === i));
-      const im = document.createElement('img'); im.alt = ''; im.src = A.charaUri(i); b.append(im);
+      const im = document.createElement('img'); im.alt = ''; im.src = A.faceUri(i); b.append(im);
       const nm = document.createElement('span'); nm.textContent = v.name; b.append(nm);
       b.onclick = () => { S.avatar = { type: 'preset', id: i }; save(); renderSettings(); renderHome(); };
       grid.append(b);
@@ -848,7 +853,7 @@
   // ソロモード（solo.js）から使う機能
   window.APP = {
     E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
-    drawGrid, pointXY, stoneFx, myCharaSrc, charaIdx, jissen,
+    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen,
     startSoloGame(level, solo) {
       const lv = Math.max(0, Math.min(BOT_MAX, level));
       const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };

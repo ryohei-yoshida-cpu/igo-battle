@@ -7,7 +7,7 @@
   const COLS = 'ABCDEFGHJ';
   const pt = s => COLS.indexOf(s[0]) + (9 - (+s.slice(1))) * 9;
   const parse = rows => { const b = []; for (const r of rows) for (const ch of r) b.push(ch === 'X' ? 1 : ch === 'O' ? 2 : 0); return b; };
-  const faceOf = who => A.charaUri(who === '玄斎' ? 4 : 0);
+  const faceOf = who => A.faceUri(who === '玄斎' ? 1 : 0);
   const nameClass = who => who === '小春' ? '' : who === '玄斎' ? 'gensai' : 'other';
   const opened = id => S.solo.open[id] || 0;               // 読める幕の最後（0 = 第一幕だけ）
   const nextLesson = () => LESSONS.find(l => !S.solo.lessons.includes(l.id));
@@ -27,7 +27,13 @@
     sel.value = String(S.solo.bot);
 
     const list = $('#storyList'); list.innerHTML = '';
+    let userHead = false;
     for (const st of STORIES) {
+      if (st.user && !userHead) {
+        userHead = true;
+        const h = document.createElement('div'); h.className = 'story-sub'; h.textContent = '読み物 ― 囲碁とは関係のない脚本集';
+        list.append(h);
+      }
       const n = st.parts.length, op = opened(st.id), done = S.solo.read && S.solo.read[st.id];
       const b = document.createElement('button'); b.className = 'story'; b.type = 'button';
       b.innerHTML = `<b></b><span class="pips">${st.parts.map((_, i) => `<i class="${i <= op ? 'on' : ''}"></i>`).join('')}</span><small></small><span class="st-state"></span>`;
