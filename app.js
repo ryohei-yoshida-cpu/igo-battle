@@ -44,6 +44,7 @@
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
   // 旧バージョン（コード描画のキャラ：0〜3小春、4〜5玄斎）からの引っ越し
   if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
+  if (S.avatar.type !== 'preset') S.avatar = { type: 'preset', id: 0 };   // 写真アバターは廃止
   if (S.avatar.type === 'preset') S.avatar.id = ((S.avatar.id | 0) % A.VARIANTS.length + A.VARIANTS.length) % A.VARIANTS.length;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -119,7 +120,7 @@
   const rivalSrc = lv => A.charaUri(rivalIdx(lv));
   const rivalFace = lv => A.faceUri(rivalIdx(lv));
   const rivalName = lv => A.VARIANTS[rivalIdx(lv)].name;
-  const myAvatarSrc = () => (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : myFaceSrc();
+  const myAvatarSrc = () => myFaceSrc();
   const setImg = (el, src) => { if (el.getAttribute('src') !== src) el.src = src; };
   function applyBoardStyle() { document.body.classList.toggle('washi', S.settings.board === 'washi'); }
 
@@ -643,9 +644,9 @@
   function renderSettings() {
     $('#nameInput').value = S.name;
     const ci = charaIdx(), cv = A.VARIANTS[ci];
-    setImg($('#charaBig'), (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : A.charaUri(ci));
-    $('#charaName').textContent = (S.avatar.type === 'img' && S.avatar.data) ? '写真' : cv.name;
-    $('#charaNote').textContent = (S.avatar.type === 'img' && S.avatar.data) ? 'カットインには小春が登場します' : cv.note;
+    setImg($('#charaBig'), A.charaUri(ci));
+    $('#charaName').textContent = cv.name;
+    $('#charaNote').textContent = cv.note;
     const grid = $('#avGrid'); grid.innerHTML = '';
     A.VARIANTS.forEach((v, i) => {
       const b = document.createElement('button');
@@ -674,23 +675,6 @@
   $('#nameInput').addEventListener('input', e => {
     const v = e.target.value.trim().slice(0, 12);
     S.name = v || 'あなた'; save(); renderHome();
-  });
-  $('#avUpload').addEventListener('change', e => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    const rd = new FileReader();
-    rd.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas'); c.width = c.height = 160;
-        const s = Math.min(img.width, img.height);
-        c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 160, 160);
-        S.avatar = { type: 'img', data: c.toDataURL('image/jpeg', 0.85) };
-        save(); renderSettings(); renderHome(); toast('アバターを変更しました');
-      };
-      img.src = rd.result;
-    };
-    rd.readAsDataURL(f);
-    e.target.value = '';
   });
   for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound']]) {
     $(id).addEventListener('change', e => { S.settings[key] = e.target.checked; save(); });
