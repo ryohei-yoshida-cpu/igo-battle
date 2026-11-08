@@ -49,26 +49,49 @@
     S.solo.chunkV = 1; P.save();
   }
 
-  /* ================= 実戦ドリル（自動生成の問題から3問） ================= */
-  const DR = window.DRILLS || { cap1: [], cap3: [], save: [] };
-  const DRILL_N = DR.cap1.length + DR.cap3.length + DR.save.length;
-  // 問題文とヒントは出題者（先生）の口調。正解のひとことは小春（玄斎が先生なら、横で見ている小春が喜ぶ）
-  const DRILL_TEXT = {
-    cap1: { 小春: ['白石を1手で取ってください！', '白石の呼吸点は、あとひとつ。どこが空いてる？'], 玄斎: ['白を1手で取ってみな。', '白の呼吸点は残りひとつだ。どこが空いてる？'], good: '取れました！' },
-    cap3: { 小春: ['白石を追いかけて取ってください。逃げられないように！', 'シチョウやゲタを思い出して。逃げ道の広い方をふさぐようにアタリ。'], 玄斎: ['白を追いかけて取り切れ。逃がすなよ。', 'シチョウかゲタだ。逃げ道の広い方からふさげ。'], good: '取り切りました！' },
-    save: { 小春: ['アタリの黒石を助けてください！', '呼吸点が増える方へ伸びるか、相手の石を取って逃げよう。'], 玄斎: ['黒がアタリだ。助けてみな。', '呼吸点が増える方へ伸びるか、白を取って逃げろ。'], good: '助かりました！ もう取られません。' }
+  /* ================= 実戦ドリル（レベル順・同じ問題は出さない） =================
+   * Lv.1 1つの石を1手で取る → Lv.2 つながった石を取る・アタリから逃げる → Lv.3 2手で取る（シチョウ・ゲタ）
+   * → Lv.4 ひと工夫して逃げる → Lv.5 3手以上追いかけて取る → Lv.6 長いシチョウを読み切る
+   * ミスなしで正解すると1点。6点でレベルが上がる。 */
+  const DRW = window.DRILLS || {};
+  const DL = DRW.levels || { 1: DRW.cap1 || [], 2: DRW.save || [], 3: DRW.cap3 || [] };   // 古い形式にも対応
+  const LV_MAX = Math.max(1, ...Object.keys(DL).map(Number));
+  const DRILL_N = Object.values(DL).reduce((a, l) => a + l.length, 0);
+  const LV_NAME = { 1: '1手で取る', 2: 'つながった石・アタリから逃げる', 3: '2手で取る（シチョウ・ゲタ）', 4: 'ひと工夫して逃げる', 5: '追いかけて取る', 6: '長いシチョウを読み切る' };
+  const PER_LV = 6;
+  const drillState = () => { S.solo.drill = Object.assign({ pts: 0, seen: [] }, S.solo.drill); return S.solo.drill; };
+  const drillLv = () => Math.min(LV_MAX, 1 + Math.floor(drillState().pts / PER_LV));
+  const LINES = {
+    小春: {
+      cap1: ['白石を1手で取ってください！', '白石の呼吸点は、あとひとつ。どこが空いてる？'],
+      cap: ['白石を追いかけて取ってください。逃げられないように！', 'シチョウやゲタを思い出して。逃げ道の広い方をふさぐようにアタリ。'],
+      long: ['じっくり読んで、白石を取り切ってください。', '白が逃げた先も読んでみて。階段の先に黒石はある？'],
+      save: ['アタリの黒石を助けてください！', '呼吸点が増える方へ伸びてみよう。'],
+      save2: ['アタリの黒石を助けて！ ただ伸びるだけだと……？', '伸びても助からないかも。白石を取れないか探してみて。']
+    },
+    玄斎: {
+      cap1: ['白を1手で取ってみな。', '白の呼吸点は残りひとつだ。どこが空いてる？'],
+      cap: ['白を追いかけて取り切れ。逃がすなよ。', 'シチョウかゲタだ。逃げ道の広い方からふさげ。'],
+      long: ['よく読め。白を取り切ってみな。', '白が逃げた先まで読め。階段の先に黒はあるか？'],
+      save: ['黒がアタリだ。助けてみな。', '呼吸点が増える方へ伸びろ。'],
+      save2: ['黒がアタリだ。ただ伸びても助からねえぞ。', '伸びるだけじゃダメだ。白を取れないか見てみろ。']
+    }
   };
-  const pick = a => a[(Math.random() * a.length) | 0];
+  const lineKey = (p, lv) => p.type === 'save' ? (lv >= 4 ? 'save2' : 'save') : p.depth <= 1 ? 'cap1' : p.depth >= 5 ? 'long' : 'cap';
   function makeDrill() {
     const teacher = Math.random() < .5 ? '小春' : '玄斎';
-    const kinds = ['cap1', 'cap3', 'save'].filter(k => DR[k].length).sort(() => Math.random() - .5);
-    const problems = kinds.map(k => {
-      const p = pick(DR[k]), t = DRILL_TEXT[k], [text, hint] = t[teacher];
-      return Object.assign({}, p, { text, hint, good: t.good, goodWho: '小春' });
+    const lv = drillLv(), st = drillState();
+    let pool = (DL[lv] || []).map((p, i) => ({ p, id: lv + ':' + i }));
+    let fresh = pool.filter(x => !st.seen.includes(x.id));
+    if (fresh.length < 3) { st.seen = st.seen.filter(id => !id.startsWith(lv + ':')); fresh = pool; }   // ひと回りしたら最初から
+    const picks = fresh.slice().sort(() => Math.random() - .5).slice(0, 3);
+    const problems = picks.map(({ p, id }) => {
+      const [text, hint] = LINES[teacher][lineKey(p, lv)];
+      return Object.assign({}, p, { text, hint, good: p.type === 'save' ? '助かりました！ もう取られません。' : '取れました！', goodWho: '小春', drillId: id });
     });
     return {
-      id: 'drill', drill: true, title: '実戦ドリル', teacher,
-      talk: [{ who: teacher, text: teacher === '玄斎' ? '腕試しだ。3問いくぞ。' : '実戦ドリル！ ランダムに3問出しますね。' }],
+      id: 'drill', drill: true, lv, title: `実戦ドリル Lv.${lv}`, teacher,
+      talk: [{ who: teacher, text: (teacher === '玄斎' ? `Lv.${lv}「${LV_NAME[lv]}」だ。3問いくぞ。` : `実戦ドリル Lv.${lv}「${LV_NAME[lv]}」です。3問いきますね！`) }],
       problems
     };
   }
@@ -125,7 +148,7 @@
       ll.append(b);
     });
     const db = document.createElement('button'); db.type = 'button'; db.className = 'drill';
-    db.innerHTML = `<span>実戦ドリル</span><i>ランダム3問・全${DRILL_N}問</i>`;
+    db.innerHTML = `<span>実戦ドリル Lv.${drillLv()}</span><i>${LV_NAME[drillLv()] || ''}・次のレベルまで ${PER_LV - drillState().pts % PER_LV} 問・全${DRILL_N}問</i>`;
     db.onclick = () => runLesson(makeDrill(), () => open());
     ll.append(db);
   }
@@ -358,6 +381,7 @@
   }
   function probStep() {
     $('#lsSkip').hidden = true;
+    if (LS.missPi !== LS.pi) { LS.miss = false; LS.missPi = LS.pi; }   // やり直しではミスを消さない
     const pr = LS.l.problems[LS.pi];
     $('#lsStep').textContent = `実戦問題 ${LS.pi + 1}/${LS.l.problems.length}`;
     LS.board = pr.board ? parse(pr.board) : new Array(81).fill(0);
@@ -397,12 +421,20 @@
     const pr = LS.l.problems[LS.pi];
     LS.solved = true; LS.lock = true;
     say(pr.goodWho || whoOf(pr), msg, 'ok');
+    if (LS.l.drill && pr.drillId) {
+      const st = drillState(), before = drillLv();
+      if (!st.seen.includes(pr.drillId)) st.seen.push(pr.drillId);
+      if (!LS.miss) st.pts++;
+      P.save();
+      const after = drillLv();
+      if (after > before) setTimeout(() => { if (LS) say('小春', `レベルアップ！ 次は Lv.${after}「${LV_NAME[after]}」です。`, 'ok'); }, 1100);
+    }
     P.sound('ok');
     const r = $('#lsWrap').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win');
     buttons(true, false, false, LS.pi < LS.l.problems.length - 1 ? '次の問題へ' : 'クリア！');
   }
   function wrong(msg, revert, delay) {
-    LS.lock = true;
+    LS.lock = true; LS.miss = true;
     say(whoOf(LS.l.problems[LS.pi]), msg, 'ng');
     P.sound('bad');
     setTimeout(() => { if (!LS) return; if (revert) revert(); LS.lock = false; drawLesson(); }, delay || 900);

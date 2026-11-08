@@ -26,7 +26,7 @@
   const mark = new Int32Array(NN), lmark = new Int32Array(NN);
   let stamp = 1;
   function group(b, p) {
-    stamp++;
+    if (++stamp > 2e9) { mark.fill(0); lmark.fill(0); stamp = 1; }   // 長時間の計算でも番号があふれないように
     const c = b[p], st = [p], libs = [];
     mark[p] = stamp;
     for (let i = 0; i < st.length; i++) {
