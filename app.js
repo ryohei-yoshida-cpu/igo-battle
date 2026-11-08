@@ -250,9 +250,12 @@
   /* ---------- ホーム描画 ---------- */
   function renderHome() {
     setImg($('#heroChara'), myCharaSrc());
+    setImg($('#soloChara'), A.charaUri(charaIdx() === 0 ? 1 : 0));
+    setImg($('#chipFace'), myAvatarSrc());
     $('#homeName').textContent = S.name;
     const dr = displayRank();
-    $('#homeRank').textContent = RANKS[dr];
+    $('#homeRank').textContent = `${RANKS[dr]}・${S.rating}`;
+    $('#recRank').textContent = RANKS[dr];
     $('#homeRate').textContent = S.rating;
     const rr = rankFromRating(S.rating);
     let next = '';
@@ -273,7 +276,7 @@
     const ol = $('#history'); ol.innerHTML = '';
     if (!S.history.length) {
       const li = document.createElement('li'); li.className = 'empty';
-      li.textContent = 'まだ対局がありません。ランダムマッチで一局打ってみましょう。';
+      li.textContent = 'まだ対局がありません。対人戦で一局打ってみましょう。';
       ol.append(li);
     }
     for (const h of S.history.slice(0, 15)) {
@@ -288,7 +291,7 @@
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record'];
   function showScreen(id) {
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
@@ -639,6 +642,10 @@
   /* ---------- 設定 ---------- */
   function renderSettings() {
     $('#nameInput').value = S.name;
+    const ci = charaIdx(), cv = A.VARIANTS[ci];
+    setImg($('#charaBig'), (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : A.charaUri(ci));
+    $('#charaName').textContent = (S.avatar.type === 'img' && S.avatar.data) ? '写真' : cv.name;
+    $('#charaNote').textContent = (S.avatar.type === 'img' && S.avatar.data) ? 'カットインには小春が登場します' : cv.note;
     const grid = $('#avGrid'); grid.innerHTML = '';
     A.VARIANTS.forEach((v, i) => {
       const b = document.createElement('button');
@@ -657,6 +664,11 @@
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
   $('#openSettings').onclick = () => { renderSettings(); $('#settings').hidden = false; };
+  $('#openChara').onclick = () => { renderSettings(); showScreen('chara'); };
+  $('#openRecord').onclick = () => { renderHome(); showScreen('record'); };
+  $('#meChip').onclick = () => { renderHome(); showScreen('record'); };
+  $('#charaBack').onclick = () => { renderHome(); showScreen('home'); };
+  $('#recordBack').onclick = () => { showScreen('home'); };
   $('#closeSettings').onclick = () => { $('#settings').hidden = true; };
   $('#settings').addEventListener('click', e => { if (e.target.id === 'settings') $('#settings').hidden = true; });
   $('#nameInput').addEventListener('input', e => {

@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#120d0a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Yuji+Syuku&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Shippori+Mincho+B1:wght@500;700;800&family=Yuji+Syuku&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&text=%E5%AE%9F%E6%88%A6%EF%BC%81&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -39,37 +39,65 @@
   <section id="home" class="screen" hidden>
     <header class="brand">
       <div class="logo"><b>九路</b><span>BLITZ</span></div>
-      <button class="icon-btn" id="openSettings" aria-label="設定">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg>
+      <button class="me-chip" id="meChip" type="button" aria-label="戦績と棋譜">
+        <img id="chipFace" alt=""><span><b id="homeName"></b><small id="homeRank"></small></span>
       </button>
     </header>
 
-    <div class="hero">
-      <img class="hero-chara" id="heroChara" alt="">
-      <div class="hero-info">
-        <div class="hero-name" id="homeName"></div>
-        <div class="hero-rank" id="homeRank"></div>
-        <div class="hero-rate"><small>レート</small><b id="homeRate"></b></div>
-        <div class="rank-bar"><i id="rankBar"></i></div>
-        <div class="rank-next" id="rankNext"></div>
-      </div>
+    <div class="home-big">
+      <button class="big-card pvp" id="startMatch" type="button">
+        <img class="bc-chara" id="heroChara" alt="">
+        <span class="bc-k">対人戦</span>
+        <span class="bc-sub">9路・5分＋1手5秒・コミ7目</span>
+        <span class="bc-go">対局をさがす</span>
+      </button>
+      <button class="big-card solo" id="openSolo" type="button">
+        <img class="bc-chara" id="soloChara" alt="">
+        <span class="bc-k">ソロ<br>ストーリーモード</span>
+        <span class="bc-sub">物語を読みながら、囲碁を覚える</span>
+        <span class="bc-go">物語へ</span>
+      </button>
     </div>
 
-    <button class="match-btn" id="startMatch">
-      <span class="mb-main">ランダムマッチ</span>
-      <span class="mb-sub">9路・5分＋1手5秒・コミ7目（持碁あり）</span>
-    </button>
+    <nav class="home-list">
+      <button class="wide-btn" id="openReview" type="button"><b>検討モード</b><small>盤を自由に並べる</small><i aria-hidden="true">›</i></button>
+      <button class="wide-btn" id="openChara" type="button"><b>キャラクター</b><small>あなたの分身をえらぶ</small><i aria-hidden="true">›</i></button>
+      <button class="wide-btn" id="openRecord" type="button"><b>戦績と棋譜</b><small>レート・成績・最近の対局</small><i aria-hidden="true">›</i></button>
+    </nav>
 
-    <div class="menu2">
-      <button class="menu-card" id="openSolo"><b>ソロモード</b><small>物語とミッション</small></button>
-      <button class="menu-card" id="openReview"><b>検討モード</b><small>盤を自由に並べる</small></button>
+    <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
+  </section>
+
+  <!-- キャラクター -->
+  <section id="chara" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="charaBack">← ホーム</button>
+      <h2>キャラクター</h2>
+      <span></span>
+    </header>
+    <div class="chara-show">
+      <img id="charaBig" alt="">
+      <div class="chara-info"><b id="charaName"></b><small id="charaNote"></small><p>技のカットインや対局画面に登場します。</p></div>
     </div>
+    <div class="av-grid" id="avGrid"></div>
+    <label class="btn lac small" for="avUpload">自分の写真を使う</label>
+    <input type="file" id="avUpload" accept="image/*" hidden>
+  </section>
 
-    <label class="bot-pick" for="botLevel">
-      <span>ランダムマッチのBot</span>
-      <select id="botLevel"></select>
-    </label>
-
+  <!-- 戦績と棋譜 -->
+  <section id="record" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="recordBack">← ホーム</button>
+      <h2>戦績と棋譜</h2>
+      <span></span>
+    </header>
+    <div class="rank-card">
+      <small>いまの段級位</small>
+      <div class="rank-big" id="recRank"></div>
+      <div class="hero-rate"><small>レート</small><b id="homeRate"></b></div>
+      <div class="rank-bar"><i id="rankBar"></i></div>
+      <div class="rank-next" id="rankNext"></div>
+    </div>
     <div class="stats">
       <div><small>対局</small><b id="stGames">0</b></div>
       <div><small>勝率</small><b id="stWin">—</b></div>
@@ -77,7 +105,6 @@
       <div><small>黒番</small><b id="stBlack">0-0</b></div>
       <div><small>白番</small><b id="stWhite">0-0</b></div>
     </div>
-
     <h3 class="sec-h">最近の対局<small>タップで検討</small></h3>
     <ol class="history" id="history"></ol>
   </section>
@@ -112,9 +139,15 @@
     <header class="bar">
       <button class="btn lac small" id="rdBack">← もどる</button>
       <div class="rd-title"><b id="rdStory"></b><small id="rdPart"></small></div>
-      <div class="rd-side"><span class="rd-count" id="rdCount"></span><button class="btn lac small skip" id="rdSkip" type="button">実戦へ ≫</button></div>
+      <span class="rd-count" id="rdCount"></span>
     </header>
     <p class="rd-note" id="rdNote" hidden>※ この脚本は、九路 Blitz のキャラクター・ストーリーとは関係ありません。</p>
+    <div class="rd-tools">
+      <button class="btn lac small" id="rdLogBtn" type="button">ログ</button>
+      <button class="btn lac small" id="rdCastBtn" type="button">登場人物</button>
+      <span class="rd-gauge" id="rdGauge" aria-hidden="true"><i></i></span>
+      <button class="btn lac small skip" id="rdSkip" type="button">実戦へ ≫</button>
+    </div>
     <div class="rd-stage" id="rdStage">
       <div class="rd-card" id="rdCard" hidden>
         <div class="rd-card-k" id="rdCardK"></div>
@@ -271,19 +304,29 @@
   </div>
 
   <!-- 設定 -->
+  <div class="sheet-back" id="rdLog" hidden>
+    <div class="sheet log-sheet" role="dialog" aria-labelledby="logTitle">
+      <div class="sheet-h"><h2 id="logTitle">ログ<small>タップすると、その場面から読み直せます</small></h2><button class="icon-btn" id="closeLog" aria-label="閉じる">✕</button></div>
+      <div class="log-list" id="rdLogList"></div>
+    </div>
+  </div>
+  <div class="sheet-back" id="rdCast" hidden>
+    <div class="sheet" role="dialog" aria-labelledby="castTitle">
+      <div class="sheet-h"><h2 id="castTitle">登場人物<small>ここまでに登場した人物</small></h2><button class="icon-btn" id="closeCast" aria-label="閉じる">✕</button></div>
+      <div class="cast-list" id="rdCastList"></div>
+    </div>
+  </div>
   <div class="sheet-back" id="settings" hidden>
     <div class="sheet" role="dialog" aria-labelledby="setTitle">
-      <div class="sheet-h"><h2 id="setTitle">プロフィールと設定</h2><button class="icon-btn" id="closeSettings" aria-label="閉じる">✕</button></div>
+      <div class="sheet-h"><h2 id="setTitle">設定</h2><button class="icon-btn" id="closeSettings" aria-label="閉じる">✕</button></div>
 
       <label class="field" for="nameInput"><span>名前</span>
         <input id="nameInput" maxlength="12" autocomplete="off" placeholder="名前（12文字まで）">
       </label>
 
-      <div class="field"><span>アバター（技のカットインにも登場します）</span>
-        <div class="av-grid" id="avGrid"></div>
-        <label class="btn lac small" for="avUpload">写真を使う</label>
-        <input type="file" id="avUpload" accept="image/*" hidden>
-      </div>
+      <label class="field" for="botLevel"><span>対人戦で相手が見つからないときのBot</span>
+        <select id="botLevel" class="select"></select>
+      </label>
 
       <div class="field"><span>盤のデザイン</span>
         <div class="seg" role="radiogroup" aria-label="盤のデザイン">
@@ -331,6 +374,7 @@
 <script src="tsume.js"></script>
 <script src="lessons.js"></script>
 <script src="stories.js"></script>
+<script src="drills.js"></script>
 <script src="scripts.js"></script>
 <script src="story_ikkyoku.js"></script>
 <script src="story_kyoshu.js"></script>

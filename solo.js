@@ -12,6 +12,67 @@
   const opened = id => S.solo.open[id] || 0;               // 読める幕の最後（0 = 第一幕だけ）
   const nextLesson = () => LESSONS.find(l => !S.solo.lessons.includes(l.id));
 
+  /* 長い幕は約30行ずつに分ける（区切りごとにミッション）。
+   * 区切りはなるべくト書き（ナレーション）の行から始まるようにずらす。 */
+  const CHUNK = 30;
+  for (const st of STORIES) {
+    if (st.chunked) continue;
+    const chunks = [], firstOf = [];
+    st.parts.forEach(pa => {
+      firstOf.push(chunks.length);
+      const L = pa.lines, n = Math.max(1, Math.ceil(L.length / CHUNK));
+      const cuts = [0];
+      for (let k = 1; k < n; k++) {
+        let c = Math.round(L.length * k / n);
+        for (let d = 0; d <= 6; d++) {
+          if (c + d < L.length && !L[c + d][0]) { c += d; break; }
+          if (c - d > cuts[cuts.length - 1] + 5 && !L[c - d][0]) { c -= d; break; }
+        }
+        cuts.push(c);
+      }
+      cuts.push(L.length);
+      for (let k = 0; k < n; k++) chunks.push({ title: n > 1 ? `${pa.title}（${k + 1}/${n}）` : pa.title, lines: L.slice(cuts[k], cuts[k + 1]) });
+    });
+    // 話す人が変わるたびに、名前の位置を左右入れかえる
+    let side = 0, prev = null;
+    for (const ch of chunks) ch.sides = ch.lines.map(([who]) => {
+      if (!who) return -1;
+      if (prev !== null && who !== prev) side ^= 1;
+      prev = who; return side;
+    });
+    st.firstOf = firstOf; st.parts = chunks; st.chunked = true;
+    st.total = chunks.reduce((a, c) => a + c.lines.length, 0);
+  }
+  // 以前の保存データ（幕ごと）を、区切りごとの番号に引っ越す
+  if (S.solo.chunkV !== 1) {
+    for (const st of STORIES) if (S.solo.open[st.id] != null) S.solo.open[st.id] = st.firstOf[Math.min(S.solo.open[st.id], st.firstOf.length - 1)] || 0;
+    S.solo.chunkV = 1; P.save();
+  }
+
+  /* ================= 実戦ドリル（自動生成の問題から3問） ================= */
+  const DR = window.DRILLS || { cap1: [], cap3: [], save: [] };
+  const DRILL_N = DR.cap1.length + DR.cap3.length + DR.save.length;
+  const DRILL_TEXT = {
+    cap1: { text: '白石を1手で取ってください！', good: '取れました！', hint: '白石の呼吸点は、あとひとつ。どこが空いてる？' },
+    cap3: { text: '白石を追いかけて取ってください。逃げられないように！', good: 'お見事、取り切りました！', hint: 'シチョウやゲタを思い出して。逃げ道の広い方をふさぐようにアタリ。' },
+    save: { text: 'アタリの黒石を助けてください！', good: '助かりました！ もう取られません。', hint: '呼吸点が増える方へ伸びるか、相手の石を取って逃げよう。' }
+  };
+  const pick = a => a[(Math.random() * a.length) | 0];
+  function makeDrill() {
+    const teacher = Math.random() < .5 ? '小春' : '玄斎';
+    const kinds = ['cap1', 'cap3', 'save'].filter(k => DR[k].length).sort(() => Math.random() - .5);
+    const problems = kinds.map(k => {
+      const p = pick(DR[k]), t = DRILL_TEXT[k];
+      const text = teacher === '玄斎' ? t.text.replace('ください！', 'みな。').replace('ください。', 'みな。') : t.text;
+      return Object.assign({}, p, { text, good: t.good, hint: t.hint });
+    });
+    return {
+      id: 'drill', drill: true, title: '実戦ドリル', teacher,
+      talk: [{ who: teacher, text: teacher === '玄斎' ? '腕試しだ。3問いくぞ。' : '実戦ドリル！ ランダムに3問出しますね。' }],
+      problems
+    };
+  }
+
   /* ================= ソロのトップ ================= */
   function open() { renderTop(); P.showScreen('solo'); }
   function renderTop() {
@@ -36,11 +97,18 @@
       }
       const n = st.parts.length, op = opened(st.id), done = S.solo.read && S.solo.read[st.id];
       const b = document.createElement('button'); b.className = 'story'; b.type = 'button';
-      b.innerHTML = `<b></b><span class="pips">${st.parts.map((_, i) => `<i class="${i <= op ? 'on' : ''}"></i>`).join('')}</span><small></small><span class="st-state"></span>`;
+      const pips = n <= 12 ? `<span class="pips">${st.parts.map((_, i) => `<i class="${i <= op ? 'on' : ''}"></i>`).join('')}</span>`
+        : `<span class="st-bar"><i style="width:${Math.round(100 * (done ? n : op + 1) / n)}%"></i></span>`;
+      b.innerHTML = `<b></b>${pips}<small></small><span class="st-state"></span>`;
       b.querySelector('b').textContent = st.title;
       b.querySelector('small').textContent = st.sub;
-      b.querySelector('.st-state').textContent = done ? '読了・もう一度読めます' : `${st.parts[Math.min(op, n - 1)].title.split(/\s|　/)[0]}まで読めます`;
-      b.onclick = () => openReader(st, Math.min(op, n - 1));
+      const t = st.parts[Math.min(op, n - 1)].title, m = t.match(/（\d+\/\d+）$/);
+      b.querySelector('.st-state').textContent = done ? '読了・もう一度読めます' : `${t.split(/\s|　/)[0]}${m ? m[0] : ''}まで読めます（${Math.min(op, n - 1) + 1}/${n}区切り）`;
+      b.onclick = () => {
+        const at = S.solo.at && S.solo.at[st.id];
+        if (at && at[0] <= op && st.parts[at[0]] && at[1] < st.parts[at[0]].lines.length) openReader(st, at[0], at[1]);
+        else openReader(st, Math.min(op, n - 1));
+      };
       list.append(b);
     }
     $('#lessonHead').hidden = !beg; $('#lessonList').hidden = !beg;
@@ -56,6 +124,10 @@
       b.onclick = () => runLesson(l, () => open());
       ll.append(b);
     });
+    const db = document.createElement('button'); db.type = 'button'; db.className = 'drill';
+    db.innerHTML = `<span>実戦ドリル</span><i>ランダム3問・全${DRILL_N}問</i>`;
+    db.onclick = () => runLesson(makeDrill(), () => open());
+    ll.append(db);
   }
   $('#soloBeginner').onclick = () => { S.solo.mode = 'beginner'; P.save(); renderTop(); };
   $('#soloExpert').onclick = () => { S.solo.mode = 'expert'; P.save(); renderTop(); };
@@ -64,24 +136,30 @@
 
   /* ================= 脚本を読む ================= */
   let RD = null, typeT = 0;
-  function openReader(story, part) {
-    RD = { story, part, line: 0, typing: false };
+  function openReader(story, part, line) {
+    RD = { story, part, line: line || 0, typing: false, lastWho: null };
     P.showScreen('reader');
     $('#rdStory').textContent = story.title;
     $('#rdNote').hidden = !story.user;
     showLine();
   }
+  function posIndex(part, line) { let k = line; for (let i = 0; i < part; i++) k += RD.story.parts[i].lines.length; return k; }
   function showLine() {
     const part = RD.story.parts[RD.part];
     $('#rdPart').textContent = part.title;
     $('#rdCard').hidden = true; $('#rdBox').hidden = false;
     const [who, text] = part.lines[RD.line];
-    const nm = $('#rdName'); nm.textContent = who; nm.className = 'rd-name ' + nameClass(who);
+    const side = part.sides[RD.line];
+    const nm = $('#rdName'); nm.textContent = who;
+    nm.className = 'rd-name ' + nameClass(who) + (side === 1 ? ' right' : '') + (who && who !== RD.lastWho ? ' swap' : '');
+    if (who) RD.lastWho = who;
     const tx = $('#rdText'); tx.className = 'rd-text' + (who ? '' : ' narr');
     $('#rdCount').textContent = `${RD.line + 1}/${part.lines.length}`;
+    $('#rdGauge i').style.width = (100 * (posIndex(RD.part, RD.line) + 1) / RD.story.total) + '%';
     const last = RD.part >= RD.story.parts.length - 1;
     $('#rdSkip').hidden = false;
-    $('#rdSkip').textContent = last ? '最後へ ≫' : opened(RD.story.id) > RD.part ? '次の幕へ ≫' : '実戦へ ≫';
+    $('#rdSkip').textContent = last ? '最後へ ≫' : opened(RD.story.id) > RD.part ? '次へ ≫' : '実戦へ ≫';
+    S.solo.at = S.solo.at || {}; S.solo.at[RD.story.id] = [RD.part, RD.line]; P.save();
     // 1文字ずつ表示（タップで全文）
     clearInterval(typeT); RD.typing = true;
     let i = 0; tx.textContent = '';
@@ -98,6 +176,72 @@
     if (RD.line < part.lines.length - 1) { RD.line++; showLine(); return; }
     endOfPart();
   }
+
+  /* ログ：ここまで読んだ行。タップでその場面から読み直す */
+  function openLog() {
+    if (!RD) return;
+    clearInterval(typeT); RD.typing = false;
+    const list = $('#rdLogList'); list.innerHTML = '';
+    const endPart = RD.part, endLine = $('#rdCard').hidden ? RD.line : RD.story.parts[RD.part].lines.length - 1;
+    const from = Math.max(0, endPart - 5);   // 長くなりすぎないよう、直近の区切りまで
+    let nowEl = null;
+    for (let pi = from; pi <= endPart; pi++) {
+      const pa = RD.story.parts[pi];
+      const h = document.createElement('div'); h.className = 'log-sec'; h.textContent = pa.title; list.append(h);
+      const upto = pi === endPart ? endLine : pa.lines.length - 1;
+      for (let li = 0; li <= upto; li++) {
+        const [who, text] = pa.lines[li];
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = 'log-row' + (who ? '' : ' narr') + (pa.sides[li] === 1 ? ' right' : '') + (pi === endPart && li === endLine ? ' now' : '');
+        if (who) { const n = document.createElement('span'); n.className = 'rd-name ' + nameClass(who); n.textContent = who; b.append(n); }
+        const p = document.createElement('p'); p.textContent = text; b.append(p);
+        b.onclick = () => { $('#rdLog').hidden = true; P.sound('tap'); RD.part = pi; RD.line = li; RD.lastWho = null; showLine(); };
+        list.append(b);
+        if (pi === endPart && li === endLine) nowEl = b;
+      }
+    }
+    $('#rdLog').hidden = false;
+    if (nowEl) nowEl.scrollIntoView({ block: 'center' });
+  }
+  $('#rdLogBtn').onclick = e => { e.stopPropagation(); openLog(); };
+  $('#closeLog').onclick = () => { $('#rdLog').hidden = true; };
+  $('#rdLog').addEventListener('click', e => { if (e.target.id === 'rdLog') $('#rdLog').hidden = true; });
+
+  /* 登場人物：ここまでに出てきた人だけ（ネタバレしないように） */
+  const castKey = (st, who) => {
+    const list = st.cast || [];
+    let best = null;
+    for (const c of list) if (who.startsWith(c[0]) && (!best || c[0].length > best[0].length)) best = c;
+    return best;
+  };
+  function openCast() {
+    if (!RD) return;
+    const st = RD.story, seen = new Map();
+    for (let pi = 0; pi <= RD.part; pi++) {
+      const pa = st.parts[pi], upto = pi === RD.part ? RD.line : pa.lines.length - 1;
+      for (let li = 0; li <= upto; li++) {
+        const who = pa.lines[li][0];
+        if (!who || who.includes('・') || who === '一同') continue;
+        const c = castKey(st, who), key = c ? c[0] : who;
+        if (!seen.has(key)) seen.set(key, c ? c[1] : '');
+      }
+    }
+    const list = $('#rdCastList'); list.innerHTML = '';
+    if (!seen.size) list.innerHTML = '<p class="rd-card-d">まだ誰も話していません。</p>';
+    for (const [name, desc] of seen) {
+      const row = document.createElement('div'); row.className = 'cast-row';
+      if (!st.user && (name === '小春' || name === '玄斎')) { const im = document.createElement('img'); im.alt = ''; im.src = faceOf(name); row.append(im); }
+      else { const ini = document.createElement('span'); ini.className = 'cast-ini'; ini.textContent = name[0]; row.append(ini); }
+      const d = document.createElement('div'); d.innerHTML = '<b></b><p></p>';
+      d.querySelector('b').textContent = name; d.querySelector('p').textContent = desc || '';
+      row.append(d); list.append(row);
+    }
+    $('#rdCast').hidden = false;
+  }
+  $('#rdCastBtn').onclick = e => { e.stopPropagation(); openCast(); };
+  $('#closeCast').onclick = () => { $('#rdCast').hidden = true; };
+  $('#rdCast').addEventListener('click', e => { if (e.target.id === 'rdCast') $('#rdCast').hidden = true; });
+
   function card(kicker, title, desc, buttons) {
     $('#rdBox').hidden = true; $('#rdSkip').hidden = true;
     $('#rdCard').hidden = false;
@@ -131,9 +275,11 @@
         ['対局する', 'primary', () => startGame(lv, back)], ['あとで', 'lac', open]
       ]);
     } else {
-      const l = nextLesson() || LESSONS[(Math.random() * LESSONS.length) | 0];
-      const review = S.solo.lessons.includes(l.id);
-      card('続きを読むには', `ミッション：${l.title}`, `${l.teacher === '玄斎' ? '玄斎' : '小春'}のレクチャーを聞いて、実戦問題に正解しよう。${review ? '（復習）' : ''}`, [
+      // 新しいレクチャーと実戦ドリルを交互に（レクチャーを全部クリアしたらドリルだけ）
+      const nl = nextLesson();
+      const l = nl && RD.part % 2 === 0 ? nl : makeDrill();
+      const desc = l.drill ? '自動で選ばれる3問に正解しよう。' : `${l.teacher === '玄斎' ? '玄斎' : '小春'}のレクチャーを聞いて、実戦問題に正解しよう。`;
+      card('続きを読むには', `ミッション：${l.title}`, desc, [
         ['レクチャーを受ける', 'primary', () => runLesson(l, ok => { if (ok) { unlockNext(); resumeNext(); } else back(); })], ['あとで', 'lac', open]
       ]);
     }
@@ -163,7 +309,7 @@
   function runLesson(lesson, onDone) {
     LS = { l: lesson, onDone, phase: 'talk', i: 0, pi: 0, board: new Array(81).fill(0), ko: -1, marks: [], last: -1, lock: false, solved: false };
     P.showScreen('lesson');
-    $('#lsTitle').textContent = 'レクチャー：' + lesson.title;
+    $('#lsTitle').textContent = lesson.drill ? lesson.title : 'レクチャー：' + lesson.title;
     $('#lsChoices').hidden = true;
     talkStep();
   }
@@ -329,7 +475,7 @@
     }
     if (LS.phase === 'prob' && LS.solved) {
       if (LS.pi < LS.l.problems.length - 1) { LS.pi++; probStep(); return; }
-      if (!S.solo.lessons.includes(LS.l.id)) S.solo.lessons.push(LS.l.id);
+      if (!LS.l.drill && !S.solo.lessons.includes(LS.l.id)) S.solo.lessons.push(LS.l.id);
       P.save();
       const done = LS.onDone; LS = null;
       done(true);

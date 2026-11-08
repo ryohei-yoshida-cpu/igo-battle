@@ -141,3 +141,10 @@ window.STORIES = [
     ]
   }
 ];
+
+// 登場人物（読む画面の「登場人物」ボタンで表示）
+(function () {
+  const base = [['小春', '囲碁が大好きな女の子。九路盤で強くなりたい。'], ['玄斎', '碁会所「幽玄亭」の主。いつも眠そうだが、碁は強い。']];
+  const extra = { haru: [['来訪者', '幽玄亭をたずねてきた人。']], kenkaku: [['剣客', '九路盤で勝負を挑んでくる、旅の剣客。']] };
+  for (const s of window.STORIES) s.cast = base.concat(extra[s.id] || []);
+})();
