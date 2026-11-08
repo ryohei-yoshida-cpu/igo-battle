@@ -12,6 +12,7 @@
   const RANKS = ['10級', '9級', '8級', '7級', '6級', '5級', '4級', '3級', '2級', '1級', '初段', '二段', '三段', '四段'];
   const TH = [1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1500, 1600, 1700, 1800, 1900, 2000];
   const DAN_FROM = 10;      // 初段の index
+  const BOT_MAX = 9;        // Botは1級まで
   const DAN_STREAK = 4;     // 昇段に必要な連勝数
   const START_RATE = 1050;
   const rankFromRating = r => { let i = 0; for (let k = 0; k < TH.length; k++) if (r >= TH[k]) i = k; return i; };
@@ -26,22 +27,19 @@
 
   /* ---------- 保存データ ---------- */
   const KEY = 'kuro9.v1';
-  const AV = [
-    ['碁', '#1d2b4a', '#3c5a9a'], ['石', '#1f1f24', '#5b5b66'], ['星', '#3a2350', '#7b4bb0'], ['天', '#103d3a', '#2c8a7f'],
-    ['龍', '#4a1414', '#b23a2a'], ['虎', '#4a3410', '#c08a2a'], ['風', '#183a2a', '#3f8f5f'], ['雷', '#2a2f4a', '#c8a94a'],
-    ['剣', '#26303a', '#7f93a6'], ['鶴', '#3a3a42', '#a9a9ba'], ['月', '#1c2140', '#6f80c6'], ['炎', '#4a1d0e', '#d9602a']
-  ];
-  const BOT_AV = ['機', '#20262e', '#56606c'];
+  const A = window.ART;
   function fresh() {
     return {
       name: 'あなた', avatar: { type: 'preset', id: 0 },
       rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1,
       bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [],
-      settings: { confirm: true, fx: true, sound: true }, botLevel: 'auto'
+      settings: { confirm: true, fx: true, sound: true, board: 'space' }, botLevel: 'auto', noBot: false
     };
   }
   let S = fresh();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
+  S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'space' }, S.settings);
+  if (S.avatar.type === 'preset') S.avatar.id = ((S.avatar.id | 0) % A.VARIANTS.length + A.VARIANTS.length) % A.VARIANTS.length;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
   function displayRank() {
@@ -79,28 +77,36 @@
   function ask(msg) {
     return new Promise(res => {
       if (worker) { const id = ++reqId; pending.set(id, res); worker.postMessage(Object.assign({ id }, msg)); }
-      else setTimeout(() => res(msg.type === 'think' ? E.think(msg) : { own: E.ownership(msg.board, msg.n || 400) }), 30);
+      else setTimeout(() => res(msg.type === 'think' ? E.think(msg) : msg.type === 'analyze' ? E.analyze(msg) : { own: E.ownership(msg.board, msg.n || 400) }), 30);
     });
   }
 
-  /* ---------- アバター描画 ---------- */
-  function paintAvatar(el, av) {
-    el.style.backgroundImage = ''; el.textContent = '';
-    if (av && av.type === 'img' && av.data) { el.style.backgroundImage = `url(${av.data})`; return; }
-    const a = Array.isArray(av) ? av : AV[(av && av.id) || 0] || AV[0];
-    el.textContent = a[0];
-    el.style.backgroundImage = `linear-gradient(145deg, ${a[2]}, ${a[1]})`;
+  /* ---------- アバター・キャラ ---------- */
+  const charaIdx = () => S.avatar.type === 'preset' ? S.avatar.id : 0;
+  const myAvatarSrc = () => (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : A.alienUri(charaIdx());
+  const setImg = (el, src) => { if (el.getAttribute('src') !== src) el.src = src; };
+  function applyBoardStyle() { document.body.classList.toggle('wood', S.settings.board === 'wood'); }
+
+  // 人の手番中にBotが先読みする（Botの1手は5秒以内）
+  function ponder() {
+    if (!worker || !G || G.over || G.toPlay !== G.me) return;
+    worker.postMessage({ type: 'ponder', board: G.board, toPlay: G.toPlay, ko: G.ko, komi: KOMI, last: G.last, level: G.bot.level });
   }
+  function stopPonder() { if (worker) worker.postMessage({ type: 'stop' }); }
 
   /* ---------- 盤の静的部分 ---------- */
   (function drawGrid() {
     const g = $('#grid'); let s = '';
+    let glow = '';
     for (let i = 0; i < 9; i++) {
-      const v = i + 0.5, w = (i === 0 || i === 8) ? 0.05 : 0.028;
-      s += `<line x1="0.5" y1="${v}" x2="8.5" y2="${v}" stroke="#3b2a12" stroke-width="${w}"/>`;
-      s += `<line x1="${v}" y1="0.5" x2="${v}" y2="8.5" stroke="#3b2a12" stroke-width="${w}"/>`;
+      const v = i + 0.5, edge = i === 0 || i === 8, w = edge ? 0.05 : 0.028;
+      for (const [x1, y1, x2, y2] of [[0.5, v, 8.5, v], [v, 0.5, v, 8.5]]) {
+        glow += `<line class="gl-glow" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${w * 3}"/>`;
+        s += `<line class="gl${edge ? ' edge' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${w}"/>`;
+      }
     }
-    for (const [x, y] of [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]]) s += `<circle cx="${x + .5}" cy="${y + .5}" r=".09" fill="#3b2a12"/>`;
+    s = `<g filter="url(#glowF)">${glow}</g>` + s;
+    for (const [x, y] of [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]]) s += `<circle class="hoshi" cx="${x + .5}" cy="${y + .5}" r=".09"/>`;
     g.innerHTML = s;
   })();
 
@@ -150,30 +156,31 @@
   }
 
   /* ---------- エフェクト ---------- */
-  const shown = el => el && !el.hidden;
+  // 着手点の波紋と、キャラ付きの技カットイン
   function fx(name, tier, p, mine) {
     if (!S.settings.fx) return;
-    const layer = $('#fxLayer');
     const x = p % 9, y = (p / 9) | 0;
     const ring = document.createElement('div');
     ring.className = `ring t${tier} ${mine ? 'me' : 'op'}`;
     ring.style.left = ((x + 0.65) / 9.3 * 100) + '%';
     ring.style.top = ((y + 0.65) / 9.3 * 100) + '%';
-    const txt = document.createElement('div');
-    txt.className = `fxText t${tier} ${mine ? 'me' : 'op'}`;
-    txt.textContent = name;
-    const top = y >= 4 ? 27 : 73;
-    txt.style.top = top + '%';
-    const nodes = [ring, txt];
-    if (tier === 2) {
-      const sl = document.createElement('div');
-      sl.className = 'slash' + (mine ? '' : ' op');
-      sl.style.top = (top + 2) + '%';
-      nodes.push(sl);
-      const bw = $('#boardWrap'); bw.classList.remove('shake'); void bw.offsetWidth; bw.classList.add('shake');
-    }
-    layer.append(...nodes);
-    setTimeout(() => nodes.forEach(n => n.remove()), 1500);
+    $('#fxLayer').querySelectorAll('.fxBanner').forEach(n => n.remove());
+    $('#fxLayer').append(ring);
+    setTimeout(() => ring.remove(), 1000);
+    // 打った石が隠れないよう、盤の反対側の半分に帯を出す
+    const r = $('#boardWrap').getBoundingClientRect();
+    const cy = r.top + r.height * (y >= 4 ? 0.27 : 0.73);
+    const layer = $('#cutin');
+    layer.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = `cut t${tier} ${mine ? 'me' : 'op'}`;
+    el.style.setProperty('--y', cy + 'px');
+    el.innerHTML = `${tier === 2 ? '<div class="flash"></div>' : ''}<div class="band"></div><img class="chara" alt=""><div class="name"></div>`;
+    el.querySelector('.chara').src = mine ? A.alienUri(charaIdx()) : A.robotUri();
+    el.querySelector('.name').textContent = name;
+    layer.append(el);
+    if (tier === 2) { const bw = $('#boardWrap'); bw.classList.remove('shake'); void bw.offsetWidth; bw.classList.add('shake'); }
+    setTimeout(() => el.remove(), tier === 2 ? 1400 : 1000);
   }
   function banner(big, small) {
     const layer = $('#fxLayer');
@@ -199,7 +206,7 @@
 
   /* ---------- ホーム描画 ---------- */
   function renderHome() {
-    paintAvatar($('#homeAvatar'), S.avatar);
+    setImg($('#heroChara'), A.alienUri(charaIdx()));
     $('#homeName').textContent = S.name;
     const dr = displayRank();
     $('#homeRank').textContent = RANKS[dr];
@@ -251,8 +258,8 @@
     };
     try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name })); } catch (e) {}
     $('#home').hidden = true; $('#game').hidden = false; setMode('play');
-    paintAvatar($('#meAvatar'), S.avatar); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
-    paintAvatar($('#opAvatar'), BOT_AV); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
+    setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
+    setImg($('#opAvatar'), A.robotUri()); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
@@ -260,7 +267,9 @@
     banner('お願いします', myColor === 1 ? 'あなたは黒番・先手' : 'あなたは白番');
     if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { G && (G.wake = l); }).catch(() => {});
     if (!navigator.onLine) netDown();
+    stopPonder();
     nextTurn();
+    ponder();
   }
 
   function render() {
@@ -275,14 +284,14 @@
     }
     if (G.pend >= 0 && !G.board[G.pend]) {
       const x = G.pend % 9 + 0.5, y = ((G.pend / 9) | 0) + 0.5;
-      s += `<circle cx="${x}" cy="${y}" r=".44" fill="url(#g${G.me === 1 ? 'B' : 'W'})" opacity=".55"/><circle cx="${x}" cy="${y}" r=".2" fill="none" stroke="#e9c46a" stroke-width=".06"/>`;
+      s += `<circle cx="${x}" cy="${y}" r=".44" fill="url(#g${G.me === 1 ? 'B' : 'W'})" opacity=".55"/><circle cx="${x}" cy="${y}" r=".2" fill="none" stroke="#5ef2ff" stroke-width=".06"/>`;
     }
     st.innerHTML = s;
     G.lastDrop = -1;
     let m = '';
     if (G.last >= 0 && G.board[G.last]) {
       const x = G.last % 9 + 0.5, y = ((G.last / 9) | 0) + 0.5;
-      m = `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${G.board[G.last] === 1 ? '#f3d27e' : '#c2412b'}" stroke-width=".07"/>`;
+      m = `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${G.board[G.last] === 1 ? '#5ef2ff' : '#ff4fa3'}" stroke-width=".07"/>`;
     }
     mk.innerHTML = m;
     let t = '';
@@ -334,6 +343,7 @@
     render();
     if (tech) fx(tech[0], tech[1], p, c === G.me);
     nextTurn();
+    ponder();
     return true;
   }
 
@@ -345,6 +355,7 @@
     banner('パス', c === G.me ? 'あなた' : G.bot.name);
     if (G.passes >= 2) { scoreGame(); return; }
     nextTurn();
+    ponder();
   }
 
   async function nextTurn() {
@@ -353,7 +364,7 @@
     g.thinking = true;
     const t0 = performance.now();
     const r = await ask({ type: 'think', board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: KOMI, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last });
-    const wait = Math.max(0, 500 + Math.random() * 600 - (performance.now() - t0));
+    const wait = Math.max(0, Math.min(4800 - (performance.now() - t0), 500 + Math.random() * 600 - (performance.now() - t0)));
     await new Promise(res => setTimeout(res, wait));
     if (!G || G.id !== id || G.over || G.moveNo !== mv) return;
     g.thinking = false;
@@ -411,6 +422,7 @@
   function endGame(winner, reason, scoreText, scored) {
     if (!G || (G.over && !scored)) return;
     G.over = true; G.thinking = false;
+    stopPonder();
     if (G.wake) { G.wake.release().catch(() => {}); G.wake = null; }
     if (G.net) { clearInterval(G.net.timer); G.net = null; $('#netdown').hidden = true; }
     const win = winner === G.me, draw = winner === 0;
@@ -427,6 +439,7 @@
   function showResult(win, label, scoreText, r) {
     const k = $('#resKanji');
     k.textContent = win > 0 ? '勝' : win === 0 ? '持' : '負';
+    const rc = $('#resChara'); setImg(rc, A.alienUri(charaIdx())); rc.className = 'res-chara' + (win < 0 ? ' lose' : '');
     k.className = 'res-kanji ' + (win > 0 ? '' : 'lose');
     void k.offsetWidth; k.classList.add('pop');
     $('#resReason').textContent = label;
@@ -467,38 +480,71 @@
   window.addEventListener('online', netUp);
 
   /* ---------- マッチング ---------- */
-  let matchT = [];
+  // 人と対戦するサーバーはまだ無いので、相手は必ずBot。
+  // 「Botとはマッチしない」をオンにすると、見つからないまま待ち続ける。
+  let M = null;
   function startMatch() {
-    matchT.forEach(clearTimeout); matchT = [];
-    const ov = $('#matching'); ov.hidden = false;
-    $('#mtFound').hidden = true; $('#cancelMatch').hidden = false;
-    $('#mtTitle').textContent = '対戦相手を探しています';
+    stopMatch();
     const myRank = rankFromRating(S.rating);
-    const fixed = S.botLevel !== 'auto';
-    const t0 = Date.now();
-    const tick = () => {
-      const s = Math.floor((Date.now() - t0) / 1000);
-      $('#mtSub').textContent = `${fixed ? RANKS[S.botLevel] : RANKS[Math.max(0, myRank - 1)] + '〜' + RANKS[Math.min(13, myRank + 1)]} のプレイヤーを検索中 ・ ${s}秒`;
-    };
-    tick();
-    const iv = setInterval(tick, 500);
-    matchT.push(setTimeout(() => {
-      clearInterval(iv);
-      const lv = fixed ? S.botLevel : Math.max(0, Math.min(13, myRank + Math.floor(Math.random() * 3) - 1));
-      const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
-      const myColor = Math.random() < 0.5 ? 1 : 2;
-      $('#mtTitle').textContent = '対局者が見つかりませんでした';
-      $('#mtSub').textContent = fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました';
-      paintAvatar($('#mtAvatar'), BOT_AV);
-      $('#mtName').textContent = bot.name;
-      $('#mtRank').textContent = `レート ${bot.rating}`;
-      $('#mtColor').textContent = myColor === 1 ? 'あなたは黒番（先手）' : 'あなたは白番（後手）';
-      $('#mtFound').hidden = false; $('#cancelMatch').hidden = true;
-      matchT.push(setTimeout(() => { ov.hidden = true; newGame(bot, myColor); }, 2200));
-    }, MATCH_SEARCH_MS));
-    matchT.push(iv);
-    $('#cancelMatch').onclick = () => { matchT.forEach(t => { clearTimeout(t); clearInterval(t); }); ov.hidden = true; };
+    M = { t0: Date.now(), fixed: S.botLevel !== 'auto', myRank, found: false, timer: 0 };
+    $('#matching').hidden = false;
+    $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
+    $('#mtTitle').textContent = '対戦相手を探しています';
+    setImg($('#mtMe'), A.alienUri(charaIdx()));
+    $('#optNoBot').checked = !!S.noBot;
+    $('#mtNoBotNote').hidden = !S.noBot;
+    M.timer = setInterval(matchTick, 250);
+    matchTick();
   }
+  function matchRange() {
+    if (S.noBot) return `${RANKS[Math.max(0, M.myRank - 1)]}〜${RANKS[Math.min(RANKS.length - 1, M.myRank + 1)]} のプレイヤー`;
+    if (M.fixed) return `${RANKS[S.botLevel]} の相手`;
+    return `${RANKS[Math.max(0, Math.min(BOT_MAX, M.myRank) - 1)]}〜${RANKS[Math.min(BOT_MAX, M.myRank + 1)]} の相手`;
+  }
+  function matchTick() {
+    if (!M || M.found) return;
+    const sec = Math.floor((Date.now() - M.t0) / 1000);
+    const tt = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    $('#mtSub').textContent = `${matchRange()}を検索中・${tt}`;
+    $('#mpText').textContent = `対戦相手を探しています ${tt}`;
+    if (!S.noBot && Date.now() - M.t0 >= MATCH_SEARCH_MS) matchFound();
+  }
+  function matchFound() {
+    M.found = true; clearInterval(M.timer);
+    const lv = M.fixed ? Math.min(BOT_MAX, S.botLevel) : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
+    const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
+    const myColor = Math.random() < 0.5 ? 1 : 2;
+    // 検討中なら検討を閉じて対局へ
+    if (R) closeReview(true);
+    $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
+    $('#matching').hidden = false; $('#mtOpts').hidden = true;
+    $('#mtTitle').textContent = '対戦相手が見つかりました';
+    $('#mtSub').textContent = M.fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました';
+    setImg($('#mtAvatar'), A.robotUri());
+    $('#mtName').textContent = bot.name;
+    $('#mtRank').textContent = `レート ${bot.rating}`;
+    $('#mtColor').textContent = myColor === 1 ? 'あなたは黒番（先手）' : 'あなたは白番（後手）';
+    $('#mtFound').hidden = false;
+    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor); }, 2200);
+  }
+  function stopMatch() {
+    if (M) { clearInterval(M.timer); clearTimeout(M.timer); }
+    M = null;
+    $('#matching').hidden = true; $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
+  }
+  $('#cancelMatch').onclick = stopMatch;
+  $('#optNoBot').addEventListener('change', e => {
+    S.noBot = e.target.checked; save();
+    $('#mtNoBotNote').hidden = !S.noBot;
+    matchTick();
+  });
+  $('#matchReview').onclick = () => {
+    if (!M) return;
+    $('#matching').hidden = true;
+    $('#matchPill').hidden = false; $('#game').classList.add('waiting');
+    openReview([]);
+  };
+  $('#mpOpen').onclick = () => { if (M && !M.found) { $('#matching').hidden = false; } };
 
   /* ---------- 入力 ---------- */
   $('#board').addEventListener('click', e => {
@@ -522,23 +568,28 @@
   $('#startMatch').onclick = () => { sound('stone'); startMatch(); };
   $('#resHome').onclick = leaveGame;
   $('#resAgain').onclick = () => { leaveGame(); startMatch(); };
+  $('#resHome').addEventListener('click', stopPonder);
   $('#resBoard').onclick = () => { const rec = G ? G.record.slice() : []; $('#result').hidden = true; G = null; openReview(rec); };
 
   /* ---------- 設定 ---------- */
   function renderSettings() {
     $('#nameInput').value = S.name;
     const grid = $('#avGrid'); grid.innerHTML = '';
-    AV.forEach((a, i) => {
+    A.VARIANTS.forEach((v, i) => {
       const b = document.createElement('button');
-      b.className = 'avatar'; b.type = 'button';
-      b.setAttribute('aria-label', 'アバター ' + a[0]);
+      b.type = 'button';
+      b.setAttribute('aria-label', 'アバター ' + v.name);
       b.setAttribute('aria-pressed', String(S.avatar.type === 'preset' && S.avatar.id === i));
-      paintAvatar(b, { type: 'preset', id: i });
+      const im = document.createElement('img'); im.alt = ''; im.src = A.alienUri(i); b.append(im);
       b.onclick = () => { S.avatar = { type: 'preset', id: i }; save(); renderSettings(); renderHome(); };
       grid.append(b);
     });
+    $('#boardSpace').setAttribute('aria-checked', String(S.settings.board !== 'wood'));
+    $('#boardWood').setAttribute('aria-checked', String(S.settings.board === 'wood'));
     $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound;
   }
+  $('#boardSpace').onclick = () => { S.settings.board = 'space'; save(); applyBoardStyle(); renderSettings(); };
+  $('#boardWood').onclick = () => { S.settings.board = 'wood'; save(); applyBoardStyle(); renderSettings(); };
   $('#openSettings').onclick = () => { renderSettings(); $('#settings').hidden = false; };
   $('#closeSettings').onclick = () => { $('#settings').hidden = true; };
   $('#settings').addEventListener('click', e => { if (e.target.id === 'settings') $('#settings').hidden = true; });
@@ -612,17 +663,17 @@
     let m = '';
     if (st.last >= 0) {
       const x = st.last % 9 + 0.5, y = ((st.last / 9) | 0) + 0.5;
-      m += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${st.b[st.last] === 1 ? '#f3d27e' : '#c2412b'}" stroke-width=".07"/>`;
+      m += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${st.b[st.last] === 1 ? '#5ef2ff' : '#ff4fa3'}" stroke-width=".07"/>`;
     }
     if (R.hint && R.hint.at === R.idx + ':' + R.line.slice(0, R.idx).join(',')) {
       R.hint.cands.forEach((h, i) => {
         if (h.move < 0) return;
         const x = h.move % 9 + 0.5, y = ((h.move / 9) | 0) + 0.5;
-        m += `<circle cx="${x}" cy="${y}" r=".38" fill="${i === 0 ? '#e9c46a' : '#e9c46aaa'}" stroke="#1b1405" stroke-width=".04"/><text x="${x}" y="${y + .14}" text-anchor="middle" font-size=".42" font-weight="700" fill="#1b1405" font-family="system-ui">${i + 1}</text>`;
+        m += `<circle cx="${x}" cy="${y}" r=".38" fill="${i === 0 ? '#5ef2ff' : '#5ef2ffaa'}" stroke="#041018" stroke-width=".04"/><text x="${x}" y="${y + .15}" text-anchor="middle" font-size=".42" font-weight="900" fill="#041018" font-family="'M PLUS Rounded 1c', system-ui">${i + 1}</text>`;
       });
     } else if (R.hint && !R.hint.loading) { R.hint = null; $('#rvHintOut').hidden = true; }
     $('#marks').innerHTML = m;
-    const branch = R.line.length !== R.main.length || R.line.some((p, i) => p !== R.main[i]);
+    const branch = R.main.length > 0 && (R.line.length !== R.main.length || R.line.some((p, i) => p !== R.main[i]));
     $('#rvMove').textContent = `${R.idx}手目` + (R.line.length ? ` / ${R.line.length}` : '');
     $('#rvBranch').hidden = !branch;
     $('#rvMain').disabled = !branch;
@@ -648,15 +699,22 @@
   $('#rvLast').onclick = () => { R.idx = R.line.length; reviewRender(); };
   $('#rvPass').onclick = () => reviewPlay(-1);
   $('#rvMain').onclick = () => { const keep = Math.min(R.idx, R.main.length); let i = 0; while (i < keep && R.line[i] === R.main[i]) i++; R.line = R.main.slice(); R.idx = i; reviewRender(); };
-  $('#rvClose').onclick = () => { R = null; $('#marks').innerHTML = ''; $('#rvHintOut').hidden = true; $('#game').hidden = true; $('#home').hidden = false; renderHome(); };
+  function closeReview(toGame) {
+    R = null; $('#marks').innerHTML = ''; $('#rvHintOut').hidden = true;
+    if (!toGame) { $('#game').hidden = true; $('#home').hidden = false; renderHome(); }
+  }
+  $('#rvClose').onclick = () => {
+    closeReview(false);
+    if (M && !M.found) { $('#matchPill').hidden = true; $('#game').classList.remove('waiting'); $('#matching').hidden = false; }
+  };
   $('#rvHint').onclick = async () => {
     if (!R || (R.hint && R.hint.loading)) return;
     const st = R.st, at = R.idx + ':' + R.line.slice(0, R.idx).join(',');
     const out = $('#rvHintOut');
-    out.hidden = false; out.innerHTML = '<small>AIが考えています…（約5秒）</small>';
+    out.hidden = false; out.innerHTML = '<small>AIが考えています…（5秒以内）</small>';
     R.hint = { loading: true, at, cands: [] };
     $('#rvHint').disabled = true;
-    const res = await ask({ type: 'analyze', board: st.b, toPlay: st.c, ko: st.ko, komi: KOMI, last: st.last, ms: 5000 });
+    const res = await ask({ type: 'analyze', board: st.b, toPlay: st.c, ko: st.ko, komi: KOMI, last: st.last, ms: 4500 });
     $('#rvHint').disabled = false;
     if (!R) return;
     const nowAt = R.idx + ':' + R.line.slice(0, R.idx).join(',');
@@ -675,9 +733,9 @@
   /* ---------- Botの強さ ---------- */
   (function setupBotPick() {
     const sel = $('#botLevel');
-    const o = document.createElement('option'); o.value = 'auto'; o.textContent = '自動（自分のレートの近く）'; sel.append(o);
-    RANKS.forEach((r, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = `${r}（レート ${botRating(i)}）`; sel.append(op); });
-    if (S.botLevel !== 'auto' && !(S.botLevel >= 0 && S.botLevel < RANKS.length)) S.botLevel = 'auto';
+    const o = document.createElement('option'); o.value = 'auto'; o.textContent = '自動（近い強さ）'; sel.append(o);
+    RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = `${r}（レート ${botRating(i)}）`; sel.append(op); });
+    if (S.botLevel !== 'auto') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
     sel.value = String(S.botLevel);
     sel.addEventListener('change', () => { S.botLevel = sel.value === 'auto' ? 'auto' : +sel.value; save(); });
   })();
@@ -690,5 +748,7 @@
       setTimeout(() => toast(`前回の対局は途中で終了したため切断負けになりました（${r.d}）`, 4500), 400);
     }
   } catch (e) {}
+  applyBoardStyle();
+  A.startGalaxy($('#sky'));
   renderHome();
 })();

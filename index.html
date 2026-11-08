@@ -5,28 +5,33 @@
 <title>九路 Blitz</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#11162a">
+<meta name="theme-color" content="#04050d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Saira+Condensed:wght@500;700&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="shooting" aria-hidden="true"><i></i><i></i></div>
+
 <div id="app">
 
   <!-- ホーム -->
   <section id="home" class="screen">
     <header class="brand">
-      <div class="logo"><span class="logo-k">九路</span><span class="logo-b">BLITZ</span></div>
+      <div class="logo"><b>九路</b><span>BLITZ</span></div>
       <button class="icon-btn" id="openSettings" aria-label="設定">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg>
       </button>
     </header>
 
-    <div class="player-card">
-      <div class="avatar xl" id="homeAvatar"></div>
-      <div class="pc-main">
-        <div class="pc-name" id="homeName"></div>
-        <div class="pc-rank"><span id="homeRank"></span><span class="pc-rate"><small>RATE</small><b id="homeRate"></b></span></div>
+    <div class="hero">
+      <img class="hero-chara" id="heroChara" alt="">
+      <div class="hero-info">
+        <div class="hero-name" id="homeName"></div>
+        <div class="hero-rank" id="homeRank"></div>
+        <div class="hero-rate"><small>RATE</small><b id="homeRate"></b></div>
         <div class="rank-bar"><i id="rankBar"></i></div>
         <div class="rank-next" id="rankNext"></div>
       </div>
@@ -34,15 +39,16 @@
 
     <button class="match-btn" id="startMatch">
       <span class="mb-main">ランダムマッチ</span>
-      <span class="mb-sub">9路 ・ 5分 + 1手5秒 ・ コミ7目・持碁あり</span>
+      <span class="mb-sub">9路・5分＋1手5秒・コミ7目（持碁あり）</span>
     </button>
 
-    <label class="bot-pick" for="botLevel">
-      <span>Botの強さ</span>
-      <select id="botLevel"></select>
-    </label>
-
-    <button class="btn ghost wide" id="openReview">検討モード（盤面を自由に並べる）</button>
+    <div class="row2">
+      <label class="bot-pick" for="botLevel">
+        <span>Botの強さ</span>
+        <select id="botLevel"></select>
+      </label>
+      <button class="btn glass" id="openReview">検討モード</button>
+    </div>
 
     <div class="stats">
       <div><small>対局</small><b id="stGames">0</b></div>
@@ -52,21 +58,21 @@
       <div><small>白番</small><b id="stWhite">0-0</b></div>
     </div>
 
-    <h3 class="sec-h">最近の対局</h3>
+    <h3 class="sec-h">最近の対局<small>タップで検討</small></h3>
     <ol class="history" id="history"></ol>
   </section>
 
-  <!-- 対局 -->
+  <!-- 対局・検討 -->
   <section id="game" class="screen" hidden>
     <div class="rv-top" id="rvTop" hidden>
       <div class="rv-title"><b>検討</b><span id="rvMove">0手目</span><em id="rvBranch" hidden>変化図</em></div>
-      <button class="btn ghost small" id="rvClose">閉じる</button>
+      <button class="btn glass small" id="rvClose">閉じる</button>
     </div>
     <div class="pbar op" id="opBar">
-      <div class="avatar" id="opAvatar"></div>
+      <img class="pb-ava" id="opAvatar" alt="">
       <div class="pb-info">
         <div class="pb-name"><i class="mini-stone" id="opStone"></i><span id="opName"></span></div>
-        <div class="pb-sub"><span id="opRank"></span> ・ アゲハマ <b id="opCaps">0</b></div>
+        <div class="pb-sub"><span id="opRank"></span>・アゲハマ <b id="opCaps">0</b></div>
       </div>
       <div class="clock" id="opClock">5:00</div>
     </div>
@@ -74,12 +80,13 @@
     <div class="board-wrap" id="boardWrap">
       <svg id="board" viewBox="-0.15 -0.15 9.3 9.3" role="img" aria-label="9路盤">
         <defs>
-          <radialGradient id="gB" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#6b6f7a"/><stop offset=".45" stop-color="#22242b"/><stop offset="1" stop-color="#0b0c10"/></radialGradient>
-          <radialGradient id="gW" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#ecebe6"/><stop offset="1" stop-color="#b9b6ad"/></radialGradient>
-          <pattern id="grain" width="9" height="0.7" patternUnits="userSpaceOnUse"><rect width="9" height=".7" fill="none"/><path d="M0 .2 Q 4.5 .32 9 .18" stroke="#8a5a1c" stroke-opacity=".10" stroke-width=".05" fill="none"/><path d="M0 .52 Q 4.5 .44 9 .56" stroke="#8a5a1c" stroke-opacity=".07" stroke-width=".035" fill="none"/></pattern>
+          <radialGradient id="gB" cx="35%" cy="30%" r="72%"><stop offset="0" stop-color="#5d6390"/><stop offset=".42" stop-color="#1a1c33"/><stop offset="1" stop-color="#05060c"/></radialGradient>
+          <radialGradient id="gW" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#eaf0ff"/><stop offset="1" stop-color="#a9b4d6"/></radialGradient>
+          <pattern id="grain" width="9" height="0.7" patternUnits="userSpaceOnUse"><path d="M0 .2 Q 4.5 .32 9 .18" stroke="#8a5a1c" stroke-opacity=".10" stroke-width=".05" fill="none"/><path d="M0 .52 Q 4.5 .44 9 .56" stroke="#8a5a1c" stroke-opacity=".07" stroke-width=".035" fill="none"/></pattern>
+          <filter id="glowF" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".06"/></filter>
         </defs>
-        <rect x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".18" fill="#d8ac62"/>
-        <rect x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".18" fill="url(#grain)"/>
+        <rect class="bd-bg" x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".22"/>
+        <rect class="bd-grain" x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".22" fill="url(#grain)"/>
         <g id="grid"></g>
         <g id="terr"></g>
         <g id="stones"></g>
@@ -94,56 +101,71 @@
     </div>
 
     <div class="pbar me" id="meBar">
-      <div class="avatar" id="meAvatar"></div>
+      <img class="pb-ava" id="meAvatar" alt="">
       <div class="pb-info">
         <div class="pb-name"><i class="mini-stone" id="meStone"></i><span id="meName"></span></div>
-        <div class="pb-sub"><span id="meRank"></span> ・ アゲハマ <b id="meCaps">0</b></div>
+        <div class="pb-sub"><span id="meRank"></span>・アゲハマ <b id="meCaps">0</b></div>
       </div>
       <div class="clock" id="meClock">5:00</div>
     </div>
 
     <div class="rv-panel" id="rvPanel" hidden>
       <div class="rv-nav">
-        <button class="btn ghost" id="rvFirst" aria-label="最初へ">⏮</button>
-        <button class="btn ghost" id="rvPrev" aria-label="1手戻る">◀</button>
+        <button class="btn glass" id="rvFirst" aria-label="最初へ">⏮</button>
+        <button class="btn glass" id="rvPrev" aria-label="1手戻る">◀</button>
         <span class="rv-turn" id="rvTurn"></span>
-        <button class="btn ghost" id="rvNext" aria-label="1手進む">▶</button>
-        <button class="btn ghost" id="rvLast" aria-label="最後へ">⏭</button>
+        <button class="btn glass" id="rvNext" aria-label="1手進む">▶</button>
+        <button class="btn glass" id="rvLast" aria-label="最後へ">⏭</button>
       </div>
       <div class="rv-tools">
         <button class="btn primary" id="rvHint">AIの次の一手</button>
-        <button class="btn ghost" id="rvPass">パス</button>
-        <button class="btn ghost" id="rvMain" disabled>本譜に戻る</button>
+        <button class="btn glass" id="rvPass">パス</button>
+        <button class="btn glass" id="rvMain" disabled>本譜に戻る</button>
       </div>
       <div class="rv-hint" id="rvHintOut" hidden></div>
-      <p class="rv-note">盤をタップすると次の手を自由に打てます。AIはまだ強くありません（目安は初段くらい）。初心者向けの参考としてお使いください。</p>
+      <p class="rv-note">盤をタップすると次の手を自由に打てます。AIの強さは1級くらいで、まだ強くありません。初心者向けの参考としてお使いください。</p>
     </div>
 
     <div class="actions" id="playActions">
       <div class="turn-msg" id="turnMsg"></div>
-      <button class="btn ghost" id="passBtn">パス</button>
+      <button class="btn glass" id="passBtn">パス</button>
       <button class="btn danger" id="resignBtn">投了</button>
     </div>
   </section>
 
   <!-- マッチング -->
   <div class="overlay" id="matching" hidden>
-    <div class="radar"><i></i><i></i><i></i><span class="radar-stone"></span></div>
+    <div class="orbit"><i></i><i></i><i></i><img id="mtMe" alt=""></div>
     <div class="mt-title" id="mtTitle">対戦相手を探しています</div>
     <div class="mt-sub" id="mtSub"></div>
     <div class="mt-found" id="mtFound" hidden>
-      <div class="avatar xl" id="mtAvatar"></div>
+      <img class="mt-ava" id="mtAvatar" alt="">
       <div class="mt-vs">
         <b id="mtName"></b>
         <span id="mtRank"></span>
         <span class="mt-color" id="mtColor"></span>
       </div>
     </div>
-    <button class="btn ghost" id="cancelMatch">キャンセル</button>
+    <div class="mt-opts" id="mtOpts">
+      <label class="toggle"><input type="checkbox" id="optNoBot"><i></i>Botとはマッチしない</label>
+      <p class="mt-note" id="mtNoBotNote" hidden>人と対戦する仕組みはまだ準備中です。いまはチェックを入れると相手が見つからないまま待ち続けます。</p>
+      <div class="mt-btns">
+        <button class="btn glass" id="matchReview">待っている間に検討する</button>
+        <button class="btn danger" id="cancelMatch">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 待機中の表示（検討モード中） -->
+  <div class="match-pill" id="matchPill" hidden>
+    <span class="mp-dot"></span>
+    <span id="mpText">対戦相手を探しています</span>
+    <button class="btn glass small" id="mpOpen">表示</button>
   </div>
 
   <!-- 結果 -->
   <div class="overlay" id="result" hidden>
+    <img class="res-chara" id="resChara" alt="">
     <div class="res-kanji" id="resKanji">勝</div>
     <div class="res-reason" id="resReason"></div>
     <div class="res-score" id="resScore"></div>
@@ -152,8 +174,8 @@
     </div>
     <div class="res-promo" id="resPromo" hidden></div>
     <div class="res-btns">
-      <button class="btn ghost" id="resBoard">検討する</button>
-      <button class="btn ghost" id="resHome">ホーム</button>
+      <button class="btn glass" id="resBoard">検討する</button>
+      <button class="btn glass" id="resHome">ホーム</button>
       <button class="btn primary" id="resAgain">もう一局</button>
     </div>
   </div>
@@ -167,15 +189,22 @@
         <input id="nameInput" maxlength="12" autocomplete="off" placeholder="名前（12文字まで）">
       </label>
 
-      <div class="field"><span>アバター</span>
+      <div class="field"><span>アバター（技のカットインにも登場します）</span>
         <div class="av-grid" id="avGrid"></div>
-        <label class="btn ghost small" for="avUpload">写真を使う</label>
+        <label class="btn glass small" for="avUpload">写真を使う</label>
         <input type="file" id="avUpload" accept="image/*" hidden>
+      </div>
+
+      <div class="field"><span>盤のデザイン</span>
+        <div class="seg" role="radiogroup" aria-label="盤のデザイン">
+          <button type="button" role="radio" id="boardSpace">宇宙（透明な盤）</button>
+          <button type="button" role="radio" id="boardWood">木の盤</button>
+        </div>
       </div>
 
       <div class="field"><span>対局</span>
         <label class="toggle"><input type="checkbox" id="optConfirm"><i></i>着手は2回タップで確定</label>
-        <label class="toggle"><input type="checkbox" id="optFx"><i></i>技のエフェクト</label>
+        <label class="toggle"><input type="checkbox" id="optFx"><i></i>技のカットイン</label>
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
       </div>
 
@@ -191,7 +220,7 @@
     <div class="dialog">
       <p id="cfText"></p>
       <div class="res-btns">
-        <button class="btn ghost" id="cfNo">やめる</button>
+        <button class="btn glass" id="cfNo">やめる</button>
         <button class="btn danger" id="cfYes">はい</button>
       </div>
     </div>
@@ -200,6 +229,10 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
+<!-- 技のカットイン -->
+<div id="cutin" aria-live="polite"></div>
+
+<script src="art.js"></script>
 <script src="engine.js"></script>
 <script src="app.js"></script>
 </body>

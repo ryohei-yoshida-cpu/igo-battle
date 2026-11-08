@@ -312,18 +312,21 @@
     return best;
   }
 
-  function search(rootF, c0, playouts, ms, komi, last0) {
-    const root = mk(-1, 3 - c0);
-    root.children = expand(rootF, c0, last0);
-    const own = new Float32Array(NN);
-    const amaf = new Int8Array(NN);
-    const f = new FB();
-    const t0 = Date.now();
-    let n = 0;
-    if (!root.children.length) return { root, own, n };
-    while (n < playouts && ((n & 31) || Date.now() - t0 < ms)) {
+  /* 探索木。相手の手番中に先読みし、実際に打たれた手の枝を引き継げる */
+  function Tree(rootF, c0, komi, last0) {
+    this.rootF = new FB(); this.rootF.copyFrom(rootF);
+    this.c0 = c0; this.komi = komi; this.last0 = last0;
+    this.root = mk(-1, 3 - c0);
+    this.root.children = expand(this.rootF, c0, last0);
+    this.own = new Float32Array(NN); this.n = 0;
+  }
+  const amafBuf = new Int8Array(NN), work = new FB();
+  Tree.prototype.run = function (maxPlayouts, deadline) {
+    const root = this.root, rootF = this.rootF, komi = this.komi, own = this.own, amaf = amafBuf, f = work;
+    if (!root.children.length) return;
+    while (root.N < maxPlayouts && ((this.n & 31) || Date.now() < deadline)) {
       f.copyFrom(rootF);
-      let c = c0, node = root, lastMv = last0;
+      let c = this.c0, node = root, lastMv = this.last0;
       const path = [root];
       amaf.fill(0);
       while (true) {
@@ -352,47 +355,105 @@
           if (amaf[ch.move] === ch.color) { ch.aN++; if (ch.color === winner) ch.aW++; else if (winner === 0) ch.aW += 0.5; }
         }
       }
-      n++;
+      this.n++;
     }
-    return { root, own, n };
+  };
+  // 手 move を打った後の局面の木を返す（読みを引き継ぐ）。一致しなければ null
+  Tree.prototype.descend = function (move, board, ko) {
+    if (move < 0 || !this.root.children) return null;
+    const ch = this.root.children.find(x => x.move === move);
+    if (!ch) return null;
+    const f = new FB(); f.copyFrom(this.rootF);
+    if (!f.legal(move, this.c0)) return null;
+    f.place(move, this.c0);
+    for (let p = 0; p < NN; p++) if (f.col[p] !== board[p]) return null;
+    if (f.ko !== ko) return null;
+    const t = Object.create(Tree.prototype);
+    t.rootF = f; t.c0 = 3 - this.c0; t.komi = this.komi; t.last0 = move;
+    t.root = ch;
+    if (!ch.children) ch.children = expand(f, t.c0, move);
+    t.own = new Float32Array(NN); t.n = 0;
+    return t;
+  };
+  Tree.prototype.matches = function (board, toPlay, ko) {
+    if (toPlay !== this.c0 || this.rootF.ko !== ko) return false;
+    for (let p = 0; p < NN; p++) if (this.rootF.col[p] !== board[p]) return false;
+    return true;
+  };
+
+  // 前の木から引き継げるならそれを使い、だめなら新しく作る
+  let tree = null;
+  function treeFor(board, toPlay, ko, komi, last) {
+    if (tree && tree.komi === komi) {
+      if (tree.matches(board, toPlay, ko)) return tree;
+      const t = tree.descend(last, board, ko);
+      if (t) return t;
+    }
+    return new Tree(FB.fromArray(board, ko), toPlay, komi, last);
   }
 
-  // まだ打つべき点（駄目・コウ・アタリの石）が残っているか
-  function needsPlay(f, c) {
+  function search(rootF, c0, playouts, ms, komi, last0) {
+    const t = new Tree(rootF, c0, komi, last0);
+    t.run(playouts, Date.now() + ms);
+    return { root: t.root, own: t.own, n: t.n };
+  }
+
+  // 終局間際に打つ価値のある手だけを集める
+  //  saves: 自分のアタリの石をつなぐ手（コウを含む）
+  //  kos:   相手の1子をコウで取る手（コウの解消）
+  //  dames: 黒白の境目の空点（ダメ）
+  // 自陣にある相手の死に石を抜く手や、必要のないツナギは含めない
+  function endgameMoves(f, c) {
+    const o = 3 - c, saves = [], kos = [], dames = [];
+    const seen = new Set();
     for (let p = 0; p < NN; p++) {
-      if (f.col[p] !== 0) {
-        if (f.rep[p] === p && f.inAtari(p)) {
-          const l = f.lib1(p);
-          if (f.legal(l, c) && !f.selfAtari(l, c)) return true;
-        }
-        continue;
+      const v = f.col[p];
+      if (!v) continue;
+      const r = f.rep[p];
+      if (seen.has(r) || !f.inAtari(r)) continue;
+      seen.add(r);
+      const l = f.lib1(r);
+      if (v === c) {
+        if (f.legal(l, c) && !f.selfAtari(l, c)) saves.push(l);
+      } else if (f.size[r] === 1 && f.legal(l, c)) {
+        const t = new FB(); t.copyFrom(f); t.place(l, c);
+        if (t.ko >= 0) kos.push(l);
       }
+    }
+    for (let p = 0; p < NN; p++) {
+      if (f.col[p] !== 0) continue;
       let b = false, w = false;
       for (const q of NB[p]) { if (f.col[q] === 1) b = true; else if (f.col[q] === 2) w = true; }
-      if (b && w && f.legal(p, c) && !f.selfAtari(p, c)) return true;
+      if (b && w && f.legal(p, c) && !f.selfAtari(p, c) && !f.isEye(p, c)) dames.push(p);
     }
-    return f.ko >= 0;
+    return { saves, kos, dames };
   }
 
-  // 強さの段階 s（0〜16）ごとの読みの量と時間。表示の段級 level は s = level + 3
-  function budget(s, timeLeft) {
-    const playouts = Math.round(300 * Math.pow(1.5, s));
-    const ms = Math.max(300, Math.min(500 + s * 380 + Math.max(0, s - 13) * 1500, timeLeft / 14));
+  // 段級 level（0 = 10級 … 9 = 1級）ごとの読みの量と時間。1手は最大4.5秒
+  const MAX_MS = 4500;
+  function budget(level, timeLeft) {
+    const s = level + 5;
+    const playouts = Math.round(300 * Math.pow(1.5, s));           // 10級 約2300 … 1級 約87000
+    const ms = Math.max(250, Math.min(MAX_MS, 300 + s * 300, timeLeft / 14));
     return { playouts, ms };
   }
 
-  // botの着手: level 0 = 10級 … 13 = 四段
+  // botの着手
   function think(d) {
-    const L = d.level, S = L + 3, c = d.toPlay;
-    const f = FB.fromArray(d.board, d.ko);
-    const { playouts, ms } = budget(S, d.timeLeft);
+    const L = Math.max(0, Math.min(9, d.level)), S = L + 5, c = d.toPlay;
     const last = d.last === undefined ? -1 : d.last;
-    const { root, own, n } = search(f, c, playouts, ms, d.komi, last);
-    const must = needsPlay(f, c);
-    if (!n) return { move: -1 };
+    const { playouts, ms } = budget(L, d.timeLeft);
+    const t = treeFor(d.board, c, d.ko, d.komi, last);
+    const reused = t.root.N;
+    t.run(reused + playouts, Date.now() + ms);
+    tree = t;
+    const f = t.rootF, root = t.root, own = t.own, n = t.n;
+    const eg = endgameMoves(f, c);
+    const must = eg.saves.length + eg.kos.length + eg.dames.length > 0;
+    if (!root.children.length || !root.N) return { move: -1 };
     let est = 0, settled = true;
     for (let p = 0; p < NN; p++) {
-      const v = own[p] / n;
+      const v = n ? own[p] / n : 0;
       est += v;
       if (d.board[p] === 0 && Math.abs(v) < 0.85) settled = false;
     }
@@ -402,12 +463,23 @@
     const sorted = root.children.slice().sort((a, z) => z.N - a.N);
     const best = sorted[0];
     const wr = best.N ? best.W / best.N : 0.5;
-    const out = { winrate: wr, margin, playouts: n };
+    const out = { winrate: wr, margin, playouts: n, reused };
     // 投了：はっきり負けている（勝率8%未満、または15目以上の差で勝率25%未満）
-    if (!d.noResign && d.moveNum >= 16 && n >= 150 && (wr < 0.08 || (margin < -15 && wr < 0.25))) return Object.assign(out, { resign: true });
+    if (!d.noResign && d.moveNum >= 16 && root.N >= 150 && (wr < 0.08 || (margin < -15 && wr < 0.25))) return Object.assign(out, { resign: true });
     if (!d.noResign && d.oppPassed && !ahead && wr < 0.3) return Object.assign(out, { resign: true });
-    // パスは、駄目・コウ・アタリが残っていないときだけ
-    if (!must && ((d.oppPassed && ahead) || (d.moveNum >= 30 && settled && ahead))) return Object.assign(out, { move: -1 });
+    // 相手がパスした後：形勢がはっきりしていれば、ツナギ・コウ・ダメだけを打ち、残りはパス
+    if (d.oppPassed && (ahead || settled)) {
+      const pick = list => list.slice().sort((a, z) => {
+        const na = (root.children.find(x => x.move === a) || { N: 0 }).N, nz = (root.children.find(x => x.move === z) || { N: 0 }).N;
+        return nz - na;
+      })[0];
+      if (eg.saves.length) return Object.assign(out, { move: pick(eg.saves) });
+      if (eg.kos.length) return Object.assign(out, { move: pick(eg.kos) });
+      if (eg.dames.length) return Object.assign(out, { move: pick(eg.dames) });
+      return Object.assign(out, { move: -1 });
+    }
+    // 自分からパスするのは、ツナギ・コウ・ダメが残っていないときだけ
+    if (!must && d.moveNum >= 30 && settled && ahead) return Object.assign(out, { move: -1 });
     let choice = best;
     // 弱いbotほど、2〜5番手の手もときどき選ぶ
     const T = Math.max(0, 0.7 - 0.15 * S);
@@ -422,10 +494,26 @@
     return Object.assign(out, { move: choice.move });
   }
 
+  // 相手（人）の手番中の先読み。少しずつ進め、メッセージを受け取れるようにする
+  let pondering = false, ponderCap = 0;
+  function ponderStart(d) {
+    const last = d.last === undefined ? -1 : d.last;
+    tree = treeFor(d.board, d.toPlay, d.ko, d.komi, last);
+    ponderCap = tree.root.N + budget(Math.max(0, Math.min(9, d.level)), 1e9).playouts;
+    if (!pondering) { pondering = true; setTimeout(ponderStep, 0); }
+  }
+  function ponderStep() {
+    if (!pondering || !tree) { pondering = false; return; }
+    tree.run(ponderCap, Date.now() + 30);
+    if (tree.root.N >= ponderCap || !tree.root.children.length) { pondering = false; return; }
+    setTimeout(ponderStep, 0);
+  }
+  function ponderStop() { pondering = false; }
+
   // 検討用：一番強い設定で読んだ候補手（上位3つ）
   function analyze(d) {
     const f = FB.fromArray(d.board, d.ko);
-    const { root, n } = search(f, d.toPlay, 400000, d.ms || 5000, d.komi, d.last === undefined ? -1 : d.last);
+    const { root, n } = search(f, d.toPlay, 400000, Math.min(d.ms || MAX_MS, MAX_MS), d.komi, d.last === undefined ? -1 : d.last);
     if (!n) return { cands: [], playouts: 0 };
     const sorted = root.children.slice().sort((a, z) => z.N - a.N).slice(0, 3);
     return { cands: sorted.map(ch => ({ move: ch.move, wr: ch.N ? ch.W / ch.N : 0.5, visits: ch.N })), playouts: n };
@@ -443,15 +531,17 @@
     return Array.from(own, v => v / n);
   }
 
-  const api = { N, NN, NB, DG, group, play, think, analyze, ownership, FB };
+  const api = { N, NN, NB, DG, group, play, think, analyze, ownership, FB, ponderStart, ponderStop, budget,  resetTree: () => { tree = null; pondering = false; } };
   root.GoEngine = api;
 
   if (typeof window === 'undefined' && typeof self !== 'undefined') {
     self.onmessage = e => {
       const d = e.data;
-      if (d.type === 'think') self.postMessage(Object.assign({ id: d.id }, think(d)));
-      else if (d.type === 'analyze') self.postMessage(Object.assign({ id: d.id }, analyze(d)));
-      else if (d.type === 'score') self.postMessage({ id: d.id, own: ownership(d.board, d.n || 800) });
+      if (d.type === 'think') { ponderStop(); self.postMessage(Object.assign({ id: d.id }, think(d))); }
+      else if (d.type === 'ponder') ponderStart(d);
+      else if (d.type === 'stop') { ponderStop(); tree = null; }
+      else if (d.type === 'analyze') { ponderStop(); self.postMessage(Object.assign({ id: d.id }, analyze(d))); }
+      else if (d.type === 'score') ponderStop(), self.postMessage({ id: d.id, own: ownership(d.board, d.n || 800) });
     };
   }
 })(typeof self !== 'undefined' ? self : this);
