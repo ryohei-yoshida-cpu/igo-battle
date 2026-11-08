@@ -112,8 +112,9 @@
     <header class="bar">
       <button class="btn lac small" id="rdBack">← もどる</button>
       <div class="rd-title"><b id="rdStory"></b><small id="rdPart"></small></div>
-      <span class="rd-count" id="rdCount"></span>
+      <div class="rd-side"><span class="rd-count" id="rdCount"></span><button class="btn lac small skip" id="rdSkip" type="button">実戦へ ≫</button></div>
     </header>
+    <p class="rd-note" id="rdNote" hidden>※ この脚本は、九路 Blitz のキャラクター・ストーリーとは関係ありません。</p>
     <div class="rd-stage" id="rdStage">
       <div class="rd-card" id="rdCard" hidden>
         <div class="rd-card-k" id="rdCardK"></div>
@@ -134,7 +135,7 @@
     <header class="bar">
       <button class="btn lac small" id="lsBack">← もどる</button>
       <div class="rd-title"><b id="lsTitle"></b><small id="lsStep"></small></div>
-      <span></span>
+      <button class="btn lac small skip" id="lsSkip" type="button" hidden>実戦へ ≫</button>
     </header>
     <div class="board-wrap small" id="lsWrap">
       <svg id="lboard" viewBox="-0.15 -0.15 9.3 9.3" role="img" aria-label="レクチャーの盤">

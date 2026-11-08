@@ -31,7 +31,7 @@
     for (const st of STORIES) {
       if (st.user && !userHead) {
         userHead = true;
-        const h = document.createElement('div'); h.className = 'story-sub'; h.textContent = '読み物 ― 囲碁とは関係のない脚本集';
+        const h = document.createElement('div'); h.className = 'story-sub'; h.innerHTML = '<span>読み物 ― オリジナル脚本</span><small>キャラクターとストーリーは関係ありません</small>';
         list.append(h);
       }
       const n = st.parts.length, op = opened(st.id), done = S.solo.read && S.solo.read[st.id];
@@ -68,6 +68,7 @@
     RD = { story, part, line: 0, typing: false };
     P.showScreen('reader');
     $('#rdStory').textContent = story.title;
+    $('#rdNote').hidden = !story.user;
     showLine();
   }
   function showLine() {
@@ -78,6 +79,9 @@
     const nm = $('#rdName'); nm.textContent = who; nm.className = 'rd-name ' + nameClass(who);
     const tx = $('#rdText'); tx.className = 'rd-text' + (who ? '' : ' narr');
     $('#rdCount').textContent = `${RD.line + 1}/${part.lines.length}`;
+    const last = RD.part >= RD.story.parts.length - 1;
+    $('#rdSkip').hidden = false;
+    $('#rdSkip').textContent = last ? '最後へ ≫' : opened(RD.story.id) > RD.part ? '次の幕へ ≫' : '実戦へ ≫';
     // 1文字ずつ表示（タップで全文）
     clearInterval(typeT); RD.typing = true;
     let i = 0; tx.textContent = '';
@@ -95,7 +99,7 @@
     endOfPart();
   }
   function card(kicker, title, desc, buttons) {
-    $('#rdBox').hidden = true;
+    $('#rdBox').hidden = true; $('#rdSkip').hidden = true;
     $('#rdCard').hidden = false;
     $('#rdCardK').textContent = kicker; $('#rdCardT').textContent = title; $('#rdCardD').textContent = desc;
     const bx = $('#rdCardBtns'); bx.innerHTML = '';
@@ -145,6 +149,8 @@
   $('#rdBox').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advance(); } });
   $('#rdStage').addEventListener('click', e => { if (e.target.closest('#rdCard')) return; advance(); });
   $('#rdBack').onclick = () => { clearInterval(typeT); open(); };
+  // この幕の残りをとばして、幕の終わり（ミッション）へ
+  $('#rdSkip').onclick = e => { e.stopPropagation(); if (!RD || !$('#rdCard').hidden) return; clearInterval(typeT); RD.typing = false; P.sound('tap'); endOfPart(); };
 
   /* ================= レクチャー ================= */
   const TS = window.Tsume;
@@ -202,8 +208,10 @@
     drawLesson();
     say(t.who, t.text);
     buttons(true, false, false, LS.i < LS.l.talk.length - 1 ? '次へ' : '実戦問題へ');
+    $('#lsSkip').hidden = LS.i >= LS.l.talk.length - 1;
   }
   function probStep() {
+    $('#lsSkip').hidden = true;
     const pr = LS.l.problems[LS.pi];
     $('#lsStep').textContent = `実戦問題 ${LS.pi + 1}/${LS.l.problems.length}`;
     LS.board = pr.board ? parse(pr.board) : new Array(81).fill(0);
@@ -316,10 +324,7 @@
     if (!LS) return;
     if (LS.phase === 'talk') {
       if (LS.i < LS.l.talk.length - 1) { LS.i++; talkStep(); }
-      else {
-        LS.phase = 'prob'; LS.pi = 0; LS.lock = true;
-        P.jissen(`${LS.l.title}・全${LS.l.problems.length}問`, () => { if (LS) probStep(); });
-      }
+      else toProblems();
       return;
     }
     if (LS.phase === 'prob' && LS.solved) {
@@ -330,6 +335,12 @@
       done(true);
     }
   };
+  function toProblems() {
+    LS.phase = 'prob'; LS.pi = 0; LS.lock = true; $('#lsSkip').hidden = true;
+    P.jissen(`${LS.l.title}・全${LS.l.problems.length}問`, () => { if (LS) probStep(); });
+  }
+  // 説明をとばして実戦問題へ
+  $('#lsSkip').onclick = () => { if (LS && LS.phase === 'talk') { P.sound('tap'); toProblems(); } };
   $('#lsHint').onclick = () => { if (LS && LS.phase === 'prob') { const pr = LS.l.problems[LS.pi]; say(whoOf(pr), pr.hint || 'よく見てみて！'); } };
   $('#lsRetry').onclick = () => { if (LS && LS.phase === 'prob') probStep(); };
   $('#lsBack').onclick = () => { if (!LS) return; const done = LS.onDone; LS = null; done(false); };
