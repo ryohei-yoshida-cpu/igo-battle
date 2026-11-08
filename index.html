@@ -5,20 +5,37 @@
 <title>九路 Blitz</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#04050d">
+<meta name="theme-color" content="#120d0a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Yuji+Syuku&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="sky" aria-hidden="true"></canvas>
-<div class="shooting" aria-hidden="true"><i></i><i></i></div>
+<svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <defs>
+          <radialGradient id="gB" cx="35%" cy="28%" r="75%"><stop offset="0" stop-color="#6a6a70"/><stop offset=".38" stop-color="#26262b"/><stop offset="1" stop-color="#050506"/></radialGradient>
+          <radialGradient id="gW" cx="35%" cy="28%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f3efe4"/><stop offset="1" stop-color="#bdb5a3"/></radialGradient>
+          <pattern id="grain" width="9" height="0.7" patternUnits="userSpaceOnUse"><path d="M0 .2 Q 4.5 .32 9 .18" stroke="#8a5a1c" stroke-opacity=".12" stroke-width=".05" fill="none"/><path d="M0 .52 Q 4.5 .44 9 .56" stroke="#8a5a1c" stroke-opacity=".08" stroke-width=".035" fill="none"/></pattern>
+        </defs>
+</svg>
+<canvas id="room" aria-hidden="true"></canvas>
+<div id="roomDim" aria-hidden="true"></div>
+
+<!-- タイトル -->
+<section id="title" aria-label="タイトル">
+  <div class="tt-logo">
+    <div class="tt-seal">碁</div>
+    <h1><span>九路</span><b>BLITZ</b></h1>
+    <p>九路盤の早碁と、ちいさな物語</p>
+  </div>
+  <button class="tt-start" id="ttStart">画面をタップしてはじめる</button>
+</section>
 
 <div id="app">
 
   <!-- ホーム -->
-  <section id="home" class="screen">
+  <section id="home" class="screen" hidden>
     <header class="brand">
       <div class="logo"><b>九路</b><span>BLITZ</span></div>
       <button class="icon-btn" id="openSettings" aria-label="設定">
@@ -31,7 +48,7 @@
       <div class="hero-info">
         <div class="hero-name" id="homeName"></div>
         <div class="hero-rank" id="homeRank"></div>
-        <div class="hero-rate"><small>RATE</small><b id="homeRate"></b></div>
+        <div class="hero-rate"><small>レート</small><b id="homeRate"></b></div>
         <div class="rank-bar"><i id="rankBar"></i></div>
         <div class="rank-next" id="rankNext"></div>
       </div>
@@ -42,13 +59,15 @@
       <span class="mb-sub">9路・5分＋1手5秒・コミ7目（持碁あり）</span>
     </button>
 
-    <div class="row2">
-      <label class="bot-pick" for="botLevel">
-        <span>Botの強さ</span>
-        <select id="botLevel"></select>
-      </label>
-      <button class="btn glass" id="openReview">検討モード</button>
+    <div class="menu2">
+      <button class="menu-card" id="openSolo"><b>ソロモード</b><small>物語とミッション</small></button>
+      <button class="menu-card" id="openReview"><b>検討モード</b><small>盤を自由に並べる</small></button>
     </div>
+
+    <label class="bot-pick" for="botLevel">
+      <span>ランダムマッチのBot</span>
+      <select id="botLevel"></select>
+    </label>
 
     <div class="stats">
       <div><small>対局</small><b id="stGames">0</b></div>
@@ -62,11 +81,86 @@
     <ol class="history" id="history"></ol>
   </section>
 
+  <!-- ソロモード -->
+  <section id="solo" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="soloBack">← ホーム</button>
+      <h2>ソロモード</h2>
+      <span></span>
+    </header>
+    <div class="panel">
+      <div class="panel-h">続きを読むためのミッション</div>
+      <div class="seg" role="radiogroup" aria-label="ミッションの種類">
+        <button type="button" role="radio" id="soloBeginner">初心者<small>レクチャー</small></button>
+        <button type="button" role="radio" id="soloExpert">経験者<small>Botと対局</small></button>
+      </div>
+      <p class="note" id="soloDesc"></p>
+      <label class="bot-pick" for="soloBot" id="soloBotRow">
+        <span>対局するBot</span>
+        <select id="soloBot"></select>
+      </label>
+    </div>
+    <h3 class="sec-h">物語をえらぶ</h3>
+    <div class="stories" id="storyList"></div>
+    <h3 class="sec-h" id="lessonHead">レクチャー<small>クリアしたものは何度でも復習できます</small></h3>
+    <div class="lessons" id="lessonList"></div>
+  </section>
+
+  <!-- 脚本を読む -->
+  <section id="reader" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="rdBack">← もどる</button>
+      <div class="rd-title"><b id="rdStory"></b><small id="rdPart"></small></div>
+      <span class="rd-count" id="rdCount"></span>
+    </header>
+    <div class="rd-stage" id="rdStage">
+      <div class="rd-card" id="rdCard" hidden>
+        <div class="rd-card-k" id="rdCardK"></div>
+        <div class="rd-card-t" id="rdCardT"></div>
+        <p class="rd-card-d" id="rdCardD"></p>
+        <div class="rd-card-btns" id="rdCardBtns"></div>
+      </div>
+    </div>
+    <div class="rd-box" id="rdBox" role="button" tabindex="0" aria-label="次へ">
+      <div class="rd-name" id="rdName"></div>
+      <p class="rd-text" id="rdText"></p>
+      <span class="rd-next" aria-hidden="true">▼</span>
+    </div>
+  </section>
+
+  <!-- レクチャー -->
+  <section id="lesson" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="lsBack">← もどる</button>
+      <div class="rd-title"><b id="lsTitle"></b><small id="lsStep"></small></div>
+      <span></span>
+    </header>
+    <div class="board-wrap small" id="lsWrap">
+      <svg id="lboard" viewBox="-0.15 -0.15 9.3 9.3" role="img" aria-label="レクチャーの盤">
+        <rect class="bd-bg" x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".22"/>
+        <rect class="bd-grain" x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".22" fill="url(#grain)"/>
+        <g class="grid"></g><g class="stones"></g><g class="marks"></g>
+      </svg>
+    </div>
+    <div class="ls-talk">
+      <img class="ls-face" id="lsFace" alt="">
+      <div class="ls-bubble">
+        <div class="rd-name" id="lsName"></div>
+        <p id="lsText"></p>
+      </div>
+    </div>
+    <div class="ls-btns">
+      <button class="btn lac" id="lsHint">ヒント</button>
+      <button class="btn lac" id="lsRetry">やり直す</button>
+      <button class="btn primary" id="lsNext">次へ</button>
+    </div>
+  </section>
+
   <!-- 対局・検討 -->
   <section id="game" class="screen" hidden>
     <div class="rv-top" id="rvTop" hidden>
       <div class="rv-title"><b>検討</b><span id="rvMove">0手目</span><em id="rvBranch" hidden>変化図</em></div>
-      <button class="btn glass small" id="rvClose">閉じる</button>
+      <button class="btn lac small" id="rvClose">閉じる</button>
     </div>
     <div class="pbar op" id="opBar">
       <img class="pb-ava" id="opAvatar" alt="">
@@ -79,15 +173,9 @@
 
     <div class="board-wrap" id="boardWrap">
       <svg id="board" viewBox="-0.15 -0.15 9.3 9.3" role="img" aria-label="9路盤">
-        <defs>
-          <radialGradient id="gB" cx="35%" cy="30%" r="72%"><stop offset="0" stop-color="#5d6390"/><stop offset=".42" stop-color="#1a1c33"/><stop offset="1" stop-color="#05060c"/></radialGradient>
-          <radialGradient id="gW" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#eaf0ff"/><stop offset="1" stop-color="#a9b4d6"/></radialGradient>
-          <pattern id="grain" width="9" height="0.7" patternUnits="userSpaceOnUse"><path d="M0 .2 Q 4.5 .32 9 .18" stroke="#8a5a1c" stroke-opacity=".10" stroke-width=".05" fill="none"/><path d="M0 .52 Q 4.5 .44 9 .56" stroke="#8a5a1c" stroke-opacity=".07" stroke-width=".035" fill="none"/></pattern>
-          <filter id="glowF" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".06"/></filter>
-        </defs>
         <rect class="bd-bg" x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".22"/>
         <rect class="bd-grain" x="-0.15" y="-0.15" width="9.3" height="9.3" rx=".22" fill="url(#grain)"/>
-        <g id="grid"></g>
+        <g id="grid" class="grid"></g>
         <g id="terr"></g>
         <g id="stones"></g>
         <g id="marks"></g>
@@ -111,16 +199,16 @@
 
     <div class="rv-panel" id="rvPanel" hidden>
       <div class="rv-nav">
-        <button class="btn glass" id="rvFirst" aria-label="最初へ">⏮</button>
-        <button class="btn glass" id="rvPrev" aria-label="1手戻る">◀</button>
+        <button class="btn lac" id="rvFirst" aria-label="最初へ">⏮</button>
+        <button class="btn lac" id="rvPrev" aria-label="1手戻る">◀</button>
         <span class="rv-turn" id="rvTurn"></span>
-        <button class="btn glass" id="rvNext" aria-label="1手進む">▶</button>
-        <button class="btn glass" id="rvLast" aria-label="最後へ">⏭</button>
+        <button class="btn lac" id="rvNext" aria-label="1手進む">▶</button>
+        <button class="btn lac" id="rvLast" aria-label="最後へ">⏭</button>
       </div>
       <div class="rv-tools">
         <button class="btn primary" id="rvHint">AIの次の一手</button>
-        <button class="btn glass" id="rvPass">パス</button>
-        <button class="btn glass" id="rvMain" disabled>本譜に戻る</button>
+        <button class="btn lac" id="rvPass">パス</button>
+        <button class="btn lac" id="rvMain" disabled>本譜に戻る</button>
       </div>
       <div class="rv-hint" id="rvHintOut" hidden></div>
       <p class="rv-note">盤をタップすると次の手を自由に打てます。AIの強さは1級くらいで、まだ強くありません。初心者向けの参考としてお使いください。</p>
@@ -128,14 +216,14 @@
 
     <div class="actions" id="playActions">
       <div class="turn-msg" id="turnMsg"></div>
-      <button class="btn glass" id="passBtn">パス</button>
+      <button class="btn lac" id="passBtn">パス</button>
       <button class="btn danger" id="resignBtn">投了</button>
     </div>
   </section>
 
   <!-- マッチング -->
   <div class="overlay" id="matching" hidden>
-    <div class="orbit"><i></i><i></i><i></i><img id="mtMe" alt=""></div>
+    <div class="orbit"><i></i><i></i><img id="mtMe" alt=""></div>
     <div class="mt-title" id="mtTitle">対戦相手を探しています</div>
     <div class="mt-sub" id="mtSub"></div>
     <div class="mt-found" id="mtFound" hidden>
@@ -150,17 +238,16 @@
       <label class="toggle"><input type="checkbox" id="optNoBot"><i></i>Botとはマッチしない</label>
       <p class="mt-note" id="mtNoBotNote" hidden>人と対戦する仕組みはまだ準備中です。いまはチェックを入れると相手が見つからないまま待ち続けます。</p>
       <div class="mt-btns">
-        <button class="btn glass" id="matchReview">待っている間に検討する</button>
+        <button class="btn lac" id="matchReview">待っている間に検討する</button>
         <button class="btn danger" id="cancelMatch">キャンセル</button>
       </div>
     </div>
   </div>
 
-  <!-- 待機中の表示（検討モード中） -->
   <div class="match-pill" id="matchPill" hidden>
     <span class="mp-dot"></span>
     <span id="mpText">対戦相手を探しています</span>
-    <button class="btn glass small" id="mpOpen">表示</button>
+    <button class="btn lac small" id="mpOpen">表示</button>
   </div>
 
   <!-- 結果 -->
@@ -169,13 +256,13 @@
     <div class="res-kanji" id="resKanji">勝</div>
     <div class="res-reason" id="resReason"></div>
     <div class="res-score" id="resScore"></div>
-    <div class="res-rate">
+    <div class="res-rate" id="resRate">
       <span id="resOld"></span><span class="arrow">→</span><b id="resNew"></b><em id="resDelta"></em>
     </div>
     <div class="res-promo" id="resPromo" hidden></div>
     <div class="res-btns">
-      <button class="btn glass" id="resBoard">検討する</button>
-      <button class="btn glass" id="resHome">ホーム</button>
+      <button class="btn lac" id="resBoard">検討する</button>
+      <button class="btn lac" id="resHome">ホーム</button>
       <button class="btn primary" id="resAgain">もう一局</button>
     </div>
   </div>
@@ -191,14 +278,14 @@
 
       <div class="field"><span>アバター（技のカットインにも登場します）</span>
         <div class="av-grid" id="avGrid"></div>
-        <label class="btn glass small" for="avUpload">写真を使う</label>
+        <label class="btn lac small" for="avUpload">写真を使う</label>
         <input type="file" id="avUpload" accept="image/*" hidden>
       </div>
 
       <div class="field"><span>盤のデザイン</span>
         <div class="seg" role="radiogroup" aria-label="盤のデザイン">
-          <button type="button" role="radio" id="boardSpace">宇宙（透明な盤）</button>
-          <button type="button" role="radio" id="boardWood">木の盤</button>
+          <button type="button" role="radio" id="boardKaya">榧の盤</button>
+          <button type="button" role="radio" id="boardWashi">和紙（半透明）</button>
         </div>
       </div>
 
@@ -215,12 +302,11 @@
     </div>
   </div>
 
-  <!-- 確認ダイアログ -->
   <div class="overlay dim" id="confirm" hidden>
     <div class="dialog">
       <p id="cfText"></p>
       <div class="res-btns">
-        <button class="btn glass" id="cfNo">やめる</button>
+        <button class="btn lac" id="cfNo">やめる</button>
         <button class="btn danger" id="cfYes">はい</button>
       </div>
     </div>
@@ -229,11 +315,14 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<!-- 技のカットイン -->
 <div id="cutin" aria-live="polite"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
 
 <script src="art.js"></script>
 <script src="engine.js"></script>
+<script src="lessons.js"></script>
+<script src="stories.js"></script>
 <script src="app.js"></script>
+<script src="solo.js"></script>
 </body>
 </html>

@@ -33,12 +33,15 @@
       name: 'あなた', avatar: { type: 'preset', id: 0 },
       rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1,
       bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [],
-      settings: { confirm: true, fx: true, sound: true, board: 'space' }, botLevel: 'auto', noBot: false
+      settings: { confirm: true, fx: true, sound: true, board: 'kaya' }, botLevel: 'auto', noBot: false,
+      solo: { mode: 'beginner', bot: 3, open: {}, lessons: [] }
     };
   }
   let S = fresh();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
-  S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'space' }, S.settings);
+  S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
+  if (S.settings.board !== 'washi') S.settings.board = 'kaya';
+  S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
   if (S.avatar.type === 'preset') S.avatar.id = ((S.avatar.id | 0) % A.VARIANTS.length + A.VARIANTS.length) % A.VARIANTS.length;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -54,17 +57,36 @@
     if (!S.settings.sound) return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-      const t = actx.currentTime;
-      const len = kind === 'cap' ? 0.12 : 0.06;
-      const buf = actx.createBuffer(1, actx.sampleRate * len, actx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'cap' ? 3 : 6);
-      const src = actx.createBufferSource(); src.buffer = buf;
-      const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = kind === 'cap' ? 900 : 2200; f.Q.value = 1.2;
-      const g = actx.createGain(); g.gain.setValueAtTime(kind === 'cap' ? 0.9 : 0.7, t);
-      src.connect(f).connect(g).connect(actx.destination); src.start(t);
+      if (actx.state === 'suspended') actx.resume();
+      const t = actx.currentTime, out = actx.destination;
+      const noise = (len, freq, q, gain, decay) => {
+        const buf = actx.createBuffer(1, Math.max(1, actx.sampleRate * len | 0), actx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, decay);
+        const src = actx.createBufferSource(); src.buffer = buf;
+        const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+        const g = actx.createGain(); g.gain.value = gain;
+        src.connect(f).connect(g).connect(out); src.start(t);
+      };
+      const tone = (freq, len, gain, type, slide) => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+        if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + len);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        o.connect(g).connect(out); o.start(t); o.stop(t + len + 0.02);
+      };
+      if (kind === 'tap') { tone(1568, 0.16, 0.05); tone(2349, 0.12, 0.025); return; }
+      if (kind === 'bad') { tone(330, 0.12, 0.06, 'triangle', 220); return; }
+      if (kind === 'ok') { tone(784, 0.18, 0.07); setTimeout(() => sound('ok2'), 90); return; }
+      if (kind === 'ok2') { tone(1175, 0.3, 0.07); tone(1568, 0.3, 0.035); return; }
+      // 石の音：硬いカチッ＋盤の響き
+      noise(0.05, 3200, 1.4, 0.9, 7);
+      noise(0.09, 1300, 0.9, 0.45, 4);
+      tone(190, 0.14, 0.22, 'sine', 120);
+      if (kind === 'cap') { setTimeout(() => { try { noise(0.04, 2600, 1.2, 0.5, 6); noise(0.04, 2900, 1.2, 0.4, 6); } catch (e) {} }, 70); }
     } catch (e) {}
   }
+  const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
 
   /* ---------- bot（Web Worker） ---------- */
   let worker = null, reqId = 0;
@@ -83,9 +105,12 @@
 
   /* ---------- アバター・キャラ ---------- */
   const charaIdx = () => S.avatar.type === 'preset' ? S.avatar.id : 0;
-  const myAvatarSrc = () => (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : A.alienUri(charaIdx());
+  const myCharaSrc = () => A.charaUri(charaIdx());
+  const rivalSrc = () => A.charaUri(A.rivalOf(charaIdx()));
+  const rivalName = () => A.VARIANTS[A.rivalOf(charaIdx())].kind === 'gensai' ? '玄斎' : '小春';
+  const myAvatarSrc = () => (S.avatar.type === 'img' && S.avatar.data) ? S.avatar.data : myCharaSrc();
   const setImg = (el, src) => { if (el.getAttribute('src') !== src) el.src = src; };
-  function applyBoardStyle() { document.body.classList.toggle('wood', S.settings.board === 'wood'); }
+  function applyBoardStyle() { document.body.classList.toggle('washi', S.settings.board === 'washi'); }
 
   // 人の手番中にBotが先読みする（Botの1手は5秒以内）
   function ponder() {
@@ -95,20 +120,27 @@
   function stopPonder() { if (worker) worker.postMessage({ type: 'stop' }); }
 
   /* ---------- 盤の静的部分 ---------- */
-  (function drawGrid() {
-    const g = $('#grid'); let s = '';
-    let glow = '';
+  function drawGrid(g) {
+    let s = '';
     for (let i = 0; i < 9; i++) {
-      const v = i + 0.5, edge = i === 0 || i === 8, w = edge ? 0.05 : 0.028;
-      for (const [x1, y1, x2, y2] of [[0.5, v, 8.5, v], [v, 0.5, v, 8.5]]) {
-        glow += `<line class="gl-glow" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${w * 3}"/>`;
-        s += `<line class="gl${edge ? ' edge' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${w}"/>`;
-      }
+      const v = i + 0.5, edge = i === 0 || i === 8, w = edge ? 0.05 : 0.026;
+      s += `<line class="gl" x1="0.5" y1="${v}" x2="8.5" y2="${v}" stroke-width="${w}"/><line class="gl" x1="${v}" y1="0.5" x2="${v}" y2="8.5" stroke-width="${w}"/>`;
     }
-    s = `<g filter="url(#glowF)">${glow}</g>` + s;
     for (const [x, y] of [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]]) s += `<circle class="hoshi" cx="${x + .5}" cy="${y + .5}" r=".09"/>`;
     g.innerHTML = s;
-  })();
+  }
+  document.querySelectorAll('svg .grid').forEach(drawGrid);
+  // 盤上の点 → 画面座標
+  function pointXY(svg, p) {
+    const r = svg.getBoundingClientRect();
+    return [r.left + (p % 9 + .65) / 9.3 * r.width, r.top + (((p / 9) | 0) + .65) / 9.3 * r.height];
+  }
+  function stoneFx(svg, p, color, wrap) {
+    const [x, y] = pointXY(svg, p);
+    A.burst(x, y, color === 1 ? 'black' : 'white');
+    if (wrap) { wrap.classList.remove('thump'); void wrap.offsetWidth; wrap.classList.add('thump'); }
+    buzz(12);
+  }
 
   /* ---------- 技の判定 ---------- */
   function techOf(prev, next, p, c, cap, ko, moveNo) {
@@ -176,7 +208,7 @@
     el.className = `cut t${tier} ${mine ? 'me' : 'op'}`;
     el.style.setProperty('--y', cy + 'px');
     el.innerHTML = `${tier === 2 ? '<div class="flash"></div>' : ''}<div class="band"></div><img class="chara" alt=""><div class="name"></div>`;
-    el.querySelector('.chara').src = mine ? A.alienUri(charaIdx()) : A.robotUri();
+    el.querySelector('.chara').src = mine ? myCharaSrc() : rivalSrc();
     el.querySelector('.name').textContent = name;
     layer.append(el);
     if (tier === 2) { const bw = $('#boardWrap'); bw.classList.remove('shake'); void bw.offsetWidth; bw.classList.add('shake'); }
@@ -206,7 +238,7 @@
 
   /* ---------- ホーム描画 ---------- */
   function renderHome() {
-    setImg($('#heroChara'), A.alienUri(charaIdx()));
+    setImg($('#heroChara'), myCharaSrc());
     $('#homeName').textContent = S.name;
     const dr = displayRank();
     $('#homeRank').textContent = RANKS[dr];
@@ -244,22 +276,30 @@
     }
   }
 
+  /* ---------- 画面の切り替え ---------- */
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson'];
+  function showScreen(id) {
+    for (const k of SCREENS) $('#' + k).hidden = k !== id;
+    A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
+  }
+
   /* ---------- 対局 ---------- */
   let G = null, gameSeq = 0, R = null;
   const clockOf = c => G.clock[c] - (G.toPlay === c && !G.over ? performance.now() - G.turnStart : 0);
   const fmt = ms => { ms = Math.max(0, ms); const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
-  function newGame(bot, myColor) {
+  function newGame(bot, myColor, opts) {
+    opts = opts || {};
     gameSeq++;
     G = {
       id: gameSeq, board: new Array(81).fill(0), toPlay: 1, ko: -1, me: myColor, bot,
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
-      passes: 0, moveNo: 0, last: -1, over: false, record: [], pend: -1, thinking: false, net: null, final: null, lastDrop: -1
+      passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1
     };
-    try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name })); } catch (e) {}
-    $('#home').hidden = true; $('#game').hidden = false; setMode('play');
+    if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name })); } catch (e) {} }
+    showScreen('game'); setMode('play');
     setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
-    setImg($('#opAvatar'), A.robotUri()); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
+    setImg($('#opAvatar'), rivalSrc()); $('#opName').textContent = `${rivalName()}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`;
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
@@ -284,14 +324,14 @@
     }
     if (G.pend >= 0 && !G.board[G.pend]) {
       const x = G.pend % 9 + 0.5, y = ((G.pend / 9) | 0) + 0.5;
-      s += `<circle cx="${x}" cy="${y}" r=".44" fill="url(#g${G.me === 1 ? 'B' : 'W'})" opacity=".55"/><circle cx="${x}" cy="${y}" r=".2" fill="none" stroke="#5ef2ff" stroke-width=".06"/>`;
+      s += `<circle cx="${x}" cy="${y}" r=".44" fill="url(#g${G.me === 1 ? 'B' : 'W'})" opacity=".55"/><circle cx="${x}" cy="${y}" r=".2" fill="none" stroke="#e0503e" stroke-width=".06"/>`;
     }
     st.innerHTML = s;
     G.lastDrop = -1;
     let m = '';
     if (G.last >= 0 && G.board[G.last]) {
       const x = G.last % 9 + 0.5, y = ((G.last / 9) | 0) + 0.5;
-      m = `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${G.board[G.last] === 1 ? '#5ef2ff' : '#ff4fa3'}" stroke-width=".07"/>`;
+      m = `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${G.board[G.last] === 1 ? '#fff3dc' : '#e0503e'}" stroke-width=".07"/>`;
     }
     mk.innerHTML = m;
     let t = '';
@@ -341,6 +381,7 @@
     sound(r.cap.length ? 'cap' : 'stone');
     switchTurn();
     render();
+    stoneFx($('#board'), p, c, $('#boardWrap'));
     if (tech) fx(tech[0], tech[1], p, c === G.me);
     nextTurn();
     ponder();
@@ -430,7 +471,7 @@
     if (reason === '中押し') label = win ? '中押し勝ち' : '中押し負け';
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = '切断負け';
-    const r = applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
+    const r = G.solo ? null : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
     setTimeout(() => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r), scored ? 900 : 500);
@@ -439,14 +480,29 @@
   function showResult(win, label, scoreText, r) {
     const k = $('#resKanji');
     k.textContent = win > 0 ? '勝' : win === 0 ? '持' : '負';
-    const rc = $('#resChara'); setImg(rc, A.alienUri(charaIdx())); rc.className = 'res-chara' + (win < 0 ? ' lose' : '');
+    const rc = $('#resChara'); setImg(rc, myCharaSrc()); rc.className = 'res-chara' + (win < 0 ? ' lose' : '');
     k.className = 'res-kanji ' + (win > 0 ? '' : 'lose');
     void k.offsetWidth; k.classList.add('pop');
     $('#resReason').textContent = label;
     $('#resScore').textContent = scoreText;
+    if (win > 0) { const kr = k.getBoundingClientRect(); setTimeout(() => A.burst(kr.left + kr.width / 2, kr.top + kr.height / 2, 'win'), 250); sound('ok'); }
+    const pr = $('#resPromo');
+    $('#resRate').hidden = !r;
+    $('#resAgain').textContent = 'もう一局';
+    $('#resAgain').onclick = () => { leaveGame(); startMatch(); };
+    if (!r) {
+      // ソロモードのミッション対局（レートは変わらない）
+      const solo = G.solo, cleared = win > 0;
+      pr.hidden = false; pr.textContent = cleared ? 'ミッションクリア！' : 'ミッション失敗……もう一度挑戦しよう';
+      $('#resAgain').textContent = cleared ? '続きを読む' : 'もう一度挑戦';
+      $('#resAgain').onclick = () => { $('#result').hidden = true; const g = G; G = null; solo.done(cleared, g); };
+      $('#resHome').onclick = () => { $('#result').hidden = true; G = null; solo.back(); };
+      $('#result').hidden = false;
+      return;
+    }
+    $('#resHome').onclick = leaveGame;
     $('#resOld').textContent = r.old; $('#resNew').textContent = S.rating;
     const de = $('#resDelta'); de.textContent = (r.d >= 0 ? '+' : '') + r.d; de.className = r.d >= 0 ? 'up' : 'down';
-    const pr = $('#resPromo');
     if (r.newRank > r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`; }
     else if (r.newRank < r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に降${r.newRank >= DAN_FROM ? '段' : '級'}`; }
     else pr.hidden = true;
@@ -454,7 +510,7 @@
   }
 
   function leaveGame() {
-    $('#result').hidden = true; $('#game').hidden = true; $('#home').hidden = false;
+    $('#result').hidden = true; showScreen('home');
     G = null; renderHome();
   }
 
@@ -490,7 +546,7 @@
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
-    setImg($('#mtMe'), A.alienUri(charaIdx()));
+    setImg($('#mtMe'), myCharaSrc());
     $('#optNoBot').checked = !!S.noBot;
     $('#mtNoBotNote').hidden = !S.noBot;
     M.timer = setInterval(matchTick, 250);
@@ -520,8 +576,8 @@
     $('#matching').hidden = false; $('#mtOpts').hidden = true;
     $('#mtTitle').textContent = '対戦相手が見つかりました';
     $('#mtSub').textContent = M.fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました';
-    setImg($('#mtAvatar'), A.robotUri());
-    $('#mtName').textContent = bot.name;
+    setImg($('#mtAvatar'), rivalSrc());
+    $('#mtName').textContent = `${rivalName()}（${bot.name}）`;
     $('#mtRank').textContent = `レート ${bot.rating}`;
     $('#mtColor').textContent = myColor === 1 ? 'あなたは黒番（先手）' : 'あなたは白番（後手）';
     $('#mtFound').hidden = false;
@@ -556,7 +612,7 @@
     if (!G || G.over || G.toPlay !== G.me || G.net) return;
     const p = y * 9 + x;
     if (G.board[p]) return;
-    if (!E.play(G.board, p, G.me, G.ko)) { toast(p === G.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
+    if (!E.play(G.board, p, G.me, G.ko)) { const [bx, by] = pointXY($('#board'), p); A.burst(bx, by, 'bad'); sound('bad'); toast(p === G.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
     if (S.settings.confirm && G.pend !== p) { G.pend = p; render(); return; }
     doMove(p, G.me);
   });
@@ -566,10 +622,8 @@
   };
   $('#resignBtn').onclick = () => { if (G && !G.over) confirmBox('投了しますか？ 負けになります。', () => G && !G.over && endGame(3 - G.me, '中押し')); };
   $('#startMatch').onclick = () => { sound('stone'); startMatch(); };
-  $('#resHome').onclick = leaveGame;
-  $('#resAgain').onclick = () => { leaveGame(); startMatch(); };
   $('#resHome').addEventListener('click', stopPonder);
-  $('#resBoard').onclick = () => { const rec = G ? G.record.slice() : []; $('#result').hidden = true; G = null; openReview(rec); };
+  $('#resBoard').onclick = () => { const rec = G ? G.record.slice() : []; reviewBack = G && G.solo ? G.solo.back : null; $('#result').hidden = true; G = null; openReview(rec); };
 
   /* ---------- 設定 ---------- */
   function renderSettings() {
@@ -580,16 +634,17 @@
       b.type = 'button';
       b.setAttribute('aria-label', 'アバター ' + v.name);
       b.setAttribute('aria-pressed', String(S.avatar.type === 'preset' && S.avatar.id === i));
-      const im = document.createElement('img'); im.alt = ''; im.src = A.alienUri(i); b.append(im);
+      const im = document.createElement('img'); im.alt = ''; im.src = A.charaUri(i); b.append(im);
+      const nm = document.createElement('span'); nm.textContent = v.name; b.append(nm);
       b.onclick = () => { S.avatar = { type: 'preset', id: i }; save(); renderSettings(); renderHome(); };
       grid.append(b);
     });
-    $('#boardSpace').setAttribute('aria-checked', String(S.settings.board !== 'wood'));
-    $('#boardWood').setAttribute('aria-checked', String(S.settings.board === 'wood'));
+    $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
+    $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
     $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound;
   }
-  $('#boardSpace').onclick = () => { S.settings.board = 'space'; save(); applyBoardStyle(); renderSettings(); };
-  $('#boardWood').onclick = () => { S.settings.board = 'wood'; save(); applyBoardStyle(); renderSettings(); };
+  $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
+  $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
   $('#openSettings').onclick = () => { renderSettings(); $('#settings').hidden = false; };
   $('#closeSettings').onclick = () => { $('#settings').hidden = true; };
   $('#settings').addEventListener('click', e => { if (e.target.id === 'settings') $('#settings').hidden = true; });
@@ -623,6 +678,7 @@
   });
 
   /* ---------- 検討モード ---------- */
+  let reviewBack = null;
   const COLS = 'ABCDEFGHJ';
   const coord = p => p < 0 ? 'パス' : COLS[p % 9] + (9 - ((p / 9) | 0));
   function setMode(m) {
@@ -633,7 +689,7 @@
   }
   function openReview(rec) {
     R = { main: rec.slice(), line: rec.slice(), idx: rec.length, hint: null, hintReq: 0 };
-    $('#home').hidden = true; $('#game').hidden = false; $('#result').hidden = true;
+    showScreen('game'); $('#result').hidden = true;
     setMode('review');
     $('#fxLayer').innerHTML = '';
     reviewRender();
@@ -663,13 +719,13 @@
     let m = '';
     if (st.last >= 0) {
       const x = st.last % 9 + 0.5, y = ((st.last / 9) | 0) + 0.5;
-      m += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${st.b[st.last] === 1 ? '#5ef2ff' : '#ff4fa3'}" stroke-width=".07"/>`;
+      m += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${st.b[st.last] === 1 ? '#fff3dc' : '#e0503e'}" stroke-width=".07"/>`;
     }
     if (R.hint && R.hint.at === R.idx + ':' + R.line.slice(0, R.idx).join(',')) {
       R.hint.cands.forEach((h, i) => {
         if (h.move < 0) return;
         const x = h.move % 9 + 0.5, y = ((h.move / 9) | 0) + 0.5;
-        m += `<circle cx="${x}" cy="${y}" r=".38" fill="${i === 0 ? '#5ef2ff' : '#5ef2ffaa'}" stroke="#041018" stroke-width=".04"/><text x="${x}" y="${y + .15}" text-anchor="middle" font-size=".42" font-weight="900" fill="#041018" font-family="'M PLUS Rounded 1c', system-ui">${i + 1}</text>`;
+        m += `<circle cx="${x}" cy="${y}" r=".38" fill="${i === 0 ? '#e0503e' : '#e0503ebb'}" stroke="#fff3dc" stroke-width=".04"/><text x="${x}" y="${y + .15}" text-anchor="middle" font-size=".42" font-weight="900" fill="#fff6ea" font-family="'M PLUS Rounded 1c', system-ui">${i + 1}</text>`;
       });
     } else if (R.hint && !R.hint.loading) { R.hint = null; $('#rvHintOut').hidden = true; }
     $('#marks').innerHTML = m;
@@ -686,11 +742,12 @@
     else { R.line = R.line.slice(0, R.idx); R.line.push(p); R.idx++; }
     if (p >= 0) { R.drop = p; sound('stone'); }
     reviewRender();
+    if (p >= 0) stoneFx($('#board'), p, R.st.b[p] || 1, $('#boardWrap'));
   }
   function reviewTap(p) {
     const st = R.st;
     if (st.b[p]) return;
-    if (!E.play(st.b, p, st.c, st.ko)) { toast(p === st.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
+    if (!E.play(st.b, p, st.c, st.ko)) { const [bx, by] = pointXY($('#board'), p); A.burst(bx, by, 'bad'); sound('bad'); toast(p === st.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
     reviewPlay(p);
   }
   $('#rvFirst').onclick = () => { R.idx = 0; reviewRender(); };
@@ -701,7 +758,10 @@
   $('#rvMain').onclick = () => { const keep = Math.min(R.idx, R.main.length); let i = 0; while (i < keep && R.line[i] === R.main[i]) i++; R.line = R.main.slice(); R.idx = i; reviewRender(); };
   function closeReview(toGame) {
     R = null; $('#marks').innerHTML = ''; $('#rvHintOut').hidden = true;
-    if (!toGame) { $('#game').hidden = true; $('#home').hidden = false; renderHome(); }
+    if (!toGame) {
+      const back = reviewBack; reviewBack = null;
+      if (back) back(); else { showScreen('home'); renderHome(); }
+    }
   }
   $('#rvClose').onclick = () => {
     closeReview(false);
@@ -748,7 +808,36 @@
       setTimeout(() => toast(`前回の対局は途中で終了したため切断負けになりました（${r.d}）`, 4500), 400);
     }
   } catch (e) {}
+  /* ---------- タイトルとタップの心地よさ ---------- */
   applyBoardStyle();
-  A.startGalaxy($('#sky'));
+  A.startRoom($('#room'));
+  A.startFx($('#fx'));
+  A.setPetals(70);
+  document.body.classList.add('on-title');
+  // どこをタップしても、光と花びらと小さな音
+  document.addEventListener('pointerdown', e => {
+    A.burst(e.clientX, e.clientY, 'tap');
+    // 盤のタップは着手の音を鳴らすので、ここでは鳴らさない
+    if (!(e.target.closest && e.target.closest('#board, #lboard'))) sound('tap');
+  }, { passive: true });
+  function leaveTitle() {
+    if ($('#title').hidden) return;
+    $('#title').hidden = true; document.body.classList.remove('on-title');
+    showScreen('home'); renderHome();
+  }
+  $('#title').addEventListener('click', leaveTitle);
+  $('#title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') leaveTitle(); });
+  $('#openSolo').onclick = () => window.SOLO && window.SOLO.open();
+
+  // ソロモード（solo.js）から使う機能
+  window.APP = {
+    E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
+    drawGrid, pointXY, stoneFx, myCharaSrc, charaIdx,
+    startSoloGame(level, solo) {
+      const lv = Math.max(0, Math.min(BOT_MAX, level));
+      const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
+      newGame(bot, Math.random() < 0.5 ? 1 : 2, { solo });
+    }
+  };
   renderHome();
 })();
