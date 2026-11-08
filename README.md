@@ -54,3 +54,29 @@
 
 - 人間同士の対戦（オンライン対戦用のサーバーが必要）
 - Android アプリ化
+
+
+## 対人戦（Cloudflare）
+
+人どうしの対戦は Cloudflare Workers ＋ Durable Objects（無料プランで動く）で動きます。
+
+- `server/core.js` … マッチング・手の中継・時計（サーバーが正）・切断3分で負け・再接続で再開
+- `server/worker.js` … Cloudflare の入口。`/ws` が対人戦、それ以外はアプリのファイルを配る
+- `server/dev.mjs` … 手元で試すとき用（`node server/dev.mjs` → http://localhost:8787）
+- `wrangler.toml` / `.assetsignore` … Cloudflare の設定
+- `.github/workflows/deploy.yml` … main に push すると自動で Cloudflare に公開
+- `config.js` … GitHub Pages など別の場所で開くときだけ、サーバーの住所を書く
+
+### はじめての公開（1回だけ）
+
+1. https://dash.cloudflare.com/sign-up で Cloudflare のアカウントを作る（無料）
+2. 左のメニュー「Workers & Pages」を一度開く（workers.dev のサブドメインを決める画面が出たら決める）
+3. 右上の人のアイコン →「My Profile」→「API Tokens」→「Create Token」→「Edit Cloudflare Workers」の「Use template」→ そのまま「Continue to summary」→「Create Token」。出てきたトークンをコピー
+4. Cloudflare のトップ画面の右側にある「Account ID」をコピー
+5. GitHub の igo-battle →「Settings」→「Secrets and variables」→「Actions」→「New repository secret」で2つ登録
+   - `CLOUDFLARE_API_TOKEN` … 3 のトークン
+   - `CLOUDFLARE_ACCOUNT_ID` … 4 の Account ID
+6. GitHub の「Actions」タブ →「Deploy to Cloudflare」→「Run workflow」
+7. 数分で `https://igo-battle.<サブドメイン>.workers.dev` が開けるようになる。このURLを人に送れば対戦できる
+
+以後は push するたびに自動で更新されます。

@@ -1,0 +1,18 @@
+# 九路 Blitz — Cloudflare Workers の設定（GitHub に push すると自動で公開される）
+name = "igo-battle"
+main = "server/worker.js"
+compatibility_date = "2025-01-01"
+
+# アプリのファイル（このフォルダの中身）をそのまま配る。配らないものは .assetsignore に書く
+[assets]
+directory = "."
+binding = "ASSETS"
+
+# 対人戦のマッチングと中継をする Durable Object（無料プランで使える SQLite 版）
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Lobby"]

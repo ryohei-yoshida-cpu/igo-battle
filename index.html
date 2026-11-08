@@ -270,7 +270,7 @@
     </div>
     <div class="mt-opts" id="mtOpts">
       <label class="toggle"><input type="checkbox" id="optNoBot"><i></i>Botとはマッチしない</label>
-      <p class="mt-note" id="mtNoBotNote" hidden>人と対戦する仕組みはまだ準備中です。いまはチェックを入れると相手が見つからないまま待ち続けます。</p>
+      <p class="mt-note" id="mtNoBotNote" hidden>人が見つかるまで待ち続けます。待っている間は検討モードも使えます。</p>
       <div class="mt-btns">
         <button class="btn lac" id="matchReview">待っている間に検討する</button>
         <button class="btn danger" id="cancelMatch">キャンセル</button>
@@ -367,6 +367,7 @@
 </div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
+<script src="config.js"></script>
 <script src="art.js"></script>
 <script src="engine.js"></script>
 <script src="tsume.js"></script>

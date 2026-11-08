@@ -52,19 +52,19 @@
   /* ================= 実戦ドリル（自動生成の問題から3問） ================= */
   const DR = window.DRILLS || { cap1: [], cap3: [], save: [] };
   const DRILL_N = DR.cap1.length + DR.cap3.length + DR.save.length;
+  // 問題文とヒントは出題者（先生）の口調。正解のひとことは小春（玄斎が先生なら、横で見ている小春が喜ぶ）
   const DRILL_TEXT = {
-    cap1: { text: '白石を1手で取ってください！', good: '取れました！', hint: '白石の呼吸点は、あとひとつ。どこが空いてる？' },
-    cap3: { text: '白石を追いかけて取ってください。逃げられないように！', good: 'お見事、取り切りました！', hint: 'シチョウやゲタを思い出して。逃げ道の広い方をふさぐようにアタリ。' },
-    save: { text: 'アタリの黒石を助けてください！', good: '助かりました！ もう取られません。', hint: '呼吸点が増える方へ伸びるか、相手の石を取って逃げよう。' }
+    cap1: { 小春: ['白石を1手で取ってください！', '白石の呼吸点は、あとひとつ。どこが空いてる？'], 玄斎: ['白を1手で取ってみな。', '白の呼吸点は残りひとつだ。どこが空いてる？'], good: '取れました！' },
+    cap3: { 小春: ['白石を追いかけて取ってください。逃げられないように！', 'シチョウやゲタを思い出して。逃げ道の広い方をふさぐようにアタリ。'], 玄斎: ['白を追いかけて取り切れ。逃がすなよ。', 'シチョウかゲタだ。逃げ道の広い方からふさげ。'], good: '取り切りました！' },
+    save: { 小春: ['アタリの黒石を助けてください！', '呼吸点が増える方へ伸びるか、相手の石を取って逃げよう。'], 玄斎: ['黒がアタリだ。助けてみな。', '呼吸点が増える方へ伸びるか、白を取って逃げろ。'], good: '助かりました！ もう取られません。' }
   };
   const pick = a => a[(Math.random() * a.length) | 0];
   function makeDrill() {
     const teacher = Math.random() < .5 ? '小春' : '玄斎';
     const kinds = ['cap1', 'cap3', 'save'].filter(k => DR[k].length).sort(() => Math.random() - .5);
     const problems = kinds.map(k => {
-      const p = pick(DR[k]), t = DRILL_TEXT[k];
-      const text = teacher === '玄斎' ? t.text.replace('ください！', 'みな。').replace('ください。', 'みな。') : t.text;
-      return Object.assign({}, p, { text, good: t.good, hint: t.hint });
+      const p = pick(DR[k]), t = DRILL_TEXT[k], [text, hint] = t[teacher];
+      return Object.assign({}, p, { text, hint, good: t.good, goodWho: '小春' });
     });
     return {
       id: 'drill', drill: true, title: '実戦ドリル', teacher,
@@ -396,7 +396,7 @@
   function solved(msg) {
     const pr = LS.l.problems[LS.pi];
     LS.solved = true; LS.lock = true;
-    say(whoOf(pr), msg, 'ok');
+    say(pr.goodWho || whoOf(pr), msg, 'ok');
     P.sound('ok');
     const r = $('#lsWrap').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win');
     buttons(true, false, false, LS.pi < LS.l.problems.length - 1 ? '次の問題へ' : 'クリア！');
