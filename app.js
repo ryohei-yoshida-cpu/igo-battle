@@ -79,6 +79,12 @@
       if (kind === 'bad') { tone(330, 0.12, 0.06, 'triangle', 220); return; }
       if (kind === 'ok') { tone(784, 0.18, 0.07); setTimeout(() => sound('ok2'), 90); return; }
       if (kind === 'ok2') { tone(1175, 0.3, 0.07); tone(1568, 0.3, 0.035); return; }
+      if (kind === 'taiko') {
+        tone(78, 0.55, 0.6, 'sine', 46); noise(0.14, 180, 0.8, 1.2, 2.5);
+        setTimeout(() => { try { sound('taiko2'); } catch (e) {} }, 170);
+        return;
+      }
+      if (kind === 'taiko2') { tone(92, 0.6, 0.7, 'sine', 50); noise(0.18, 160, 0.8, 1.4, 2.2); return; }
       // 石の音：硬いカチッ＋盤の響き
       noise(0.05, 3200, 1.4, 0.9, 7);
       noise(0.09, 1300, 0.9, 0.45, 4);
@@ -829,10 +835,20 @@
   $('#title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') leaveTitle(); });
   $('#openSolo').onclick = () => window.SOLO && window.SOLO.open();
 
+  // 「実戦！」の演出（終わったら then を呼ぶ）
+  function jissen(sub, then) {
+    const el = $('#jissen');
+    $('#jsSub').textContent = sub || '';
+    el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+    sound('taiko'); buzz(35);
+    setTimeout(() => A.burst(window.innerWidth / 2, window.innerHeight / 2, 'win'), 260);
+    setTimeout(() => { el.hidden = true; el.classList.remove('go'); if (then) then(); }, 1700);
+  }
+
   // ソロモード（solo.js）から使う機能
   window.APP = {
     E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
-    drawGrid, pointXY, stoneFx, myCharaSrc, charaIdx,
+    drawGrid, pointXY, stoneFx, myCharaSrc, charaIdx, jissen,
     startSoloGame(level, solo) {
       const lv = Math.max(0, Math.min(BOT_MAX, level));
       const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };

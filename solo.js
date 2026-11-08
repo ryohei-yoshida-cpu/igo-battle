@@ -130,10 +130,10 @@
   }
   function resumeNext() { P.showScreen('reader'); RD.part++; RD.line = 0; showLine(); }
   function startGame(lv, back) {
-    P.startSoloGame(lv, {
+    P.jissen(`Bot ${P.RANKS[lv]}に勝て`, () => P.startSoloGame(lv, {
       done: (cleared) => { if (cleared) { unlockNext(); resumeNext(); } else startGame(lv, back); },
       back
-    });
+    }));
   }
   $('#rdBox').addEventListener('click', advance);
   $('#rdBox').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advance(); } });
@@ -141,13 +141,21 @@
   $('#rdBack').onclick = () => { clearInterval(typeT); open(); };
 
   /* ================= レクチャー ================= */
+  const TS = window.Tsume;
   let LS = null;
+  const voice = {
+    '小春': { wrong: 'うーん、そこじゃないみたい。', retry: 'おしい！ もう一度考えてみて。', illegal: 'そこには打てないみたい。', kou: 'コウだから、すぐには取り返せないよ。', escape: '白に逃げられちゃいました……。', dead: 'そこだと、白に取られちゃいます。', next: 'いいね、その調子！', cont: '白が逃げました。続けて！' },
+    '玄斎': { wrong: '違うな。もう一回だ。', retry: '惜しい。もう一度読め。', illegal: 'そこには打てねえ。', kou: 'コウだ。すぐには取り返せねえ。', escape: '白に逃げられた。やり直しだ。', dead: 'それだと取られちまう。', next: 'そうだ、その調子。', cont: '白が逃げた。続けてアタリだ。' }
+  };
+  const V = who => voice[who] || voice['小春'];
   function runLesson(lesson, onDone) {
     LS = { l: lesson, onDone, phase: 'talk', i: 0, pi: 0, board: new Array(81).fill(0), ko: -1, marks: [], last: -1, lock: false, solved: false };
     P.showScreen('lesson');
     $('#lsTitle').textContent = 'レクチャー：' + lesson.title;
+    $('#lsChoices').hidden = true;
     talkStep();
   }
+  const whoOf = pr => pr.who || LS.l.teacher;
   function say(who, text, mood) {
     P.setImg($('#lsFace'), faceOf(who));
     const nm = $('#lsName'); nm.textContent = who; nm.className = 'rd-name ' + nameClass(who);
@@ -192,10 +200,29 @@
   function probStep() {
     const pr = LS.l.problems[LS.pi];
     $('#lsStep').textContent = `実戦問題 ${LS.pi + 1}/${LS.l.problems.length}`;
-    LS.board = parse(pr.board); LS.ko = -1; LS.last = -1; LS.marks = []; LS.step = 0; LS.solved = false; LS.lock = false;
+    LS.board = pr.board ? parse(pr.board) : new Array(81).fill(0);
+    LS.ko = -1; LS.last = -1; LS.marks = []; LS.step = 0; LS.solved = false; LS.lock = false; LS.used = 0;
     drawLesson();
-    say(LS.l.teacher, pr.text);
-    buttons(false, true, true);
+    say(whoOf(pr), pr.text);
+    const ch = $('#lsChoices'); ch.innerHTML = '';
+    if (pr.type === 'choice') {
+      ch.hidden = false;
+      pr.choices.forEach((c, i) => {
+        const b = document.createElement('button'); b.className = 'btn lac'; b.type = 'button'; b.textContent = c;
+        b.onclick = () => choose(i, b);
+        ch.append(b);
+      });
+      buttons(false, true, false);
+    } else { ch.hidden = true; buttons(false, true, true); }
+  }
+  function choose(i, btn) {
+    if (!LS || LS.solved || LS.lock) return;
+    const pr = LS.l.problems[LS.pi];
+    if (i === pr.answer) { btn.classList.add('right'); solved(pr.good); }
+    else {
+      btn.classList.add('wrongc'); setTimeout(() => btn.classList.remove('wrongc'), 600);
+      wrong(V(whoOf(pr)).wrong + (pr.hint ? ' ' + pr.hint : ''));
+    }
   }
   function place(p, c) {
     const r = E.play(LS.board, p, c, LS.ko);
@@ -207,68 +234,69 @@
     return r;
   }
   function solved(msg) {
+    const pr = LS.l.problems[LS.pi];
     LS.solved = true; LS.lock = true;
-    say(LS.l.teacher, msg, 'ok');
+    say(whoOf(pr), msg, 'ok');
     P.sound('ok');
     const r = $('#lsWrap').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win');
     buttons(true, false, false, LS.pi < LS.l.problems.length - 1 ? '次の問題へ' : 'クリア！');
   }
-  function wrong(msg, revert) {
+  function wrong(msg, revert, delay) {
     LS.lock = true;
-    say(LS.l.teacher, msg, 'ng');
+    say(whoOf(LS.l.problems[LS.pi]), msg, 'ng');
     P.sound('bad');
-    setTimeout(() => { if (!LS) return; if (revert) revert(); LS.lock = false; drawLesson(); }, 900);
-  }
-  function ladderOk(b, target) {
-    // 白が逃げても呼吸点が2つまでなら、シチョウはまだ続いている
-    const g = E.group(b, target);
-    return g.libs.length <= 2;
+    setTimeout(() => { if (!LS) return; if (revert) revert(); LS.lock = false; drawLesson(); }, delay || 900);
   }
   function tapLesson(p) {
     if (!LS || LS.phase !== 'prob' || LS.lock || LS.solved) return;
-    const pr = LS.l.problems[LS.pi];
+    const pr = LS.l.problems[LS.pi], v = V(whoOf(pr));
+    if (pr.type === 'choice') return;
     if (LS.board[p]) return;
     if (!E.play(LS.board, p, 1, LS.ko)) {
       const [x, y] = P.pointXY($('#lboard'), p); A.burst(x, y, 'bad');
-      wrong(p === LS.ko ? 'コウだから、すぐには取り返せないよ。' : 'そこには打てないみたい。');
+      wrong(p === LS.ko ? v.kou : v.illegal);
       return;
     }
-    const before = { b: LS.board.slice(), ko: LS.ko, last: LS.last };
-    const revert = () => { LS.board = before.b; LS.ko = before.ko; LS.last = before.last; };
+    const before = { b: LS.board.slice(), ko: LS.ko, last: LS.last, used: LS.used };
+    const revert = () => { LS.board = before.b; LS.ko = before.ko; LS.last = before.last; LS.used = before.used; };
+    const name = COLS[p % 9] + (9 - ((p / 9) | 0));
     if (pr.type === 'point') {
       place(p, 1);
       if (pr.ok.map(pt).includes(p)) solved(pr.good);
-      else wrong('うーん、そこじゃないみたい。' + (pr.hint ? ' ' + pr.hint : ''), revert);
+      else wrong(((pr.near && pr.near[name]) || v.wrong) + (pr.hint && !(pr.near && pr.near[name]) ? ' ' + pr.hint : ''), revert, pr.near && pr.near[name] ? 1600 : 900);
       return;
     }
     if (pr.type === 'seq') {
       const st = pr.steps[LS.step];
       place(p, 1);
-      if (!st.ok.map(pt).includes(p)) { wrong('おしい！ もう一度考えてみて。' + (pr.hint ? ' ' + pr.hint : ''), revert); return; }
+      if (!st.ok.map(pt).includes(p)) { wrong(v.retry + (pr.hint ? ' ' + pr.hint : ''), revert); return; }
       LS.step++;
       if (LS.step >= pr.steps.length) { solved(pr.good); return; }
       LS.lock = true;
-      setTimeout(() => { if (!LS) return; if (st.reply) place(pt(st.reply), 2); say(LS.l.teacher, st.say || 'いいね、その調子！'); LS.lock = false; }, 650);
+      setTimeout(() => { if (!LS) return; if (st.reply) place(pt(st.reply), 2); say(whoOf(pr), st.say || v.next); LS.lock = false; }, 650);
       return;
     }
-    if (pr.type === 'ladder') {
-      const target = pt(pr.target);
-      place(p, 1);
+    const target = pt(pr.target), depth = pr.depth || 9, net = !!pr.net;
+    if (pr.type === 'capture') {
+      place(p, 1); LS.used++;
       if (!LS.board[target]) { solved(pr.good); return; }
-      const g = E.group(LS.board, target);
-      if (g.libs.length !== 1) { wrong('それだとアタリになってない。' + pr.hint, revert); return; }
+      const left = Math.max(1, depth - (LS.used * 2 - 1));
+      if (!TS.canCapture(LS.board, LS.ko, target, 1, 2, left, net)) { wrong(v.escape + ' ' + (pr.hint || ''), () => { LS.board = parse(pr.board); LS.ko = -1; LS.last = -1; LS.used = 0; }, 1800); return; }
       LS.lock = true;
       setTimeout(() => {
         if (!LS) return;
-        place(g.libs[0], 2);                     // 白が逃げる
-        if (!ladderOk(LS.board, target)) {
-          say(LS.l.teacher, '向きが逆だ。白が逃げ切っちまった。最初からやり直しだ。', 'ng'); P.sound('bad');
-          setTimeout(() => { if (LS) probStep(); }, 1500);
-          return;
-        }
-        say(LS.l.teacher, '白が逃げた。続けてアタリだ。');
+        const d = TS.bestDefense(LS.board, LS.ko, target, 1, left, net);
+        if (d !== null && d !== undefined) place(d, 2);
+        say(whoOf(pr), v.cont);
         LS.lock = false;
-      }, 550);
+      }, 520);
+      return;
+    }
+    if (pr.type === 'save') {
+      place(p, 1);
+      if (!LS.board[target]) { wrong(v.dead, revert); return; }
+      if (TS.canCapture(LS.board, LS.ko, target, 2, 2, depth, net)) { wrong(v.dead + ' ' + (pr.hint || ''), revert, 1500); return; }
+      solved(pr.good);
     }
   }
   $('#lboard').addEventListener('click', e => {
@@ -282,7 +310,10 @@
     if (!LS) return;
     if (LS.phase === 'talk') {
       if (LS.i < LS.l.talk.length - 1) { LS.i++; talkStep(); }
-      else { LS.phase = 'prob'; LS.pi = 0; probStep(); }
+      else {
+        LS.phase = 'prob'; LS.pi = 0; LS.lock = true;
+        P.jissen(`${LS.l.title}・全${LS.l.problems.length}問`, () => { if (LS) probStep(); });
+      }
       return;
     }
     if (LS.phase === 'prob' && LS.solved) {
@@ -293,7 +324,7 @@
       done(true);
     }
   };
-  $('#lsHint').onclick = () => { if (LS && LS.phase === 'prob') say(LS.l.teacher, LS.l.problems[LS.pi].hint || 'よく見てみて！'); };
+  $('#lsHint').onclick = () => { if (LS && LS.phase === 'prob') { const pr = LS.l.problems[LS.pi]; say(whoOf(pr), pr.hint || 'よく見てみて！'); } };
   $('#lsRetry').onclick = () => { if (LS && LS.phase === 'prob') probStep(); };
   $('#lsBack').onclick = () => { if (!LS) return; const done = LS.onDone; LS = null; done(false); };
 

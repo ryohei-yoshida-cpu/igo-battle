@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Yuji+Syuku&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&text=%E5%AE%9F%E6%88%A6%EF%BC%81&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -149,6 +150,7 @@
         <p id="lsText"></p>
       </div>
     </div>
+    <div class="ls-choices" id="lsChoices" hidden></div>
     <div class="ls-btns">
       <button class="btn lac" id="lsHint">ヒント</button>
       <button class="btn lac" id="lsRetry">やり直す</button>
@@ -316,10 +318,16 @@
 </div>
 
 <div id="cutin" aria-live="polite"></div>
+<div id="jissen" hidden aria-live="assertive">
+  <div class="js-band"></div>
+  <div class="js-text">実戦！</div>
+  <div class="js-sub" id="jsSub"></div>
+</div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script src="art.js"></script>
 <script src="engine.js"></script>
+<script src="tsume.js"></script>
 <script src="lessons.js"></script>
 <script src="stories.js"></script>
 <script src="app.js"></script>

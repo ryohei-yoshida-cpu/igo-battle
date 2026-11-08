@@ -20,13 +20,13 @@
     const eye = (cx, flip) => {
       const s = flip ? -1 : 1, X = x => cx + s * x;
       return `
-  <ellipse cx="${cx}" cy="123" rx="9" ry="11.5" fill="url(#${k}i)"/>
-  <ellipse cx="${X(0.6)}" cy="125" rx="4" ry="6" fill="#1b0d0a"/>
-  <circle cx="${X(-3)}" cy="117" r="3.2" fill="#fff"/>
-  <circle cx="${X(3.4)}" cy="129" r="1.6" fill="#fff" opacity=".9"/>
-  <path d="M${X(-13)} 115 C ${X(-8)} 106 ${X(8)} 105 ${X(12)} 113 L ${X(12)} 116 C ${X(6)} 110 ${X(-6)} 111 ${X(-12)} 119 Z" fill="#1d1218"/>
-  <path d="M${X(-13)} 115 L ${X(-18)} 111 L ${X(-12)} 119 Z" fill="#1d1218"/>
-  <path d="M${X(-8)} 134 C ${X(-3)} 137 ${X(4)} 136 ${X(8)} 132" stroke="#5a3a3a" stroke-width="1" fill="none" opacity=".6"/>`;
+  <ellipse cx="${cx}" cy="124" rx="8" ry="9.6" fill="url(#${k}i)"/>
+  <ellipse cx="${X(0.4)}" cy="125.5" rx="3.4" ry="4.4" fill="#4a2418"/>
+  <circle cx="${X(-2.8)}" cy="119.6" r="2.9" fill="#fff"/>
+  <circle cx="${X(2.6)}" cy="128.6" r="1.3" fill="#fff" opacity=".85"/>
+  <path d="M${X(-10.5)} 117.5 Q ${cx} 109.5 ${X(10)} 116.5" stroke="#3a2430" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <path d="M${X(-10.5)} 117.5 Q ${X(-13)} 117 ${X(-14)} 114.6" stroke="#3a2430" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <path d="M${X(-6)} 133.6 Q ${cx} 135.2 ${X(6)} 133" stroke="#b07a72" stroke-width=".9" fill="none" opacity=".55"/>`;
     };
     const flower = (x, y, r, c) => {
       let p = '';
@@ -41,7 +41,7 @@
   <linearGradient id="${k}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2838"/><stop offset="1" stop-color="#140c14"/></linearGradient>
   <radialGradient id="${k}s" cx="45%" cy="40%" r="70%"><stop offset="0" stop-color="#fff3ea"/><stop offset="1" stop-color="#f6d4c2"/></radialGradient>
   <linearGradient id="${k}m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${v.kimono[0]}"/><stop offset=".6" stop-color="${v.kimono[1]}"/><stop offset="1" stop-color="${v.kimono[2]}"/></linearGradient>
-  <linearGradient id="${k}i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1410"/><stop offset=".55" stop-color="#8a3f22"/><stop offset="1" stop-color="#e3a05a"/></linearGradient>
+  <linearGradient id="${k}i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b3424"/><stop offset=".55" stop-color="#b8693c"/><stop offset="1" stop-color="#f3c47e"/></linearGradient>
 </defs>
 <path d="M36 238 C 28 170 32 96 62 64 C 80 46 120 46 138 64 C 168 96 172 170 164 238 Z" fill="url(#${k}h)"/>
 <path d="M12 240 C 20 206 56 192 100 190 C 144 192 180 206 188 240 Z" fill="url(#${k}m)"/>
@@ -51,14 +51,13 @@ ${flower(40, 222, 9, v.flower)}${flower(160, 216, 8, v.flower)}${flower(58, 236,
 <path d="M130 192 L 100 238 L 92 230 L 120 190 Z" fill="#c73e3a"/>
 <path d="M80 190 L 100 226 L 120 190 L 113 189 L 100 212 L 87 189 Z" fill="#fffaf4"/>
 <rect x="60" y="234" width="80" height="8" fill="${v.obi}"/>
-<path d="M100 64 C 128 64 141 88 139 114 C 137 140 120 160 100 164 C 80 160 63 140 61 114 C 59 88 72 64 100 64 Z" fill="url(#${k}s)"/>
-<ellipse cx="77" cy="136" rx="9" ry="4.6" fill="#ff8fa6" opacity=".45"/>
-<ellipse cx="123" cy="136" rx="9" ry="4.6" fill="#ff8fa6" opacity=".45"/>
+<path d="M100 64 C 128 64 141 88 139 114 C 138 138 124 156 100 161 C 76 156 62 138 61 114 C 59 88 72 64 100 64 Z" fill="url(#${k}s)"/>
+<ellipse cx="78" cy="138" rx="8" ry="4.2" fill="#ffa3b5" opacity=".38"/>
+<ellipse cx="122" cy="138" rx="8" ry="4.2" fill="#ffa3b5" opacity=".38"/>
 ${eye(82, false)}${eye(118, true)}
 <path d="M100 137 L 99 140" stroke="#d29a86" stroke-width="1.4" stroke-linecap="round"/>
-<path d="M93 147 C 96 153 104 153 107 147 Z" fill="#c9465f"/>
-<path d="M96 150.5 C 98 152 102 152 104 150.5" stroke="#ff9fb1" stroke-width="1.6" fill="none"/>
-<path d="M59 114 C 55 78 74 52 100 50 C 126 52 145 78 141 114 L 135 97 L 129 109 L 122 88 L 114 105 L 107 86 L 100 101 L 93 86 L 86 105 L 78 88 L 71 109 L 65 97 Z" fill="url(#${k}h)"/>
+<path d="M95 147.5 Q 100 152 105 147.5" stroke="#c4566e" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+<path d="M59 112 C 55 78 74 52 100 50 C 126 52 145 78 141 112 Q 138 100 131 103 Q 126 92 118 100 Q 110 90 100 99 Q 90 90 82 100 Q 74 92 69 103 Q 62 100 59 112 Z" fill="url(#${k}h)"/>
 <path d="M61 98 C 51 130 53 170 62 204 L 73 202 C 66 168 66 132 71 108 Z" fill="url(#${k}h)"/>
 <path d="M139 98 C 149 130 147 170 138 204 L 127 202 C 134 168 134 132 129 108 Z" fill="url(#${k}h)"/>
 <path d="M76 68 C 90 58 112 58 126 68" stroke="#fff" stroke-opacity=".22" stroke-width="4" fill="none" stroke-linecap="round"/>

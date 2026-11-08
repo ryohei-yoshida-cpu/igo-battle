@@ -234,6 +234,50 @@ body.on-title #roomDim { opacity: 0; }
 .lessons button.done i { color: var(--kin); }
 .lessons button:disabled { opacity: .45; cursor: default; }
 
+/* レクチャーの選択肢 */
+.ls-choices { display: flex; flex-direction: column; gap: 6px; }
+.ls-choices .btn { text-align: left; font-size: 15px; padding: 12px 16px; }
+.ls-choices .btn.right { border-color: var(--kin); background: linear-gradient(135deg, rgba(232, 196, 110, .35), var(--lac)); }
+.ls-choices .btn.wrongc { animation: shake .35s; border-color: var(--shu); }
+
+/* 実戦！ */
+#jissen {
+  position: fixed; inset: 0; z-index: 65; display: grid; place-items: center; align-content: center; gap: 4px;
+  background: radial-gradient(70% 50% at 50% 50%, rgba(40, 10, 6, .55), rgba(6, 3, 2, .9));
+  pointer-events: auto; overflow: hidden;
+}
+#jissen.go { animation: jsFade 1.7s ease forwards; }
+.js-band {
+  position: absolute; left: -10%; right: -10%; top: 50%; height: 34%;
+  transform: translateY(-50%) skewY(-8deg) scaleX(0); transform-origin: left center;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 220, 180, 0) 0 40px, rgba(255, 220, 180, .14) 40px 43px, rgba(255, 220, 180, 0) 43px 110px),
+    linear-gradient(90deg, rgba(120, 18, 10, 0), #b8281c 12%, #e0503e 50%, #b8281c 88%, rgba(120, 18, 10, 0));
+  border-top: 4px solid var(--kin); border-bottom: 4px solid var(--kin);
+  box-shadow: 0 0 50px rgba(224, 80, 62, .8);
+}
+#jissen.go .js-band { animation: jsBand 1.7s cubic-bezier(.2, .8, .2, 1) forwards; }
+.js-text {
+  position: relative; font-family: "Dela Gothic One", var(--font); font-weight: 900;
+  font-size: clamp(76px, 25vw, 170px); line-height: 1; letter-spacing: .02em; color: #fff6e2;
+  -webkit-text-stroke: 6px #1a0904; paint-order: stroke fill;
+  text-shadow: 0 0 24px rgba(255, 210, 120, .9), 0 0 60px rgba(224, 80, 62, .9), 0 8px 0 #1a0904;
+}
+#jissen.go .js-text { animation: jsText 1.7s cubic-bezier(.2, .8, .2, 1) forwards; }
+.js-sub { position: relative; font-weight: 900; font-size: 17px; letter-spacing: .14em; color: var(--kin); text-shadow: 0 2px 8px #000; }
+#jissen.go .js-sub { animation: jsSub 1.7s ease forwards; }
+@keyframes jsFade { 0%, 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes jsBand { 0% { transform: translateY(-50%) skewY(-8deg) scaleX(0); } 14% { transform: translateY(-50%) skewY(-8deg) scaleX(1); } 100% { transform: translateY(-50%) skewY(-8deg) scaleX(1); } }
+@keyframes jsText {
+  0% { transform: scale(3.2) rotate(-6deg); opacity: 0; filter: blur(10px); }
+  16% { transform: scale(.9) rotate(-6deg); opacity: 1; filter: blur(0); }
+  22% { transform: scale(1.06) rotate(-6deg) translate(-4px, 2px); }
+  28% { transform: scale(1) rotate(-6deg) translate(4px, -2px); }
+  34% { transform: scale(1) rotate(-6deg); }
+  100% { transform: scale(1.08) rotate(-6deg); }
+}
+@keyframes jsSub { 0%, 20% { opacity: 0; transform: translateY(8px); } 34%, 100% { opacity: 1; transform: none; } }
+
 /* 脚本 */
 #reader { gap: 10px; }
 .rd-title { display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
