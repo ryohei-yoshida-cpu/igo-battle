@@ -64,17 +64,20 @@
 - `server/worker.js` … Cloudflare の入口。`/ws` が対人戦、それ以外はアプリのファイルを配る
 - `server/dev.mjs` … 手元で試すとき用（`node server/dev.mjs` → http://localhost:8787）
 - `wrangler.toml` / `.assetsignore` … Cloudflare の設定
-- Cloudflare の「Import a repository」でこのリポジトリをつなぐと、push のたびに自動で公開
+- `.github/workflows/deploy.yml` … main に push すると自動で Cloudflare に公開
 - `config.js` … GitHub Pages など別の場所で開くときだけ、サーバーの住所を書く
 
 ### はじめての公開（1回だけ）
 
-Cloudflare から GitHub のリポジトリを直接読みこんで公開する（トークン作成は不要）。
+GitHub Actions が Cloudflare に公開する（Cloudflare の「Connect GitHub」は使わない）。
 
-1. https://dash.cloudflare.com/sign-up で Cloudflare のアカウントを作る（無料）
-2. 左のメニュー「Workers & Pages」（または「Compute (Workers)」）→「Create」→「Import a repository」
-3. 「Connect GitHub」で GitHub につなぎ、`igo-battle` を選ぶ
-4. Project name は `igo-battle`、Build command は空のまま、Deploy command は `npx wrangler deploy` のまま →「Deploy」
-5. 数分で `https://igo-battle.<サブドメイン>.workers.dev` が開けるようになる。このURLを人に送れば対戦できる
+1. Cloudflare → 右上の人のアイコン →「My Profile」→「API Tokens」→「Create Token」→「Edit Cloudflare Workers」の「Use template」
+2. 「Zone Resources」（Edit Zone policy）の「Specific zone」を「All zones」に変える
+3. 一番下の「Continue to summary」→「Create Token」→ 出てきたトークンをコピー
+4. GitHub の igo-battle →「Settings」→「Secrets and variables」→「Actions」→「New repository secret」で2つ登録
+   - `CLOUDFLARE_API_TOKEN` … 3 のトークン
+   - `CLOUDFLARE_ACCOUNT_ID` … Cloudflare の「Workers & Pages」画面の Account details にある Account ID
+5. GitHub の「Actions」タブ →「Deploy to Cloudflare」→「Run workflow」
+6. 数分で `https://igo-battle.<サブドメイン>.workers.dev` が開けるようになる
 
-以後は GitHub に push するたびに Cloudflare が自動で更新する。
+以後は push するたびに自動で更新される。
