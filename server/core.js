@@ -50,7 +50,7 @@ export class Core {
     this.games = new Map();     // g → game
     this.seq = 0;
     this.store = opts.store || memStore();
-    this.sockInfo = new Map();  // sock → { acct, fails }
+    this.sockInfo = new Map();  // sock → { acct }
   }
 
   /* ---------- 接続 ---------- */
@@ -116,7 +116,7 @@ export class Core {
 
   /* ---------- アカウント（保存データ） ---------- */
   async account(sock, m) {
-    const info = this.sockInfo.get(sock) || { acct: null, fails: 0 };
+    const info = this.sockInfo.get(sock) || { acct: null };
     this.sockInfo.set(sock, info);
     const out = msg => { try { sock.send(JSON.stringify(msg)); } catch (e) {} };
     if (m.t === 'register') {
@@ -126,10 +126,9 @@ export class Core {
       info.acct = id;
       out({ t: 'account', id, pass, data: null, at: 0, fresh: true });
     } else if (m.t === 'login') {
-      if (info.fails >= 5) { try { sock.close(); } catch (e) {} return; }   // 総当たり対策
       const id = normCode(m.id), pass = normCode(m.pass);
       const rec = id && await this.store.get('acct:' + id);
-      if (!rec || rec.h !== await sha(id + ':' + pass)) { info.fails++; out({ t: 'authfail', restore: !!m.restore }); return; }
+      if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
       info.acct = id;
       out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore });
     } else if (m.t === 'sync') {
