@@ -51,7 +51,8 @@
   if (S.avatar.type === 'preset') S.avatar.id = ((S.avatar.id | 0) % A.VARIANTS.length + A.VARIANTS.length) % A.VARIANTS.length;
   // 保存：この端末に保存し、サーバー（アカウント）にも少し後に送る
   let syncHook = null;
-  const save = () => { if (syncHook) S._at = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (syncHook) syncHook(); };
+  const saveLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };   // この端末だけ（通信しない）
+  const save = () => { if (syncHook) S._at = Date.now(); saveLocal(); if (syncHook) syncHook(); };
 
   function displayRank() {
     const r = rankFromRating(S.rating);
@@ -319,6 +320,7 @@
       passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1,
       online: opts.online || null, oppAway: 0
     };
+    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo }); }
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
@@ -542,7 +544,10 @@
     }
     if (win) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
     G.zeni = zeni;
-    if (zeni) { S.zeni += zeni; }
+    if (econOn()) {
+      // 銭はサーバーが決める（対人戦はサーバーが結果を知っている。Bot戦は時間と手数を確かめてから）
+      if (!G.online && G.botId) netSend({ t: 'botend', g: G.botId, result: win ? 'win' : draw ? 'draw' : 'loss', moves: G.record.length });
+    } else if (zeni) S.zeni += zeni;   // サーバーにつながっていないとき（お試し版など）は、この端末で数える
     save();
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
@@ -640,7 +645,7 @@
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at'];
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -659,7 +664,7 @@
     else netSend({ t: 'register' });
   }
   function applyServerData(d, at) {
-    const keep = { acct: S.acct, cid: S.cid };
+    const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room };
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, fresh(), d || {}, keep, { _at: at || Date.now() });
     S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
@@ -669,6 +674,29 @@
     renderHome();
     if (!$('#settings').hidden) renderSettings();
   }
+  /* ---------- 銭・持ち物・部屋（サーバーが正） ---------- */
+  const econOn = () => !!(NET_URL && NET.ok && NET.authed);
+  function applyEcon(e, layout) {
+    if (!e) return;
+    if (typeof e.zeni === 'number') S.zeni = e.zeni;
+    const r = S.room = S.room || {};
+    if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; }
+    if (layout !== false && e.room) {
+      Object.assign(r, { floor: e.room.floor, wall: e.room.wall, items: e.room.items, walls: e.room.walls });
+      r.seq = Math.max(r.seq || 1, ...r.items.concat(r.walls).map(i => (i.uid | 0) + 1));
+    }
+    saveLocal(); renderHome();
+    if (window.ROOM) window.ROOM.refresh();
+  }
+  const ZENI_WHY = { short: '短すぎる対局なので、銭はもらえませんでした', cap: '今日のBot戦の銭は上限（600銭）に達しました' };
+  function onZeni(m) {
+    if (typeof m.zeni === 'number') S.zeni = m.zeni;
+    saveLocal(); renderHome();
+    if (window.ROOM) window.ROOM.refresh();
+    if (ZENI_WHY[m.why]) { toast(ZENI_WHY[m.why], 3500); if (!$('#result').hidden) $('#resZeni').hidden = true; }
+    else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
+  }
+  let buyReq = 0; const buyCb = {};
   function onAccount(m) {
     NET.authed = true;
     if (m.pass) { S.acct = { id: m.id, pass: m.pass }; save(); netSync(); }                 // 新しく作った
@@ -679,6 +707,7 @@
     } else if (m.data && (m.at || 0) > (S._at || 0)) applyServerData(m.data, m.at);       // サーバーのほうが新しい
     else if ((S._at || 0) > (m.at || 0) || !m.data) netSync();                              // この端末のほうが新しい
     if (!$('#settings').hidden) renderAccount();
+    applyEcon(m.econ);
     netHello();
   }
   function onAuthFail(m) {
@@ -733,6 +762,9 @@
       case 'back': if (isMine(m.g)) { G.oppAway = 0; toast('相手が戻ってきました'); render(); } break;
       case 'end': onlineEnd(m); break;
       case 'account': onAccount(m); break;
+      case 'zeni': onZeni(m); break;
+      case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
+      case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
     }
   }
@@ -1093,7 +1125,30 @@
   window.APP = {
     E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
-    addZeni(n) { S.zeni = (S.zeni || 0) + n; save(); },
+    saveLocal, econOn,
+    // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
+    claim(kind, id, amount) {
+      if (econOn()) netSend({ t: 'claim', kind, id });
+      else { S.zeni = (S.zeni || 0) + amount; save(); toast(`＋${amount} 銭`); }
+    },
+    // 買い物：what は { item } / { floor } / { wall }。cb({ ok, reason })
+    buy(what, price, cb) {
+      if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'buy', req }, what)); return; }
+      if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
+      if ((S.zeni || 0) < price) { cb({ ok: false, reason: 'zeni' }); return; }
+      S.zeni -= price;
+      const r = S.room;
+      if (what.item) r.ownedItems[what.item] = (r.ownedItems[what.item] || 0) + 1;
+      else if (what.floor) r.owned.floors.push(what.floor);
+      else if (what.wall) r.owned.walls.push(what.wall);
+      save(); cb({ ok: true });
+    },
+    // 部屋の配置をサーバーへ（もようがえを終えたとき・部屋を出るとき）
+    saveRoom() {
+      saveLocal();
+      const r = S.room;
+      if (econOn()) netSend({ t: 'room', room: { floor: r.floor, wall: r.wall, items: r.items, walls: r.walls } });
+    },
     // マイルームに来たキャラと一局（レート対局）
     playChara(chara, level) {
       const lv = Math.max(0, Math.min(BOT_MAX, level));

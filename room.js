@@ -13,13 +13,26 @@
   function room() {
     if (!S.room) {
       S.room = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [], inv: {}, owned: { floors: ['wood'], walls: ['plain'] }, seq: 2, seen: [] };
-      P.save();
+      touch();
     }
     const r = S.room;
-    r.items = r.items || []; r.walls = r.walls || []; r.inv = r.inv || {}; r.seen = r.seen || [];
+    r.items = r.items || []; r.walls = r.walls || []; r.seen = r.seen || [];
     r.owned = r.owned || { floors: ['wood'], walls: ['plain'] };
+    if (!r.ownedItems) {   // 持っている家具の数（置いている分＋倉庫の分）
+      r.ownedItems = {};
+      for (const it of r.items.concat(r.walls)) r.ownedItems[it.k] = (r.ownedItems[it.k] || 0) + 1;
+      for (const [k, n] of Object.entries(r.inv || {})) r.ownedItems[k] = (r.ownedItems[k] || 0) + n;
+    }
+    delete r.inv;
+    r.seq = r.seq || 2;
     return r;
   }
+  // 倉庫にある数＝持っている数－置いている数
+  function invOf(k) { const r = room(); return (r.ownedItems[k] || 0) - r.items.concat(r.walls).filter(i => i.k === k).length; }
+  function invKeys() { return Object.keys(room().ownedItems).filter(k => invOf(k) > 0); }
+  let dirty = false;   // 配置を変えたが、まだサーバーに送っていない
+  function flush() { if (dirty) { dirty = false; P.saveRoom(); } }
+  const touch = () => { dirty = true; P.saveLocal(); };
   const cat = k => R.BY_ID[k];
 
   /* ---------- 置けるかどうか ---------- */
@@ -149,7 +162,7 @@
     for (const c of cands) { t -= weight(c); if (t <= 0) { pick = c; break; } }
     if (!pick) return '……';
     seen.push(pick.id); while (seen.length > 30) seen.shift();
-    P.save();
+    P.saveLocal();
     return pick.l[1];
   }
   // キャラごとの、一局打つときの強さ（Bot の級）
@@ -163,7 +176,7 @@
     $('#rbNext').onclick = () => talk(v);
     $('#rbPlay').onclick = () => {
       const lv = CHARA_LV[v.key] != null ? CHARA_LV[v.key] : Math.min(P.BOT_MAX, Math.max(0, Math.floor(((S.rating || 1050) - 1050) / 50)));
-      P.confirmBox(`${v.name}と一局打ちますか？（Bot ${P.RANKS[lv]}・レート対局）`, () => { b.hidden = true; P.playChara(v.idx, lv); });
+      P.confirmBox(`${v.name}と一局打ちますか？（Bot ${P.RANKS[lv]}・レート対局）`, () => { b.hidden = true; flush(); P.playChara(v.idx, lv); });
     };
     P.sound('tap');
   }
@@ -186,8 +199,8 @@
       if (vg) { const v = visitors.find(x => x.key === vg.dataset.key); if (v) talk(v); return; }
       const it = findItem(e); if (!it) return;
       const c = cat(it.k);
-      if (c.light) { it.on = !it.on; P.save(); P.sound('tap'); render(); return; }
-      if (it.k === 'goban') { P.confirmBox('対人戦で一局打ちますか？', () => P.startMatch()); return; }
+      if (c.light) { it.on = !it.on; touch(); P.sound('tap'); render(); return; }
+      if (it.k === 'goban') { P.confirmBox('対人戦で一局打ちますか？', () => { flush(); P.startMatch(); }); return; }
       return;
     }
     const it = findItem(e);
@@ -223,33 +236,31 @@
     const it = drag.it;
     if (!drag.ok) { Object.assign(it, drag.orig); P.toast('そこには置けません'); }
     else P.sound('stone');
-    drag = null; P.save(); render();
+    drag = null; touch(); render();
   }
 
   function rotateSel() {
     if (!sel || sel.side) return;
     const nr = sel.rot ? 0 : 1;
-    if (canPlace(sel, sel.x, sel.y, nr)) { sel.rot = nr; P.save(); render(); return; }
+    if (canPlace(sel, sel.x, sel.y, nr)) { sel.rot = nr; touch(); render(); return; }
     // その場で回せなければ、近くの空いている場所へ
     const t = Object.assign({}, sel, { rot: nr }), spot = freeSpot(t);
-    if (spot) { sel.rot = nr; sel.x = spot.x; sel.y = spot.y; P.save(); render(); }
+    if (spot) { sel.rot = nr; sel.x = spot.x; sel.y = spot.y; touch(); render(); }
     else P.toast('回すための場所がありません');
   }
   function storeSel() {
     if (!sel) return;
     const r = room();
     if (sel.side) r.walls = r.walls.filter(w => w !== sel); else r.items = r.items.filter(i => i !== sel);
-    r.inv[sel.k] = (r.inv[sel.k] || 0) + 1;
-    sel = null; P.save(); render(); if (tab === 'inv') renderPanel();
+    sel = null; touch(); render(); if (tab === 'inv') renderPanel();
   }
   function placeFromInv(k) {
     const r = room(), c = cat(k);
-    if (!r.inv[k]) return;
+    if (invOf(k) <= 0) return;
     const it = { uid: r.seq++, k, rot: 0 };
     if (c.kind === 'wall') { const sp = freeWallSpot(it); if (!sp) { P.toast('壁に空きがありません'); return; } Object.assign(it, sp); r.walls.push(it); }
     else { const sp = freeSpot(it); if (!sp) { P.toast('床に空きがありません'); return; } Object.assign(it, sp); r.items.push(it); }
-    r.inv[k]--; if (!r.inv[k]) delete r.inv[k];
-    mode = 'edit'; sel = it; P.save(); setMode('edit'); renderPanel(); render();
+    mode = 'edit'; sel = it; touch(); setMode('edit'); renderPanel(); render();
     P.toast('ドラッグして好きな場所へ');
   }
 
@@ -266,6 +277,7 @@
     return `<svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" class="rm-thumb">${R.DEFS}${R.drawFloorItem(it)}</svg>`;
   }
   const STYLE_NAME = { wa: '和', yo: '洋', chu: '中' };
+  const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
   function renderPanel() {
     const p = $('#roomPanel'), r = room();
     document.querySelectorAll('#roomTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
@@ -284,15 +296,15 @@
           if (c.price <= 0) continue;
           if ((c.kind === 'wall') !== (shopKind === 'wall')) continue;
           if (shopStyle !== 'all' && c.style !== shopStyle) continue;
-          const have = (r.inv[c.id] || 0) + r.items.concat(r.walls).filter(i => i.k === c.id).length;
+          const have = r.ownedItems[c.id] || 0;
           h += `<div class="rm-card">${thumb(c.id)}<b>${c.name}</b><small>${STYLE_NAME[c.style]}${c.light ? '・電気' : ''}${have ? `・${have}こ持ってる` : ''}</small>
             <button class="btn primary small" data-buy="${c.id}" ${S.zeni < c.price ? 'disabled' : ''}>${c.price} 銭</button></div>`;
         }
       }
       p.innerHTML = h + '</div>';
     } else if (tab === 'inv') {
-      const ks = Object.keys(r.inv).filter(k => r.inv[k] > 0);
-      p.innerHTML = ks.length ? `<p class="rm-help">タップすると部屋に置きます。もようがえ中に家具を選んで「しまう」と、ここに戻ります。</p><div class="rm-grid-list">${ks.map(k => `<div class="rm-card">${thumb(k)}<b>${cat(k).name}</b><small>${r.inv[k]}こ</small><button class="btn primary small" data-place="${k}">置く</button></div>`).join('')}</div>`
+      const ks = invKeys();
+      p.innerHTML = ks.length ? `<p class="rm-help">タップすると部屋に置きます。もようがえ中に家具を選んで「しまう」と、ここに戻ります。</p><div class="rm-grid-list">${ks.map(k => `<div class="rm-card">${thumb(k)}<b>${cat(k).name}</b><small>${invOf(k)}こ</small><button class="btn primary small" data-place="${k}">置く</button></div>`).join('')}</div>`
         : '<p class="rm-help">倉庫は空っぽです。ショップで家具を買うと、ここに入ります。</p>';
     } else {
       const mine = A.VARIANTS[P.charaIdx()].key;
@@ -312,21 +324,29 @@
       const c = cat(b.dataset.buy);
       if (S.zeni < c.price) { P.toast('銭が足りません'); return; }
       P.confirmBox(`${c.name}を ${c.price} 銭で買いますか？`, () => {
-        S.zeni -= c.price; r.inv[c.id] = (r.inv[c.id] || 0) + 1; P.save(); P.sound('ok');
-        P.toast(`${c.name}を買いました。倉庫から置けます`); renderPanel(); render();
+        P.buy({ item: c.id }, c.price, res => {
+          if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
+          P.sound('ok'); P.toast(`${c.name}を買いました。倉庫から置けます`); renderPanel(); render();
+        });
       });
       return;
     }
     if (b.dataset.place) { placeFromInv(b.dataset.place); return; }
     if (b.dataset.int) {
       const [kind, id] = b.dataset.int.split(':'), table = kind === 'floors' ? R.FLOORS : R.WALLS, it = table[id];
-      const use = () => { if (kind === 'floors') r.floor = id; else r.wall = id; P.save(); renderPanel(); render(); };
+      const use = () => { if (kind === 'floors') r.floor = id; else r.wall = id; dirty = true; flush(); renderPanel(); render(); };
       if (r.owned[kind].includes(id)) { use(); return; }
       if (S.zeni < it.price) { P.toast('銭が足りません'); return; }
-      P.confirmBox(`${it.name}を ${it.price} 銭で買いますか？`, () => { S.zeni -= it.price; r.owned[kind].push(id); P.sound('ok'); use(); });
+      P.confirmBox(`${it.name}を ${it.price} 銭で買いますか？`, () => {
+        P.buy(kind === 'floors' ? { floor: id } : { wall: id }, it.price, res => {
+          if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
+          P.sound('ok'); use();
+        });
+      });
     }
   }
   function setMode(m) {
+    if (mode === 'edit' && m === 'view') flush();   // もようがえを終えたときだけ、部屋の配置をサーバーへ送る
     mode = m;
     if (m === 'view') { sel = null; placeVisitors(); }
     $('#rmEdit').textContent = m === 'edit' ? 'もようがえを終わる' : 'もようがえ';
@@ -357,9 +377,16 @@
   $('#rmRot').onclick = rotateSel;
   $('#rmStore').onclick = storeSel;
   $('#rmDone').onclick = () => { sel = null; render(); };
-  $('#roomBack').onclick = () => { P.renderHome(); P.showScreen('home'); };
+  $('#roomBack').onclick = () => { if (mode === 'edit') setMode('view'); flush(); P.renderHome(); P.showScreen('home'); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
   $('#openRoom').onclick = open;
   s.setAttribute('viewBox', `0 0 ${R.W} ${R.H}`);
 
-  window.ROOM = { open };
+  // サーバーから銭・持ち物・部屋が届いたとき（もようがえ中は配置を上書きしない）
+  function refresh() {
+    if ($('#myroom').hidden) return;
+    if (mode === 'edit') { $('#roomZeni').textContent = `${S.zeni.toLocaleString()} 銭`; renderPanel(); return; }
+    sel = null; render(); renderPanel();
+  }
+  window.ROOM = { open, refresh };
 })();
