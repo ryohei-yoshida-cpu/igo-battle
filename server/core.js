@@ -55,27 +55,53 @@ export class Core {
   }
 
   /* ---------- 接続 ---------- */
-  connect(sock) {
+  /* 使いすぎ・いたずら対策（クラウド破産の防止）
+   *   ・1つの接続：送れるのは平均 1秒に2通まで（まとめて30通まで）。ひどく超えたら切る
+   *   ・同じIP：同時に8接続まで、アカウント作成は1時間に5回まで
+   */
+  connect(sock, ip) {
+    ip = String(ip || '');
+    this.ipConns = this.ipConns || new Map();
+    const n = (this.ipConns.get(ip) || 0) + 1;
+    if (ip && n > LIMIT.connPerIp) { try { sock.close(); } catch (e) {} return { message() {}, close() {} }; }
+    if (ip) this.ipConns.set(ip, n);
+    const bucket = { tokens: LIMIT.burst, at: this.now(), drops: 0 };
+    let closed = false;
     return {
-      message: raw => { try { const r = this.onMessage(sock, raw); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 壊れたメッセージは無視 */ } },
-      close: () => this.onClose(sock)
+      message: raw => {
+        const now = this.now();
+        bucket.tokens = Math.min(LIMIT.burst, bucket.tokens + (now - bucket.at) / 1000 * LIMIT.perSec); bucket.at = now;
+        if (bucket.tokens < 1) { if (++bucket.drops > LIMIT.dropsToClose) { try { sock.close(); } catch (e) {} } return; }
+        bucket.tokens -= 1;
+        try { const r = this.onMessage(sock, raw, ip); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 壊れたメッセージは無視 */ }
+      },
+      close: () => {
+        if (closed) return; closed = true;
+        if (ip) { const c = (this.ipConns.get(ip) || 1) - 1; if (c > 0) this.ipConns.set(ip, c); else this.ipConns.delete(ip); }
+        this.onClose(sock);
+      }
     };
   }
   send(cid, msg) {
     const pl = this.players.get(cid);
     if (pl && pl.sock) { try { pl.sock.send(JSON.stringify(msg)); } catch (e) {} }
   }
+  // 人数のお知らせは、まとめて2秒に1回まで（出入りのたびに全員へ送らない）
   lobby() {
+    if (this.lobbyT) return;
+    this.lobbyT = this.setTimeout(() => { this.lobbyT = null; this.lobbyNow(); }, 2000);
+  }
+  lobbyNow() {
     let online = 0, seeking = 0;
     for (const p of this.players.values()) { if (p.sock) online++; if (p.seekAt) seeking++; }
     const msg = { t: 'lobby', online, seeking };
     for (const p of this.players.values()) if (p.sock) this.send(p.cid, msg);
   }
 
-  onMessage(sock, raw) {
-    if (typeof raw !== 'string' || raw.length > 300000) return;
+  onMessage(sock, raw, ip) {
+    if (typeof raw !== 'string' || raw.length > LIMIT.syncBytes) return;
     const m = JSON.parse(raw);
-    if (m.t === 'register' || m.t === 'login' || m.t === 'sync') return this.account(sock, m);
+    if (m.t === 'register' || m.t === 'login' || m.t === 'sync') return this.account(sock, m, ip);
     if (ECON.includes(m.t)) return this.econ(sock, m);
     if (raw.length > 4000) return;
     if (m.t === 'hello') return this.hello(sock, m);
@@ -118,11 +144,17 @@ export class Core {
   }
 
   /* ---------- アカウント（保存データ） ---------- */
-  async account(sock, m) {
+  async account(sock, m, ip) {
     const info = this.sockInfo.get(sock) || { acct: null };
     this.sockInfo.set(sock, info);
     const out = msg => { try { sock.send(JSON.stringify(msg)); } catch (e) {} };
     if (m.t === 'register') {
+      // 同じIPからのアカウント作成は1時間に5回まで（大量に作られてストレージが増え続けないように）
+      this.regLog = this.regLog || new Map();
+      const now = this.now(), log = (this.regLog.get(ip) || []).filter(t => now - t < 3600e3);
+      if (log.length >= LIMIT.registersPerHour) { out({ t: 'busy', what: 'register' }); return; }
+      log.push(now); this.regLog.set(ip, log);
+      if (this.regLog.size > 10000) this.regLog.delete(this.regLog.keys().next().value);
       let id; do { id = randCode(8); } while (await this.store.get('acct:' + id));
       const pass = randCode(8);
       const rec = { h: await sha(id + ':' + pass), data: null, at: 0, created: this.now() };
@@ -139,7 +171,11 @@ export class Core {
       out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore, econ: pubEcon(rec2 || rec) });
     } else if (m.t === 'sync') {
       if (!info.acct || !m.data || typeof m.data !== 'object') return;
-      const at = +m.at || this.now();
+      // 保存は1アカウント5秒に1回まで（書きこみ回数＝料金なので）
+      const now = this.now();
+      if (info.lastSync && now - info.lastSync < 5000) return;
+      info.lastSync = now;
+      const at = +m.at || now;
       // 銭と部屋はサーバーが正なので、アプリから送られてきても使わない
       const data = Object.assign({}, m.data); delete data.zeni; delete data.room;
       const ok = await this.withAcct(info.acct, async rec => {
@@ -392,3 +428,6 @@ function cleanRoom(room, owned) {
   const floor = owned.floors.includes(room.floor) ? room.floor : 'wood', wall = owned.walls.includes(room.wall) ? room.wall : 'plain';
   return { floor, wall, items, walls };
 }
+
+/* ---------- 使いすぎ対策の数字 ---------- */
+const LIMIT = { perSec: 2, burst: 30, dropsToClose: 60, connPerIp: 8, registersPerHour: 5, syncBytes: 100000 };

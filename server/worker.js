@@ -27,7 +27,7 @@ export class Lobby {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     server.accept();
-    const h = this.core.connect(server);
+    const h = this.core.connect(server, req.headers.get('CF-Connecting-IP') || '');
     server.addEventListener('message', e => h.message(typeof e.data === 'string' ? e.data : ''));
     server.addEventListener('close', () => h.close());
     server.addEventListener('error', () => h.close());

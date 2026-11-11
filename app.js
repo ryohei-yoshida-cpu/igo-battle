@@ -620,6 +620,7 @@
   if (!S.cid) { S.cid = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); save(); }
   const NET = { ws: null, ok: false, retry: 0, online: 0, seeking: 0, pingT: 0 };
   function netConnect() {
+    NET.paused = false;
     if (!NET_URL || (NET.ws && NET.ws.readyState <= 1)) return;
     let ws;
     try { ws = new WebSocket(NET_URL); } catch (e) { return; }
@@ -629,14 +630,17 @@
       netAuth();
       netHello();
       if (M && !M.found) netSend({ t: 'seek' });
-      clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 25000);
+      clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 40000);   // つながっているかの確認（40秒ごと）
     };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } netMsg(m); };
     ws.onclose = () => {
       if (NET.ws !== ws) return;
       NET.ok = false; NET.ws = null; clearInterval(NET.pingT);
       if (G && G.online && !G.over) netDown();
-      setTimeout(netConnect, Math.min(8000, 600 * 2 ** NET.retry++));
+      if (NET.paused) return;   // 裏に回して休んでいるときはつなぎ直さない
+      // つなぎ直しは少しずつ間をあける（最大60秒・ばらつきあり）。サーバーが止まっても一斉に押しよせないように
+      const wait = Math.min(60000, 1000 * 2 ** NET.retry++) * (0.7 + Math.random() * 0.6);
+      setTimeout(netConnect, wait);
     };
   }
   function netSend(m) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(m)); }
@@ -655,9 +659,30 @@
     if (JSON.stringify(d).length > 100000 && Array.isArray(d.history)) d.history = d.history.map((h, i) => i < 10 ? h : Object.assign({}, h, { rec: null }));
     return d;
   }
-  let syncT = 0;
-  function netSync() { clearTimeout(syncT); if (NET.ok && NET.authed) netSend({ t: 'sync', data: syncData(), at: S._at || Date.now() }); }
-  syncHook = () => { clearTimeout(syncT); syncT = setTimeout(netSync, 1500); };
+  // サーバーへの保存は、変更が落ち着いてから10秒後にまとめて1回。中身が前回と同じなら送らない
+  let syncT = 0, lastSent = '';
+  function netSync() {
+    clearTimeout(syncT); syncT = 0;
+    if (!(NET.ok && NET.authed)) return;
+    const data = syncData(), js = JSON.stringify(data);
+    if (js === lastSent) return;
+    lastSent = js;
+    netSend({ t: 'sync', data, at: S._at || Date.now() });
+  }
+  syncHook = () => { if (!syncT) syncT = setTimeout(netSync, 10000); };
+  // アプリを裏に回したら：未送信の保存をすぐ送る。2分たっても裏のまま（対局・マッチング中以外）なら接続を休む
+  let hideT = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (syncT) netSync();
+      clearTimeout(hideT);
+      hideT = setTimeout(() => {
+        if (!document.hidden || (G && G.online && !G.over) || M) return;
+        NET.paused = true; clearInterval(NET.pingT);
+        if (NET.ws) { const w = NET.ws; NET.ws = null; NET.ok = false; NET.authed = false; try { w.close(); } catch (e) {} }
+      }, 120000);
+    } else { clearTimeout(hideT); if (NET_URL && !NET.ws) { NET.retry = 0; netConnect(); } }
+  });
   function netAuth() {
     NET.authed = false;
     if (S.acct && S.acct.id) netSend({ t: 'login', id: S.acct.id, pass: S.acct.pass });

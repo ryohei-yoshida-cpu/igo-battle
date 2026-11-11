@@ -39,7 +39,7 @@ server.on('upgrade', (req, socket) => {
     },
     close() { if (!closed) { closed = true; socket.end(); } }
   };
-  const h = core.connect(sock);
+  const h = core.connect(sock, req.socket.remoteAddress + ':' + Math.random());   // 手元のテストでは制限しない
   let buf = Buffer.alloc(0);
   socket.on('data', chunk => {
     buf = Buffer.concat([buf, chunk]);

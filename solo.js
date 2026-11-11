@@ -182,7 +182,7 @@
     const last = RD.part >= RD.story.parts.length - 1;
     $('#rdSkip').hidden = false;
     $('#rdSkip').textContent = last ? '最後へ ≫' : opened(RD.story.id) > RD.part ? '次へ ≫' : '実戦へ ≫';
-    S.solo.at = S.solo.at || {}; S.solo.at[RD.story.id] = [RD.part, RD.line]; P.save();
+    S.solo.at = S.solo.at || {}; S.solo.at[RD.story.id] = [RD.part, RD.line]; P.saveLocal();   // 1行ごとにサーバーへは送らない
     // 1文字ずつ表示（タップで全文）
     clearInterval(typeT); RD.typing = true;
     let i = 0; tx.textContent = '';
