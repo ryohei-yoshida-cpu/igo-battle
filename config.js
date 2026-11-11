@@ -3,4 +3,4 @@
  * GitHub Pages など別の場所で開くときだけ、対人戦サーバーの住所を書いてください。例：
  *   window.KURO9_WS = 'wss://igo-battle.〇〇.workers.dev/ws';
  */
-window.KURO9_WS = window.KURO9_WS || '';
+window.KURO9_WS = window.KURO9_WS || 'wss://igo-battle.ryohei-yoshida.workers.dev/ws';

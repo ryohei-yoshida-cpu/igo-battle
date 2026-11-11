@@ -6,3 +6,6 @@ wrangler.toml
 .nojekyll
 README.md
 node_modules
+.wrangler
+package.json
+package-lock.json
