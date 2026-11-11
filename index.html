@@ -62,10 +62,42 @@
     <nav class="home-list">
       <button class="wide-btn" id="openReview" type="button"><b>検討モード</b><small>盤を自由に並べる</small><i aria-hidden="true">›</i></button>
       <button class="wide-btn" id="openChara" type="button"><b>キャラクター</b><small>あなたの分身をえらぶ</small><i aria-hidden="true">›</i></button>
+      <button class="wide-btn" id="openRoom" type="button"><b>マイルーム</b><small>銭で家具を買って部屋を飾る</small><i aria-hidden="true">›</i></button>
       <button class="wide-btn" id="openRecord" type="button"><b>戦績と棋譜</b><small>レート・成績・最近の対局</small><i aria-hidden="true">›</i></button>
     </nav>
 
     <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
+  </section>
+
+  <!-- マイルーム -->
+  <section id="myroom" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="roomBack">← ホーム</button>
+      <h2>マイルーム</h2>
+      <span class="zeni-chip" id="roomZeni"></span>
+    </header>
+    <div class="room-stage" id="roomStage">
+      <svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg>
+      <div class="room-bubble" id="roomBubble" hidden>
+        <b></b><p></p>
+        <div class="rb-btns"><button type="button" class="btn lac small" id="rbNext">ほかの話</button><button type="button" class="btn primary small" id="rbPlay">一局打つ</button></div>
+      </div>
+      <div class="room-tools" id="roomTools" hidden>
+        <span id="rmName"></span>
+        <button type="button" class="btn lac small" id="rmRot">回転</button>
+        <button type="button" class="btn lac small" id="rmStore">しまう</button>
+        <button type="button" class="btn primary small" id="rmDone">OK</button>
+      </div>
+    </div>
+    <div class="room-actions">
+      <button type="button" class="btn lac small" id="rmEdit">もようがえ</button>
+      <nav class="rm-tabs" id="roomTabs">
+        <button type="button" data-tab="shop">ショップ</button>
+        <button type="button" data-tab="inv">倉庫</button>
+        <button type="button" data-tab="guest">お客さん</button>
+      </nav>
+    </div>
+    <div class="room-panel" id="roomPanel"></div>
   </section>
 
   <!-- キャラクター -->
@@ -294,6 +326,7 @@
       <span id="resOld"></span><span class="arrow">→</span><b id="resNew"></b><em id="resDelta"></em>
     </div>
     <div class="res-promo" id="resPromo" hidden></div>
+    <div class="res-zeni" id="resZeni" hidden></div>
     <div class="res-btns">
       <button class="btn lac" id="resBoard">検討する</button>
       <button class="btn lac" id="resHome">ホーム</button>
@@ -399,5 +432,8 @@
 <script src="story_tosho.js"></script>
 <script src="app.js"></script>
 <script src="solo.js"></script>
+<script src="room-art.js"></script>
+<script src="room-lines.js"></script>
+<script src="room.js"></script>
 </body>
 </html>

@@ -424,7 +424,7 @@
     if (LS.l.drill && pr.drillId) {
       const st = drillState(), before = drillLv();
       if (!st.seen.includes(pr.drillId)) st.seen.push(pr.drillId);
-      if (!LS.miss) st.pts++;
+      if (!LS.miss) { st.pts++; P.addZeni(3); }
       P.save();
       const after = drillLv();
       if (after > before) setTimeout(() => { if (LS) say('小春', `レベルアップ！ 次は Lv.${after}「${LV_NAME[after]}」です。`, 'ok'); }, 1100);
@@ -507,7 +507,7 @@
     }
     if (LS.phase === 'prob' && LS.solved) {
       if (LS.pi < LS.l.problems.length - 1) { LS.pi++; probStep(); return; }
-      if (!LS.l.drill && !S.solo.lessons.includes(LS.l.id)) S.solo.lessons.push(LS.l.id);
+      if (!LS.l.drill && !S.solo.lessons.includes(LS.l.id)) { S.solo.lessons.push(LS.l.id); P.addZeni(20); P.toast('レクチャー初クリア！ ＋20 銭'); }
       P.save();
       const done = LS.onDone; LS = null;
       done(true);

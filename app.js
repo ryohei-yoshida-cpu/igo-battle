@@ -42,6 +42,9 @@
   S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
   if (S.settings.board !== 'washi') S.settings.board = 'kaya';
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
+  // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
+  if (S.zeni == null) S.zeni = 300 + (S.wins || 0) * 10;   // はじめは300銭（これまでの勝ち数ぶんもおまけ）
+  S.vs = S.vs || {};
   // 旧バージョン（コード描画のキャラ：0〜3小春、4〜5玄斎）からの引っ越し
   if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
   if (S.avatar.type !== 'preset') S.avatar = { type: 'preset', id: 0 };   // 写真アバターは廃止
@@ -122,6 +125,8 @@
   const rivalSrc = lv => A.charaUri(rivalIdx(lv));
   const rivalFace = lv => A.faceUri(rivalIdx(lv));
   const rivalName = lv => A.VARIANTS[rivalIdx(lv)].name;
+  // 対局相手のキャラ番号（人ならその人のアバター、マイルームから誘ったキャラならそのキャラ）
+  const oppChara = bot => bot.human ? bot.ava : bot.chara != null ? bot.chara : rivalIdx(bot.level);
   const myAvatarSrc = () => myFaceSrc();
   const setImg = (el, src) => { if (el.getAttribute('src') !== src) el.src = src; };
   function applyBoardStyle() { document.body.classList.toggle('washi', S.settings.board === 'washi'); }
@@ -222,7 +227,7 @@
     el.className = `cut t${tier} ${mine ? 'me' : 'op'}`;
     el.style.setProperty('--y', cy + 'px');
     el.innerHTML = `${tier === 2 ? '<div class="flash"></div>' : ''}<div class="band"></div><img class="chara" alt=""><div class="name"></div>`;
-    el.querySelector('.chara').src = mine ? myCharaSrc() : G.bot.human ? A.charaUri(G.bot.ava) : rivalSrc(G.bot.level);
+    el.querySelector('.chara').src = mine ? myCharaSrc() : A.charaUri(oppChara(G.bot));
     el.querySelector('.name').textContent = name;
     layer.append(el);
     if (tier === 2) { const bw = $('#boardWrap'); bw.classList.remove('shake'); void bw.offsetWidth; bw.classList.add('shake'); }
@@ -294,7 +299,7 @@
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom'];
   function showScreen(id) {
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
@@ -318,7 +323,7 @@
     showScreen('game'); setMode('play');
     setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
     if (bot.human) { setImg($('#opAvatar'), A.faceUri(bot.ava)); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・オンライン`; }
-    else { setImg($('#opAvatar'), rivalFace(bot.level)); $('#opName').textContent = `${rivalName(bot.level)}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`; }
+    else { setImg($('#opAvatar'), A.faceUri(oppChara(bot))); $('#opName').textContent = `${A.VARIANTS[oppChara(bot)].name}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`; }
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
@@ -529,6 +534,16 @@
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
     const r = G.solo ? null : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
+    // 銭：勝つともらえる（強い相手ほど多い。持碁は半分）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
+    let zeni = 0;
+    if (win || draw) {
+      zeni = G.solo ? 30 : G.online ? 80 : 20 + 5 * (G.bot.level | 0);
+      if (draw) zeni = Math.round(zeni / 2);
+    }
+    if (win) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
+    G.zeni = zeni;
+    if (zeni) { S.zeni += zeni; }
+    save();
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
     setTimeout(() => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r), scored ? 900 : 500);
@@ -541,6 +556,7 @@
     k.className = 'res-kanji ' + (win > 0 ? '' : 'lose');
     void k.offsetWidth; k.classList.add('pop');
     $('#resReason').textContent = label;
+    $('#resZeni').hidden = !G.zeni; $('#resZeni').textContent = `＋${G.zeni} 銭`;
     $('#resScore').textContent = scoreText;
     if (win > 0) { const kr = k.getBoundingClientRect(); setTimeout(() => A.burst(kr.left + kr.width / 2, kr.top + kr.height / 2, 'win'), 250); sound('ok'); }
     const pr = $('#resPromo');
@@ -1076,7 +1092,13 @@
   // ソロモード（solo.js）から使う機能
   window.APP = {
     E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
-    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen,
+    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
+    addZeni(n) { S.zeni = (S.zeni || 0) + n; save(); },
+    // マイルームに来たキャラと一局（レート対局）
+    playChara(chara, level) {
+      const lv = Math.max(0, Math.min(BOT_MAX, level));
+      newGame({ level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}`, chara }, Math.random() < 0.5 ? 1 : 2);
+    },
     startSoloGame(level, solo) {
       const lv = Math.max(0, Math.min(BOT_MAX, level));
       const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
