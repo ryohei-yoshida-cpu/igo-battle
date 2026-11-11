@@ -17,6 +17,10 @@
  *     register {}                          … アカウントを新しく作る（初めて開いたとき）
  *     login    { id, pass, restore }       … アカウントで入る（restore: 別の端末から引き継ぐ）
  *     sync     { data, at }                … 保存データ（名前・レート・戦績・進み具合）をサーバーへ
+ *     fhost    { hc }                      … フレンドマッチの部屋をつくる（hc = ハンデ）
+ *     fjoin    { code }                    … 合言葉（4けた）で部屋に入る
+ *     fcancel  {}                          … 部屋を閉じる
+ *     rematch  { g }                       … フレンド戦のあと「もう一局」
  *   サーバー → アプリ
  *     lobby  { online, seeking }
  *     start  { g, color, opp, clock, moves }
@@ -29,6 +33,11 @@
  *     account  { id, pass?, data, at, restore }   … 入れた（pass は作ったときだけ）
  *     authfail { restore }                 … IDかパスワードがちがう
  *     synced   { at }
+ *     froom    { code, hc }                … 部屋ができた（合言葉）
+ *     fnone    {}                          … その合言葉の部屋はない
+ *     rematch  { g }                       … 相手が「もう一局」を希望している
+ *   start / resume には、フレンド戦なら hc { h, black, min, komi } がつく
+ *     h: 0 互先 / 1 定先 / 2〜5 置き石の数   black: 'host' | 'guest' | 'random'   min: 持ち時間（分）
  *
  * アカウントの保存先は store（Cloudflare では Durable Object のストレージ、手元ではメモリ）。
  * パスワードはそのまま保存せず、ハッシュ（SHA-256）にして保存する。
@@ -52,6 +61,7 @@ export class Core {
     this.seq = 0;
     this.store = opts.store || memStore();
     this.sockInfo = new Map();  // sock → { acct }
+    this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
   }
 
   /* ---------- 接続 ---------- */
@@ -109,7 +119,11 @@ export class Core {
     const pl = this.players.get(cid);
     switch (m.t) {
       case 'ping': sock.send(JSON.stringify({ t: 'pong', now: this.now() })); break;
-      case 'seek': if (!pl.game) { pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
+      case 'fhost': this.fhost(pl, m); break;
+      case 'fjoin': this.fjoin(pl, m); break;
+      case 'fcancel': this.closeRoom(pl); break;
+      case 'rematch': this.rematch(pl, m); break;
+      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
       case 'cancel': pl.seekAt = 0; this.lobby(); break;
       case 'move': this.move(pl, m); break;
       case 'resign': { const g = this.gameOf(pl, m.g); if (g && !g.over) this.finish(g, 3 - g.colorOf[pl.cid], '中押し'); break; }
@@ -135,7 +149,7 @@ export class Core {
     if (g && !g.over) {
       const c = g.colorOf[cid];
       if (g.away[c]) { this.clearTimeout(g.away[c].timer); g.away[c] = null; this.send(g.players[3 - c], { t: 'back', g: g.id }); }
-      this.send(cid, { t: 'resume', g: g.id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), toPlay: g.toPlay, moves: g.moves, oppAway: !!g.away[3 - c], scoring: g.scoring });
+      this.send(cid, { t: 'resume', g: g.id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), toPlay: g.toPlay, moves: g.moves, oppAway: !!g.away[3 - c], scoring: g.scoring, hc: g.hc || undefined });
     } else if (g && g.over) {
       if (!g.acked[cid]) { this.send(cid, g.endMsg); g.acked[cid] = true; }
       pl.game = null;
@@ -285,7 +299,7 @@ export class Core {
     const cid = this.socks.get(sock); this.socks.delete(sock);
     if (!cid) return;
     const pl = this.players.get(cid); if (!pl || pl.sock !== sock) return;
-    pl.sock = null; pl.seekAt = 0;
+    pl.sock = null; pl.seekAt = 0; this.closeRoom(pl);
     const g = pl.game && this.games.get(pl.game);
     if (g && !g.over) {
       // 3分戻らなければ負け
@@ -312,17 +326,21 @@ export class Core {
       this.create(a, b);
     }
   }
-  create(a, b) {
+  // a, b: プレイヤー。hc があればフレンド戦（a が部屋をつくった人）。black を指定すると黒番が決まる
+  create(a, b, hc, black) {
     const id = 'g' + (++this.seq) + '-' + Math.random().toString(36).slice(2, 7);
-    const black = Math.random() < 0.5 ? a : b, white = black === a ? b : a;
+    if (!black) black = hc && hc.black === 'host' ? a : hc && hc.black === 'guest' ? b : Math.random() < 0.5 ? a : b;
+    const white = black === a ? b : a;
+    const main = hc ? hc.min * 60000 : MAIN_MS;
     const g = {
       id, players: { 1: black.cid, 2: white.cid }, colorOf: { [black.cid]: 1, [white.cid]: 2 },
-      moves: [], clock: { 1: MAIN_MS, 2: MAIN_MS }, toPlay: 1, turnStart: this.now() + START_DELAY_MS,
+      hc: hc || null, host: hc ? a.cid : null,
+      moves: [], clock: { 1: main, 2: main }, toPlay: hc && hc.h >= 2 ? 2 : 1, turnStart: this.now() + START_DELAY_MS,
       passes: 0, over: false, scoring: false, away: { 1: null, 2: null }, timer: null, acked: {}, endMsg: null
     };
     this.games.set(id, g);
-    for (const p of [black, white]) { p.seekAt = 0; p.game = id; }
-    for (const c of [1, 2]) this.send(g.players[c], { t: 'start', g: id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), delay: START_DELAY_MS });
+    for (const p of [black, white]) { p.seekAt = 0; p.game = id; this.closeRoom(p); }
+    for (const c of [1, 2]) this.send(g.players[c], { t: 'start', g: id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), delay: START_DELAY_MS, hc: g.hc || undefined });
     this.arm(g);
   }
   abort(g) {
@@ -364,13 +382,62 @@ export class Core {
     } else this.arm(g);
   }
 
+  /* ---------- フレンドマッチ：合言葉（4けたの数字）で部屋に入る ---------- */
+  fhost(pl, m) {
+    if (pl.game) return;
+    const h = m.hc || {};
+    const hc = {
+      h: [0, 1, 2, 3, 4, 5].includes(h.h) ? h.h : 0,
+      black: ['host', 'guest', 'random'].includes(h.black) ? h.black : 'random',
+      min: [3, 5, 10].includes(h.min) ? h.min : 5
+    };
+    if (hc.h > 0 && hc.black === 'random') hc.black = 'guest';
+    hc.komi = hc.h === 0 ? 7 : 0;
+    this.closeRoom(pl); pl.seekAt = 0;
+    if (this.rooms.size > 5000) return;
+    let code; do { code = String(1000 + Math.floor(Math.random() * 9000)); } while (this.rooms.has(code));
+    this.rooms.set(code, { code, host: pl.cid, hc, at: this.now() });
+    pl.room = code;
+    this.send(pl.cid, { t: 'froom', code, hc });
+  }
+  fjoin(pl, m) {
+    if (pl.game) return;
+    // 合言葉の当てずっぽうを防ぐ：まちがいは1分に10回まで
+    const now = this.now();
+    if (!pl.fj || now - pl.fj.at > 60000) pl.fj = { at: now, n: 0 };
+    if (pl.fj.n >= 10) { this.send(pl.cid, { t: 'fnone', busy: true }); return; }
+    const r = this.rooms.get(String(m.code || '').replace(/\D/g, '').slice(0, 4));
+    const host = r && this.players.get(r.host);
+    if (!r || !host || !host.sock || host.game || host.cid === pl.cid) { pl.fj.n++; this.send(pl.cid, { t: 'fnone' }); return; }
+    this.closeRoom(host); this.closeRoom(pl); pl.seekAt = 0;
+    this.create(host, pl, r.hc);
+  }
+  closeRoom(pl) {
+    if (pl && pl.room) { const r = this.rooms.get(pl.room); if (r && r.host === pl.cid) this.rooms.delete(pl.room); pl.room = null; }
+  }
+  rematch(pl, m) {
+    const g = this.games.get(m.g);
+    if (!g || !g.over || !g.hc || !g.colorOf[pl.cid] || pl.game) return;
+    g.re = g.re || {};
+    g.re[pl.cid] = true;
+    const other = this.players.get(g.players[3 - g.colorOf[pl.cid]]);
+    if (!other || !other.sock || other.game) return;
+    if (!g.re[other.cid]) { this.send(other.cid, { t: 'rematch', g: g.id }); return; }
+    g.re = {};
+    const host = this.players.get(g.host), guest = host === pl ? other : pl;
+    if (!host) return;
+    // 互先は黒白を入れかえる。ハンデ戦は同じ手合いのまま
+    const black = g.hc.h === 0 ? this.players.get(g.players[2]) : this.players.get(g.players[1]);
+    this.create(host, guest, g.hc, black);
+  }
+
   finish(g, winner, reason, res) {
     if (g.over) return;
     g.over = true; this.clearTimeout(g.timer);
     for (const c of [1, 2]) if (g.away[c]) this.clearTimeout(g.away[c].timer);
     g.endMsg = { t: 'end', g: g.id, winner, reason, res: res || null, moves: g.moves };
-    // 対人戦の銭：勝ち 80、持碁 40（8手未満で終わった対局は出さない）
-    if (g.moves.length >= 8) for (const c of [1, 2]) {
+    // 対人戦の銭：勝ち 80、持碁 40（8手未満で終わった対局は出さない）。フレンド戦は出さない（なれあいで増やせないように）
+    if (g.moves.length >= 8 && !g.hc) for (const c of [1, 2]) {
       const p = this.players.get(g.players[c]);
       const amount = winner === c ? ONLINE_WIN : winner === 0 ? ONLINE_WIN / 2 : 0;
       if (p && p.acct && amount) this.give(p.acct, amount, 'online').catch(() => {});

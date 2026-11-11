@@ -292,15 +292,16 @@
       const li = document.createElement('li');
       const hk = h.draw ? ['d', '持'] : h.win ? ['w', '勝'] : ['l', '負'];
       if (h.rec) { li.className = 'rec'; li.title = 'タップで検討'; li.onclick = () => openReview(h.rec); }
-      li.innerHTML = `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
-      li.querySelector('.hn').textContent = h.op; const sm = document.createElement('small'); sm.textContent = h.color === 1 ? '黒番' : '白番'; li.querySelector('.hn').append(sm);
+      li.innerHTML = h.friend ? `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd fr">友</span>`
+        : `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
+      li.querySelector('.hn').textContent = h.op; const sm = document.createElement('small'); sm.textContent = (h.color === 1 ? '黒番' : '白番') + (h.friend ? '・' + HC_NAME[h.hc || 0] : ''); li.querySelector('.hn').append(sm);
       li.querySelector('.hr').textContent = h.reason;
       ol.append(li);
     }
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend'];
   function showScreen(id) {
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
@@ -318,19 +319,26 @@
       id: gameSeq, board: new Array(81).fill(0), toPlay: 1, ko: -1, me: myColor, bot,
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
       passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1,
-      online: opts.online || null, oppAway: 0
+      online: opts.online || null, oppAway: 0,
+      hc: opts.hc || null, friend: !!opts.hc, komi: opts.hc ? opts.hc.komi : KOMI
     };
+    // フレンド戦のハンデ：置き石を先に並べて、白から打つ
+    if (G.hc) {
+      G.clock = { 1: G.hc.min * 60000, 2: G.hc.min * 60000 };
+      for (const p of hcStones(G.hc.h)) G.board[p] = 1;
+      if (G.hc.h >= 2) G.toPlay = 2;
+    }
     if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo }); }
-    if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null })); } catch (e) {} }
+    if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
-    if (bot.human) { setImg($('#opAvatar'), A.faceUri(bot.ava)); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・オンライン`; }
+    if (bot.human) { setImg($('#opAvatar'), A.faceUri(bot.ava)); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・${G.friend ? 'フレンド' : 'オンライン'}`; }
     else { setImg($('#opAvatar'), A.faceUri(oppChara(bot))); $('#opName').textContent = `${A.VARIANTS[oppChara(bot)].name}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`; }
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
     render();
-    banner('お願いします', myColor === 1 ? 'あなたは黒番・先手' : 'あなたは白番');
+    banner('お願いします', G.hc ? `${HC_NAME[G.hc.h]}・${myColor === 1 ? 'あなたは黒番' : 'あなたは白番'}${G.hc.h >= 2 ? (myColor === 2 ? '（白から）' : '（白から打ちます）') : ''}` : myColor === 1 ? 'あなたは黒番・先手' : 'あなたは白番');
     if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { G && (G.wake = l); }).catch(() => {});
     if (!navigator.onLine) netDown();
     stopPonder();
@@ -482,14 +490,14 @@
     for (let p = 0; p < 81; p++) { const o = b[p] || terr[p]; if (o === 1) black++; else if (o === 2) white++; }
     const fterr = terr.map((v, p) => b[p] ? 0 : v);
     for (const p of dead) fterr[p] = 3 - G.board[p];
-    const margin = black - (white + KOMI);
+    const margin = black - (white + G.komi);
     return { dead, terr: fterr, black, white, winner: margin > 0 ? 1 : margin < 0 ? 2 : 0 };
   }
   function applyScore(res) {
     G.final = { dead: res.dead || [], terr: res.terr || new Array(81).fill(0) };
     render();
-    const pts = Math.abs(res.black - (res.white + KOMI));
-    endGame(res.winner, res.winner === 0 ? '持碁' : `${pts}目${res.winner === G.me ? '勝ち' : '負け'}`, `黒 ${res.black}  ／  白 ${res.white} + コミ ${KOMI}`, true);
+    const pts = Math.abs(res.black - (res.white + G.komi));
+    endGame(res.winner, res.winner === 0 ? '持碁' : `${pts}目${res.winner === G.me ? '勝ち' : '負け'}`, `黒 ${res.black}  ／  白 ${res.white}${G.komi ? ' + コミ ' + G.komi : '（コミなし）'}`, true);
   }
   async function scoreGame() {
     G.over = true;
@@ -523,6 +531,15 @@
     return { old, d, oldRank, newRank: displayRank() };
   }
 
+  // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
+  function friendRecord(win, draw, color, opName, reason, rec, h) {
+    S.history.unshift({ win, draw, op: opName, color, reason, delta: 0, friend: true, hc: h || 0, t: Date.now(), rec: rec || null });
+    S.history = S.history.slice(0, 30);
+    save();
+    try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
+    return { friend: true };
+  }
+
   function endGame(winner, reason, scoreText, scored) {
     if (!G || (G.over && !scored)) return;
     G.over = true; G.thinking = false;
@@ -535,14 +552,14 @@
     if (reason === '中押し') label = win ? '中押し勝ち' : '中押し負け';
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
-    const r = G.solo ? null : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
+    const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
     // 銭：勝つともらえる（強い相手ほど多い。持碁は半分）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     let zeni = 0;
-    if (win || draw) {
+    if ((win || draw) && !G.friend) {
       zeni = G.solo ? 30 : G.online ? 80 : 20 + 5 * (G.bot.level | 0);
       if (draw) zeni = Math.round(zeni / 2);
     }
-    if (win) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
+    if (win && !G.friend) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
     G.zeni = zeni;
     if (econOn()) {
       // 銭はサーバーが決める（対人戦はサーバーが結果を知っている。Bot戦は時間と手数を確かめてから）
@@ -565,9 +582,25 @@
     $('#resScore').textContent = scoreText;
     if (win > 0) { const kr = k.getBoundingClientRect(); setTimeout(() => A.burst(kr.left + kr.width / 2, kr.top + kr.height / 2, 'win'), 250); sound('ok'); }
     const pr = $('#resPromo');
-    $('#resRate').hidden = !r;
+    $('#resRate').hidden = !r || !!r.friend;
     $('#resAgain').textContent = 'もう一局';
     $('#resAgain').onclick = () => { leaveGame(); startMatch(); };
+    $('#resAgain').disabled = false;
+    if (r && r.friend) {
+      // フレンド戦：レートは動かない。「もう一局」は相手にも申しこむ
+      pr.hidden = false; pr.textContent = `フレンドマッチ・${HC_NAME[G.hc.h]}（レート変動なし）`;
+      const g = G.online.g, opp = G.bot;
+      $('#resAgain').textContent = G.reAsk ? 'もう一局（相手が待っています）' : 'もう一局';
+      $('#resAgain').onclick = () => {
+        if (!NET.ok) { toast('サーバーにつながっていません'); return; }
+        netSend({ t: 'rematch', g });
+        M = { friend: true, rematch: true, found: false, t0: Date.now(), timer: 0, opp };
+        $('#resAgain').disabled = true; $('#resAgain').textContent = '相手の返事を待っています…';
+      };
+      $('#resHome').onclick = leaveGame;
+      $('#result').hidden = false;
+      return;
+    }
     if (!r) {
       // ソロモードのミッション対局（レートは変わらない）
       const solo = G.solo, cleared = win > 0;
@@ -588,6 +621,7 @@
   }
 
   function leaveGame() {
+    if (M && M.rematch) M = null;
     $('#result').hidden = true; showScreen('home');
     G = null; renderHome();
   }
@@ -629,7 +663,8 @@
       NET.ok = true; NET.retry = 0;
       netAuth();
       netHello();
-      if (M && !M.found) netSend({ t: 'seek' });
+      if (M && !M.found && !M.friend) netSend({ t: 'seek' });
+      if (M && M.friend && !M.found && M.redo) M.redo();   // フレンドマッチ：つながってから部屋をつくる／入る
       clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 40000);   // つながっているかの確認（40秒ごと）
     };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } netMsg(m); };
@@ -759,8 +794,8 @@
         else netSend({ t: 'decline', g: m.g });   // もう Bot 戦を始めていた
         break;
       case 'aborted':
-        if (isMine(m.g) && G.moveNo === 0) { G = null; showScreen('home'); toast('相手の接続が切れたので、もう一度探します'); startMatch(); }
-        else if (M && M.found && M.g === m.g) { clearTimeout(M.timer); M = null; startMatch(); }
+        if (isMine(m.g) && G.moveNo === 0) { const fr = G.friend; G = null; showScreen('home'); if (fr) { toast('相手の接続が切れました'); openFriend(); } else { toast('相手の接続が切れたので、もう一度探します'); startMatch(); } }
+        else if (M && M.found && M.g === m.g) { clearTimeout(M.timer); const fr = M.friend; M = null; if (fr) { $('#matching').hidden = true; toast('相手の接続が切れました'); openFriend(); } else startMatch(); }
         break;
       case 'resume':
         if (isMine(m.g)) {
@@ -771,7 +806,7 @@
         } else if (!G) {
           stopMatch();
           if (!$('#title').hidden) { $('#title').hidden = true; document.body.classList.remove('on-title'); }
-          newGame(humanOpp(m.opp), m.color, { online: { g: m.g }, moves: m.moves });
+          newGame(humanOpp(m.opp), m.color, { online: { g: m.g }, moves: m.moves, hc: m.hc || null });
           setClocks(m.clock);
           toast('中断していた対局を再開しました');
           if (m.scoring) scoreGame();
@@ -791,6 +826,14 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
+      case 'froom': if (M && M.friend && !M.found) { M.code = m.code; if (window.FRIEND) window.FRIEND.onRoom(m); } break;
+      case 'fnone': if (M && M.friend && M.joining) { M = null; } if (window.FRIEND) window.FRIEND.onNone(m); break;
+      case 'rematch':
+        if (G && G.online && G.online.g === m.g && G.over) {
+          G.reAsk = true; toast('相手が「もう一局」を希望しています', 3500);
+          if (!$('#resAgain').disabled) $('#resAgain').textContent = 'もう一局（相手が待っています）';
+        }
+        break;
     }
   }
   function onlineEnd(m) {
@@ -804,7 +847,11 @@
     // アプリを閉じている間に終わっていた対局
     try {
       const act = JSON.parse(localStorage.getItem(KEY + '.active') || 'null');
-      if (act && act.g === m.g) {
+      if (act && act.g === m.g && act.friend) {
+        const label = m.winner === 0 ? '持碁' : m.winner === act.color ? '勝ち' : (m.reason === '切断' ? '切断負け' : '負け');
+        friendRecord(m.winner === act.color, m.winner === 0, act.color, act.name, label, hcRec(act.h | 0).concat(m.moves || []), act.h | 0);
+        toast(`前回のフレンド戦の結果：${label}`, 4500); renderHome();
+      } else if (act && act.g === m.g) {
         const sc = m.winner === 0 ? 0.5 : m.winner === act.color ? 1 : 0;
         const label = sc === 1 ? '勝ち' : sc === 0.5 ? '持碁' : (m.reason === '切断' ? '切断負け' : '負け');
         const r = applyRating(sc, act.op, act.color, act.name, label, m.moves || null);
@@ -812,6 +859,33 @@
       }
     } catch (e) {}
   }
+
+  /* ---------- 対人戦のえらびかた：ランダムマッチ／フレンドマッチ ---------- */
+  // 置き石の位置（9路）：右上・左下・右下・左上・天元の順
+  const HC_PTS = [24, 56, 60, 20, 40];
+  const HC_NAME = ['互先', '定先', '2子局', '3子局', '4子局', '5子局'];
+  const hcStones = h => h >= 2 ? HC_PTS.slice(0, h) : [];
+  // 棋譜用：置き石を「黒・白パス・黒…」として先頭に入れる（検討モードでそのまま並ぶ）
+  const hcRec = h => { const r = []; hcStones(h).forEach((p, i, a) => { r.push(p); if (i < a.length - 1) r.push(-1); }); return r; };
+  function openPvp() { stopMatch(); showScreen('pvp'); if (window.FRIEND) window.FRIEND.renderPvp(); }
+  function openFriend() { showScreen('friend'); if (window.FRIEND) window.FRIEND.open(); }
+  // フレンドマッチ：つながっていなければ、つないでから送る
+  function friendSend(msg, extra) {
+    stopMatch();
+    M = Object.assign({ friend: true, found: false, t0: Date.now(), timer: 0 }, extra || {});
+    M.redo = () => { netHello(); netSend(msg); };
+    if (NET.ok) M.redo(); else { NET.retry = 0; netConnect(); }
+  }
+  const FR = {
+    available: () => !!NET_URL,
+    online: () => NET.ok,
+    host(hc) { friendSend({ t: 'fhost', hc }); },
+    join(code) { friendSend({ t: 'fjoin', code }, { joining: true }); },
+    cancel() { if (M && M.friend && !M.found) { netSend({ t: 'fcancel' }); clearTimeout(M.timer); M = null; } },
+    waiting: () => !!(M && M.friend && !M.found),
+    random() { showScreen('home'); startMatch(); },
+    openFriend, back: () => { FR.cancel(); showScreen('home'); renderHome(); }
+  };
 
   /* ---------- マッチング ---------- */
   // サーバーにつながれば、まず人を探す。見つからなければ Bot（「Botとはマッチしない」なら待ち続ける）
@@ -837,7 +911,7 @@
     return `${RANKS[Math.max(0, Math.min(BOT_MAX, M.myRank) - 1)]}〜${RANKS[Math.min(BOT_MAX, M.myRank + 1)]} の相手`;
   }
   function matchTick() {
-    if (!M || M.found) return;
+    if (!M || M.found || M.friend) return;
     const sec = Math.floor((Date.now() - M.t0) / 1000);
     const tt = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
     $('#mtSub').textContent = `${matchRange()}・${tt}`;
@@ -845,7 +919,7 @@
     const wait = NET.ok ? ONLINE_WAIT_MS : MATCH_SEARCH_MS;
     if (!S.noBot && Date.now() - M.t0 >= wait) { netSend({ t: 'cancel' }); matchFound(); }
   }
-  function showFound(face, name, rank, color, sub) {
+  function showFound(face, name, rank, color, sub, hc) {
     if (R) closeReview(true);
     $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
     $('#matching').hidden = false; $('#mtOpts').hidden = true;
@@ -854,15 +928,18 @@
     setImg($('#mtAvatar'), face);
     $('#mtName').textContent = name;
     $('#mtRank').textContent = rank;
-    $('#mtColor').textContent = color === 1 ? 'あなたは黒番（先手）' : 'あなたは白番（後手）';
+    $('#mtColor').textContent = hc && hc.h >= 2 ? (color === 1 ? `あなたは黒番（${hc.h}子を置きます）` : `あなたは白番（${hc.h}子置かせて、白から）`)
+      : color === 1 ? 'あなたは黒番（先手）' : 'あなたは白番（後手）';
     $('#mtFound').hidden = false;
     sound('taiko');
   }
   function onlineFound(m) {
     M.found = true; M.g = m.g; clearInterval(M.timer);
-    const opp = humanOpp(m.opp);
-    showFound(A.faceUri(opp.ava), opp.name, `${RANKS[rankFromRating(opp.rating)]}・レート ${opp.rating}`, m.color, 'オンラインのプレイヤーとマッチしました');
-    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g } }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
+    if (G && G.over) { $('#result').hidden = true; G = null; }   // フレンド戦の「もう一局」
+    const opp = humanOpp(m.opp), hc = m.hc || null;
+    showFound(A.faceUri(opp.ava), opp.name, `${RANKS[rankFromRating(opp.rating)]}・レート ${opp.rating}`, m.color,
+      hc ? `フレンドマッチ・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : 'オンラインのプレイヤーとマッチしました', hc);
+    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
   }
   function matchFound() {
     M.found = true; clearInterval(M.timer);
@@ -873,7 +950,7 @@
     M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor); }, 2200);
   }
   function stopMatch() {
-    if (M) { clearInterval(M.timer); clearTimeout(M.timer); if (!M.found) netSend({ t: 'cancel' }); }
+    if (M) { clearInterval(M.timer); clearTimeout(M.timer); if (!M.found) netSend({ t: M.friend ? 'fcancel' : 'cancel' }); }
     M = null;
     $('#matching').hidden = true; $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
   }
@@ -910,7 +987,7 @@
     confirmBox(G.passes ? '相手もパスしています。パスすると終局して整地します。' : 'パスしますか？', () => { if (G && !G.over && G.toPlay === G.me) doPass(G.me); });
   };
   $('#resignBtn').onclick = () => { if (G && !G.over) confirmBox('投了しますか？ 負けになります。', () => { if (!G || G.over) return; if (G.online) netSend({ t: 'resign', g: G.online.g }); endGame(3 - G.me, '中押し'); }); };
-  $('#startMatch').onclick = () => { sound('stone'); startMatch(); };
+  $('#startMatch').onclick = () => { sound('stone'); openPvp(); };
   $('#resHome').addEventListener('click', stopPonder);
   $('#resBoard').onclick = () => { const rec = G ? G.record.slice() : []; reviewBack = G && G.solo ? G.solo.back : null; $('#result').hidden = true; G = null; openReview(rec); };
 
@@ -1150,7 +1227,7 @@
   window.APP = {
     E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
-    saveLocal, econOn,
+    saveLocal, econOn, FR, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
       if (econOn()) netSend({ t: 'claim', kind, id });

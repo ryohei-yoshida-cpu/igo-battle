@@ -48,8 +48,8 @@
       <button class="big-card pvp" id="startMatch" type="button">
         <img class="bc-chara" id="heroChara" alt="">
         <span class="bc-k">対人戦</span>
-        <span class="bc-sub">9路・5分＋1手5秒・コミ7目</span>
-        <span class="bc-go">対局をさがす</span>
+        <span class="bc-sub">ランダムマッチ・フレンドマッチ</span>
+        <span class="bc-go">対局へ</span>
       </button>
       <button class="big-card solo" id="openSolo" type="button">
         <img class="bc-chara" id="soloChara" alt="">
@@ -67,6 +67,91 @@
     </nav>
 
     <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
+  </section>
+
+  <!-- 対人戦：ランダムマッチ／フレンドマッチ -->
+  <section id="pvp" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="pvpBack">← ホーム</button>
+      <h2>対人戦</h2><span></span>
+    </header>
+    <button class="mode-card random" id="goRandom" type="button">
+      <span class="mc-pair"><img id="pmRandA" alt=""><img id="pmRandB" alt=""><i class="mc-vs">VS</i></span>
+      <span class="mc-k">ランダムマッチ</span>
+      <span class="mc-sub">近い強さの誰かと、レートをかけた真剣勝負。<br>9路・5分＋1手5秒・コミ7目</span>
+      <span class="bc-go">相手をさがす</span>
+    </button>
+    <button class="mode-card friend" id="goFriend" type="button">
+      <span class="mc-pair"><img id="pmFrA" alt=""><img id="pmFrB" alt=""></span>
+      <span class="mc-k">フレンドマッチ</span>
+      <span class="mc-sub">4けたの合言葉で、友だちと一局。<br>置き石のハンデ戦もえらべる</span>
+      <span class="bc-go">部屋へ</span>
+    </button>
+    <p class="pvp-note" id="pvpNote"></p>
+  </section>
+
+  <section id="friend" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="frBack">← もどる</button>
+      <h2>フレンドマッチ</h2><span></span>
+    </header>
+    <div class="seg" role="radiogroup" id="frTabs">
+      <button type="button" role="radio" data-tab="make" aria-checked="true">部屋をつくる<small>合言葉を友だちに伝える</small></button>
+      <button type="button" role="radio" data-tab="join" aria-checked="false">部屋に入る<small>合言葉を入れる</small></button>
+    </div>
+
+    <div class="fr-pane" id="frMake">
+      <div class="fr-talk" id="frTalk">
+        <img class="fr-bust" id="frTalkImg" alt="">
+        <div class="fr-bubble"><b id="frTalkName"></b><p id="frTalkText"></p></div>
+      </div>
+      <div class="fr-label">手合い（ハンデ）</div>
+      <div class="hc-grid" id="hcGrid" role="radiogroup" aria-label="手合い"></div>
+      <div class="fr-label" id="frBlackLabel">黒番（先手）を持つのは</div>
+      <div class="chips" id="frBlack" role="radiogroup">
+        <button type="button" role="radio" data-v="host">自分</button>
+        <button type="button" role="radio" data-v="guest">友だち</button>
+        <button type="button" role="radio" data-v="random">おまかせ</button>
+      </div>
+      <div class="fr-label">持ち時間（1手ごとに＋5秒）</div>
+      <div class="chips" id="frTime" role="radiogroup">
+        <button type="button" role="radio" data-v="3">3分</button>
+        <button type="button" role="radio" data-v="5">5分</button>
+        <button type="button" role="radio" data-v="10">10分</button>
+      </div>
+      <p class="fr-summary" id="frSummary"></p>
+      <button class="btn primary fr-go" id="frCreate" type="button">この手合いで部屋をつくる</button>
+      <p class="fr-note">フレンドマッチは練習試合です。レートと銭は変わりません（棋譜は「戦績と棋譜」に残ります）。</p>
+    </div>
+
+    <div class="fr-pane" id="frJoin" hidden>
+      <div class="fr-talk">
+        <img class="fr-bust" id="joinImg" alt="">
+        <div class="fr-bubble"><b>小春</b><p id="joinTalk">合言葉を教えてもらいましたか？ 4けたの数字を入れてください！</p></div>
+      </div>
+      <div class="code-boxes" id="codeBoxes" aria-label="合言葉"><span></span><span></span><span></span><span></span></div>
+      <div class="keypad" id="keypad"></div>
+    </div>
+
+    <div class="fr-pane" id="frWait" hidden>
+      <div class="fr-code-card" id="frCodeCard">
+        <small>合言葉</small>
+        <b id="frCode">····</b>
+        <button class="btn lac small" id="frCopy" type="button">コピーして送る</button>
+      </div>
+      <p class="fr-how">この4けたを友だちに伝えてね。友だちが「部屋に入る」で入れると、対局が始まります。</p>
+      <div class="fr-cond" id="frCond"></div>
+      <div class="fr-waitrow">
+        <img class="fr-waitme" id="frWaitMe" alt="">
+        <span class="fr-dots"><i></i><i></i><i></i></span>
+        <span class="fr-q">？</span>
+      </div>
+      <div class="fr-talk wait">
+        <img class="fr-bust" id="frWaitChara" alt="">
+        <div class="fr-bubble"><b id="frWaitName"></b><p id="frWaitText"></p></div>
+      </div>
+      <button class="btn danger" id="frClose" type="button">部屋を閉じる</button>
+    </div>
   </section>
 
   <!-- マイルーム -->
@@ -431,6 +516,7 @@
 <script src="story_kyoshu.js"></script>
 <script src="story_tosho.js"></script>
 <script src="app.js"></script>
+<script src="friend.js"></script>
 <script src="solo.js"></script>
 <script src="room-art.js"></script>
 <script src="room-lines.js"></script>
