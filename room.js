@@ -135,8 +135,8 @@
   }
   function drawOwner(e) {
     const look = guest ? guest.av : S.av;
-    const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 46, h = w * 432 / 200;
-    return `<g class="rm-owner"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="0 -14 200 432">${AV.inner(look || AV.PRESETS.girl)}</svg></g>`;
+    const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 46, h = w * AV.H / AV.W;
+    return `<g class="rm-owner"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="${AV.VB}">${AV.inner(look || AV.PRESETS.girl)}</svg></g>`;
   }
 
   /* ---------- 遊びに来るキャラ ---------- */

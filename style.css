@@ -904,3 +904,6 @@ body.washi .bd-grain { display: none; }
 .sc-num b { font-size: 34px; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
 .rm-help.warn { color: #ffd2c8; }
 #roomTitle { font-size: clamp(15px, 4.6vw, 20px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.av-sec { grid-column: 1 / -1; font-size: 12.5px; font-weight: 900; color: var(--kin); margin-top: 4px; }
+.av-lead { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.av-item .av-thumb { background: linear-gradient(#fbf6ec, #efe4d0); }

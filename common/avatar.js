@@ -32,19 +32,23 @@
   }
   function changed() { return JSON.stringify(AV.clean(look)) !== JSON.stringify(myLook()); }
   function unowned() { return AV.SLOTS.map(([sl]) => sl).filter(sl => !owned(sl, look[sl])); }
+  // タブの中身：髪のタブは「髪型」と「髪の色」
+  const sections = tab => tab === 'hair' ? [['hair', '髪型'], ['hairColor', '髪の色']] : tab === 'face' || tab === 'body' ? [[tab, '']] : [[tab, '色']];
   function render() {
     $('#avBig').innerHTML = AV.svg(look);
     $('#avZeni').textContent = zeniText();
-    $('#avHairColors').innerHTML = Object.entries(AV.HAIR_COLORS).map(([k, c]) => `<button type="button" data-hc="${k}" style="--c:${c}" aria-pressed="${look.hairColor === k}" title="${AV.HAIR_COLOR_NAME[k]}"></button>`).join('');
-    $('#avSkins').innerHTML = Object.entries(AV.SKINS).map(([k, c]) => `<button type="button" data-skin="${k}" style="--c:${c}" aria-pressed="${look.skin === k}" title="${AV.SKIN_NAME[k]}"></button>`).join('');
-    $('#avTabs').innerHTML = AV.SLOTS.map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
-    const list = AV.CATALOG[slot];
-    $('#avGrid2').innerHTML = list.map(([id, name, price]) => {
-      const have = owned(slot, id), wearing = look[slot] === id;
-      const preview = Object.assign({}, look, { [slot]: id });
-      return `<button type="button" class="av-item ${wearing ? 'on' : ''}" data-id="${id}">${AV.thumb(preview, slot)}<b>${name}</b>` +
-        `<small class="${have ? 'own' : 'price'}">${have ? (wearing ? '着ている' : '持っている') : price.toLocaleString() + ' 銭'}</small></button>`;
-    }).join('');
+    $('#avTabs').innerHTML = AV.TABS.map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
+    let h = '';
+    for (const [sl, title] of sections(slot)) {
+      if (title) h += `<div class="av-sec">${title}</div>`;
+      h += AV.CATALOG[sl].map(([id, name, price]) => {
+        const have = owned(sl, id), wearing = look[sl] === id;
+        const preview = Object.assign({}, look, { [sl]: id });
+        return `<button type="button" class="av-item ${wearing ? 'on' : ''}" data-sl="${sl}" data-id="${id}">${AV.thumb(preview, slot)}<b>${name}</b>` +
+          `<small class="${have ? 'own' : 'price'}">${have ? (wearing ? '着ている' : '持っている') : price.toLocaleString() + ' 銭'}</small></button>`;
+      }).join('');
+    }
+    $('#avGrid2').innerHTML = h;
     const need = unowned();
     $('#avSave').disabled = !changed();
     $('#avSave').textContent = need.length ? 'まだ買っていないパーツがあります' : 'この姿にする';
@@ -53,13 +57,13 @@
   const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
   $('#avGrid2').addEventListener('click', e => {
     const b = e.target.closest('.av-item'); if (!b) return;
-    const id = b.dataset.id, entry = AV.CATALOG[slot].find(x => x[0] === id);
-    look[slot] = id; P.sound('tap'); render();
-    if (!owned(slot, id)) {
+    const sl = b.dataset.sl, id = b.dataset.id, entry = AV.CATALOG[sl].find(x => x[0] === id);
+    look[sl] = id; P.sound('tap'); render();
+    if (!owned(sl, id)) {
       const price = entry[2];
       if ((S.zeni || 0) < price) { P.toast(`${entry[1]}は ${price} 銭です（試着中）。銭が足りません`); return; }
       P.confirmBox(`${entry[1]}を ${price} 銭で買いますか？`, () => {
-        P.buy({ av: slot + ':' + id }, price, res => {
+        P.buy({ av: sl + ':' + id }, price, res => {
           if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
           P.sound('ok'); P.toast(`${entry[1]}を買いました`); render();
         });
@@ -67,11 +71,9 @@
     }
   });
   $('#avTabs').addEventListener('click', e => { const b = e.target.closest('[data-slot]'); if (b) { slot = b.dataset.slot; render(); } });
-  $('#avHairColors').addEventListener('click', e => { const b = e.target.closest('[data-hc]'); if (b) { look.hairColor = b.dataset.hc; render(); } });
-  $('#avSkins').addEventListener('click', e => { const b = e.target.closest('[data-skin]'); if (b) { look.skin = b.dataset.skin; render(); } });
   document.querySelectorAll('.av-presets [data-preset]').forEach(b => b.onclick = () => {
     const p = AV.PRESETS[b.dataset.preset];
-    look = Object.assign({}, look, { face: p.face, hair: p.hair, top: p.top, bottom: p.bottom, shoes: p.shoes, body: p.body });
+    look = Object.assign({}, look, { face: p.face, hair: p.hair, body: p.body });
     render();
   });
   $('#avSave').onclick = () => {
