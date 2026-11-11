@@ -1,7 +1,8 @@
 /* 九路 Blitz — 画面・対局進行・レート管理 */
 (() => {
   'use strict';
-  const E = window.GoEngine;
+  const E9 = window.GoEngine;
+  let E = E9, BN = 9;   // 今の盤（9路・13路）とそのエンジン
   const $ = s => document.querySelector(s);
   const KOMI = 7; // 同点は持碁（引き分け）
   const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000;
@@ -113,7 +114,7 @@
   } catch (e) { worker = null; }
   function ask(msg) {
     return new Promise(res => {
-      if (worker) { const id = ++reqId; pending.set(id, res); worker.postMessage(Object.assign({ id }, msg)); }
+      if (worker) { const id = ++reqId; pending.set(id, res); worker.postMessage(Object.assign({ id, size: BN }, msg)); }
       else setTimeout(() => res(msg.type === 'think' ? E.think(msg) : msg.type === 'analyze' ? E.analyze(msg) : { own: E.ownership(msg.board, msg.n || 400) }), 30);
     });
   }
@@ -135,25 +136,42 @@
   // 人の手番中にBotが先読みする（Botの1手は5秒以内）
   function ponder() {
     if (!worker || !G || G.over || G.toPlay !== G.me || G.online) return;
-    worker.postMessage({ type: 'ponder', board: G.board, toPlay: G.toPlay, ko: G.ko, komi: KOMI, last: G.last, level: G.bot.level });
+    worker.postMessage({ type: 'ponder', size: BN, board: G.board, toPlay: G.toPlay, ko: G.ko, komi: G.komi, last: G.last, level: G.bot.level });
   }
   function stopPonder() { if (worker) worker.postMessage({ type: 'stop' }); }
 
   /* ---------- 盤の静的部分 ---------- */
-  function drawGrid(g) {
+  const HOSHI = { 9: [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]], 13: [[3, 3], [9, 3], [3, 9], [9, 9], [6, 6]] };
+  function drawGrid(g, n) {
+    n = n || 9;
     let s = '';
-    for (let i = 0; i < 9; i++) {
-      const v = i + 0.5, edge = i === 0 || i === 8, w = edge ? 0.05 : 0.026;
-      s += `<line class="gl" x1="0.5" y1="${v}" x2="8.5" y2="${v}" stroke-width="${w}"/><line class="gl" x1="${v}" y1="0.5" x2="${v}" y2="8.5" stroke-width="${w}"/>`;
+    const k = n / 9;
+    for (let i = 0; i < n; i++) {
+      const v = i + 0.5, edge = i === 0 || i === n - 1, w = (edge ? 0.05 : 0.026) * k;
+      s += `<line class="gl" x1="0.5" y1="${v}" x2="${n - .5}" y2="${v}" stroke-width="${w}"/><line class="gl" x1="${v}" y1="0.5" x2="${v}" y2="${n - .5}" stroke-width="${w}"/>`;
     }
-    for (const [x, y] of [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]]) s += `<circle class="hoshi" cx="${x + .5}" cy="${y + .5}" r=".09"/>`;
+    for (const [x, y] of HOSHI[n]) s += `<circle class="hoshi" cx="${x + .5}" cy="${y + .5}" r="${.09 * k}"/>`;
     g.innerHTML = s;
   }
-  document.querySelectorAll('svg .grid').forEach(drawGrid);
+  // 対局・検討の盤を 9路／13路 に切りかえる
+  function setSize(n) {
+    n = n === 13 ? 13 : 9;
+    if (n === BN && $('#board').dataset.n) return;
+    BN = n; E = window.GoEngines[n];
+    const b = $('#board');
+    b.dataset.n = n;
+    b.setAttribute('viewBox', `-0.15 -0.15 ${n + .3} ${n + .3}`);
+    b.setAttribute('aria-label', n + '路盤');
+    for (const r of b.querySelectorAll('.bd-bg, .bd-grain')) { r.setAttribute('width', n + .3); r.setAttribute('height', n + .3); r.setAttribute('rx', .22 * n / 9); }
+    drawGrid($('#grid'), n);
+    document.body.classList.toggle('b13', n === 13);
+  }
+  document.querySelectorAll('svg .grid').forEach(g => drawGrid(g, 9));
   // 盤上の点 → 画面座標
   function pointXY(svg, p) {
     const r = svg.getBoundingClientRect();
-    return [r.left + (p % 9 + .65) / 9.3 * r.width, r.top + (((p / 9) | 0) + .65) / 9.3 * r.height];
+    const n = +svg.dataset.n || 9;
+    return [r.left + (p % n + .65) / (n + .3) * r.width, r.top + (((p / n) | 0) + .65) / (n + .3) * r.height];
   }
   function stoneFx(svg, p, color, wrap) {
     const [x, y] = pointXY(svg, p);
@@ -186,8 +204,8 @@
     }
     if (nbOpp.length && !nbOwn.length) return dgOwn.length ? ['コスミツケ', 1] : ['ツケ', 1];
     if (nbOwn.length === 1 && !nbOpp.length && E.NB[nbOwn[0]].some(r => prev[r] === o)) return ['ノビ', 1];
-    const x = p % 9, y = (p / 9) | 0;
-    const at = (dx, dy) => { const X = x + dx, Y = y + dy; return X >= 0 && X < 9 && Y >= 0 && Y < 9 ? prev[Y * 9 + X] : -1; };
+    const x = p % BN, y = (p / BN) | 0;
+    const at = (dx, dy) => { const X = x + dx, Y = y + dy; return X >= 0 && X < BN && Y >= 0 && Y < BN ? prev[Y * BN + X] : -1; };
     if (!nbOwn.length && dgOwn.length) {
       for (const d of dgOwn) { const com = nb.filter(q => E.NB[d].includes(q)); if (com.every(q => prev[q] === 0)) return ['コスミ', 1]; }
     }
@@ -198,11 +216,12 @@
       for (const [dx, dy] of [[3, 0], [-3, 0], [0, 3], [0, -3]]) if (at(dx, dy) === c && at(dx / 3, dy / 3) === 0 && at(dx * 2 / 3, dy * 2 / 3) === 0) return ['二間トビ', 1];
     }
     if (moveNo <= 4) {
-      const lo = v => Math.min(v, 8 - v), a = lo(x), b = lo(y);
-      if (x === 4 && y === 4) return ['天元', 1];
-      if (a === 2 && b === 2) return ['星', 1];
+      const lo = v => Math.min(v, BN - 1 - v), a = lo(x), b = lo(y), h = BN === 13 ? 3 : 2;
+      if (x === (BN - 1) / 2 && y === (BN - 1) / 2) return ['天元', 1];
+      if (a === h && b === h) return ['星', 1];
+      if (BN === 13 && a === 2 && b === 2) return ['三々', 1];
       if ((a === 2 && b === 3) || (a === 3 && b === 2)) return ['小目', 1];
-      if (a === 3 && b === 3) return ['高目', 1];
+      if (BN === 9 ? (a === 3 && b === 3) : ((a === 3 && b === 4) || (a === 4 && b === 3))) return ['高目', 1];
     }
     return null;
   }
@@ -211,17 +230,17 @@
   // 着手点の波紋と、キャラ付きの技カットイン
   function fx(name, tier, p, mine) {
     if (!S.settings.fx) return;
-    const x = p % 9, y = (p / 9) | 0;
+    const x = p % BN, y = (p / BN) | 0;
     const ring = document.createElement('div');
     ring.className = `ring t${tier} ${mine ? 'me' : 'op'}`;
-    ring.style.left = ((x + 0.65) / 9.3 * 100) + '%';
-    ring.style.top = ((y + 0.65) / 9.3 * 100) + '%';
+    ring.style.left = ((x + 0.65) / (BN + .3) * 100) + '%';
+    ring.style.top = ((y + 0.65) / (BN + .3) * 100) + '%';
     $('#fxLayer').querySelectorAll('.fxBanner').forEach(n => n.remove());
     $('#fxLayer').append(ring);
     setTimeout(() => ring.remove(), 1000);
     // 打った石が隠れないよう、盤の反対側の半分に帯を出す
     const r = $('#boardWrap').getBoundingClientRect();
-    const cy = r.top + r.height * (y >= 4 ? 0.27 : 0.73);
+    const cy = r.top + r.height * (y >= (BN - 1) / 2 ? 0.27 : 0.73);
     const layer = $('#cutin');
     layer.innerHTML = '';
     const el = document.createElement('div');
@@ -291,17 +310,17 @@
     for (const h of S.history.slice(0, 15)) {
       const li = document.createElement('li');
       const hk = h.draw ? ['d', '持'] : h.win ? ['w', '勝'] : ['l', '負'];
-      if (h.rec) { li.className = 'rec'; li.title = 'タップで検討'; li.onclick = () => openReview(h.rec); }
+      if (h.rec) { li.className = 'rec'; li.title = 'タップで検討'; li.onclick = () => openReview(h.rec, h.size || 9); }
       li.innerHTML = h.friend ? `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd fr">友</span>`
         : `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
-      li.querySelector('.hn').textContent = h.op; const sm = document.createElement('small'); sm.textContent = (h.color === 1 ? '黒番' : '白番') + (h.friend ? '・' + HC_NAME[h.hc || 0] : ''); li.querySelector('.hn').append(sm);
+      li.querySelector('.hn').textContent = h.op; const sm = document.createElement('small'); sm.textContent = (h.size === 13 ? '13路・' : '') + (h.color === 1 ? '黒番' : '白番') + (h.friend ? '・' + HC_NAME[h.hc || 0] : ''); li.querySelector('.hn').append(sm);
       li.querySelector('.hr').textContent = h.reason;
       ol.append(li);
     }
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar'];
   function showScreen(id) {
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
@@ -315,21 +334,23 @@
   function newGame(bot, myColor, opts) {
     opts = opts || {};
     gameSeq++;
+    setSize(opts.size || (opts.hc && opts.hc.size) || 9);
     G = {
-      id: gameSeq, board: new Array(81).fill(0), toPlay: 1, ko: -1, me: myColor, bot,
+      id: gameSeq, board: new Array(BN * BN).fill(0), toPlay: 1, ko: -1, me: myColor, bot,
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
       passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1,
       online: opts.online || null, oppAway: 0,
-      hc: opts.hc || null, friend: !!opts.hc, komi: opts.hc ? opts.hc.komi : KOMI
+      hc: opts.hc || null, friend: !!opts.hc, komi: opts.hc ? opts.hc.komi : KOMI, size: BN
     };
+    if (BN === 13) G.clock = { 1: MAIN_MS * 2, 2: MAIN_MS * 2 };   // 13路は10分
     // フレンド戦のハンデ：置き石を先に並べて、白から打つ
     if (G.hc) {
       G.clock = { 1: G.hc.min * 60000, 2: G.hc.min * 60000 };
-      for (const p of hcStones(G.hc.h)) G.board[p] = 1;
+      for (const p of hcStones(G.hc.h, BN)) G.board[p] = 1;
       if (G.hc.h >= 2) G.toPlay = 2;
     }
     if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo }); }
-    if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined })); } catch (e) {} }
+    if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined, size: BN })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
     if (bot.human) { setImg($('#opAvatar'), A.faceUri(bot.ava)); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・${G.friend ? 'フレンド' : 'オンライン'}`; }
@@ -363,28 +384,28 @@
     const st = $('#stones'), mk = $('#marks'), tr = $('#terr');
     let s = '';
     const deadSet = G.final ? new Set(G.final.dead) : null;
-    for (let p = 0; p < 81; p++) {
+    for (let p = 0; p < BN * BN; p++) {
       const v = G.board[p]; if (!v) continue;
-      const x = p % 9 + 0.5, y = ((p / 9) | 0) + 0.5;
+      const x = p % BN + 0.5, y = ((p / BN) | 0) + 0.5;
       const cls = 'stone' + (p === G.lastDrop ? ' drop' : '') + (deadSet && deadSet.has(p) ? ' dead' : '');
       s += `<g class="${cls}"><circle cx="${x + .04}" cy="${y + .06}" r=".46" fill="#000" opacity=".28"/><circle cx="${x}" cy="${y}" r=".46" fill="url(#g${v === 1 ? 'B' : 'W'})"/></g>`;
     }
     if (G.pend >= 0 && !G.board[G.pend]) {
-      const x = G.pend % 9 + 0.5, y = ((G.pend / 9) | 0) + 0.5;
+      const x = G.pend % BN + 0.5, y = ((G.pend / BN) | 0) + 0.5;
       s += `<circle cx="${x}" cy="${y}" r=".44" fill="url(#g${G.me === 1 ? 'B' : 'W'})" opacity=".55"/><circle cx="${x}" cy="${y}" r=".2" fill="none" stroke="#e0503e" stroke-width=".06"/>`;
     }
     st.innerHTML = s;
     G.lastDrop = -1;
     let m = '';
     if (G.last >= 0 && G.board[G.last]) {
-      const x = G.last % 9 + 0.5, y = ((G.last / 9) | 0) + 0.5;
+      const x = G.last % BN + 0.5, y = ((G.last / BN) | 0) + 0.5;
       m = `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${G.board[G.last] === 1 ? '#fff3dc' : '#e0503e'}" stroke-width=".07"/>`;
     }
     mk.innerHTML = m;
     let t = '';
-    if (G.final) for (let p = 0; p < 81; p++) {
+    if (G.final) for (let p = 0; p < BN * BN; p++) {
       const o = G.final.terr[p]; if (!o) continue;
-      const x = p % 9 + 0.5, y = ((p / 9) | 0) + 0.5;
+      const x = p % BN + 0.5, y = ((p / BN) | 0) + 0.5;
       t += `<rect x="${x - .14}" y="${y - .14}" width=".28" height=".28" rx=".04" fill="${o === 1 ? '#111' : '#f4f2ea'}" stroke="${o === 1 ? '#f4f2ea55' : '#11111155'}" stroke-width=".02"/>`;
     }
     tr.innerHTML = t;
@@ -461,7 +482,7 @@
     const g = G, id = G.id, mv = G.moveNo;
     g.thinking = true;
     const t0 = performance.now();
-    const r = await ask({ type: 'think', board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: KOMI, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last });
+    const r = await ask({ type: 'think', board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: g.komi, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last });
     const wait = Math.max(0, Math.min(4800 - (performance.now() - t0), 500 + Math.random() * 600 - (performance.now() - t0)));
     await new Promise(res => setTimeout(res, wait));
     if (!G || G.id !== id || G.over || G.moveNo !== mv) return;
@@ -474,11 +495,11 @@
   async function computeScore() {
     const r = await ask({ type: 'score', board: G.board, n: 800 });
     const b = G.board.slice(), dead = [];
-    for (let p = 0; p < 81; p++) {
+    for (let p = 0; p < BN * BN; p++) {
       if ((b[p] === 1 && r.own[p] < -0.3) || (b[p] === 2 && r.own[p] > 0.3)) { dead.push(p); b[p] = 0; }
     }
-    const terr = new Array(81).fill(0), seen = new Array(81).fill(false);
-    for (let p = 0; p < 81; p++) {
+    const terr = new Array(BN * BN).fill(0), seen = new Array(BN * BN).fill(false);
+    for (let p = 0; p < BN * BN; p++) {
       if (b[p] || seen[p]) continue;
       const reg = [p], border = new Set(); seen[p] = true;
       for (let i = 0; i < reg.length; i++) for (const q of E.NB[reg[i]]) {
@@ -487,14 +508,14 @@
       if (border.size === 1) { const o = [...border][0]; for (const q of reg) terr[q] = o; }
     }
     let black = 0, white = 0;
-    for (let p = 0; p < 81; p++) { const o = b[p] || terr[p]; if (o === 1) black++; else if (o === 2) white++; }
+    for (let p = 0; p < BN * BN; p++) { const o = b[p] || terr[p]; if (o === 1) black++; else if (o === 2) white++; }
     const fterr = terr.map((v, p) => b[p] ? 0 : v);
     for (const p of dead) fterr[p] = 3 - G.board[p];
     const margin = black - (white + G.komi);
     return { dead, terr: fterr, black, white, winner: margin > 0 ? 1 : margin < 0 ? 2 : 0 };
   }
   function applyScore(res) {
-    G.final = { dead: res.dead || [], terr: res.terr || new Array(81).fill(0) };
+    G.final = { dead: res.dead || [], terr: res.terr || new Array(BN * BN).fill(0) };
     render();
     const pts = Math.abs(res.black - (res.white + G.komi));
     endGame(res.winner, res.winner === 0 ? '持碁' : `${pts}目${res.winner === G.me ? '勝ち' : '負け'}`, `黒 ${res.black}  ／  白 ${res.white}${G.komi ? ' + コミ ' + G.komi : '（コミなし）'}`, true);
@@ -514,7 +535,7 @@
     applyScore(res);
   }
 
-  function applyRating(score, opRating, color, opName, reason, rec) {
+  function applyRating(score, opRating, color, opName, reason, rec, size) {
     const win = score === 1, draw = score === 0.5;
     const old = S.rating, oldRank = displayRank();
     const d = eloDelta(S.rating, opRating, score, S.games);
@@ -524,7 +545,7 @@
     if (!draw) { if (color === 1) win ? S.bw.bw++ : S.bw.bl++; else win ? S.bw.ww++ : S.bw.wl++; }
     const rr = rankFromRating(S.rating);
     if (rr >= DAN_FROM && S.streak >= DAN_STREAK && rr > S.earnedDan) S.earnedDan = rr;
-    S.history.unshift({ win, draw, op: opName, color, reason, delta: d, t: Date.now(), rec: rec || null });
+    S.history.unshift({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: d, size: size || BN, t: Date.now(), rec: rec || null });
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
@@ -532,8 +553,8 @@
   }
 
   // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
-  function friendRecord(win, draw, color, opName, reason, rec, h) {
-    S.history.unshift({ win, draw, op: opName, color, reason, delta: 0, friend: true, hc: h || 0, t: Date.now(), rec: rec || null });
+  function friendRecord(win, draw, color, opName, reason, rec, h, size) {
+    S.history.unshift({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: 0, friend: true, hc: h || 0, size: size || BN, t: Date.now(), rec: rec || null });
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
@@ -552,7 +573,7 @@
     if (reason === '中押し') label = win ? '中押し勝ち' : '中押し負け';
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
-    const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
+    const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
     // 銭：勝つともらえる（強い相手ほど多い。持碁は半分）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     let zeni = 0;
     if ((win || draw) && !G.friend) {
@@ -584,7 +605,7 @@
     const pr = $('#resPromo');
     $('#resRate').hidden = !r || !!r.friend;
     $('#resAgain').textContent = 'もう一局';
-    $('#resAgain').onclick = () => { leaveGame(); startMatch(); };
+    $('#resAgain').onclick = () => { const sz = G && G.size; leaveGame(); startMatch(sz); };
     $('#resAgain').disabled = false;
     if (r && r.friend) {
       // フレンド戦：レートは動かない。「もう一局」は相手にも申しこむ
@@ -663,7 +684,7 @@
       NET.ok = true; NET.retry = 0;
       netAuth();
       netHello();
-      if (M && !M.found && !M.friend) netSend({ t: 'seek' });
+      if (M && !M.found && !M.friend) netSend({ t: 'seek', size: M.size });
       if (M && M.friend && !M.found && M.redo) M.redo();   // フレンドマッチ：つながってから部屋をつくる／入る
       clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 40000);   // つながっているかの確認（40秒ごと）
     };
@@ -684,7 +705,7 @@
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room'];   // 銭と部屋はサーバーが別に管理する
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -724,7 +745,7 @@
     else netSend({ t: 'register' });
   }
   function applyServerData(d, at) {
-    const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room };
+    const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room, av: S.av, avOwned: S.avOwned, pid: S.pid };
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, fresh(), d || {}, keep, { _at: at || Date.now() });
     S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
@@ -740,7 +761,9 @@
     if (!e) return;
     if (typeof e.zeni === 'number') S.zeni = e.zeni;
     const r = S.room = S.room || {};
-    if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; }
+    if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
+    if (e.av) S.av = e.av;
+    if (e.pid) S.pid = e.pid;
     if (layout !== false && e.room) {
       Object.assign(r, { floor: e.room.floor, wall: e.room.wall, items: e.room.items, walls: e.room.walls });
       r.seq = Math.max(r.seq || 1, ...r.items.concat(r.walls).map(i => (i.uid | 0) + 1));
@@ -756,7 +779,7 @@
     if (ZENI_WHY[m.why]) { toast(ZENI_WHY[m.why], 3500); if (!$('#result').hidden) $('#resZeni').hidden = true; }
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
-  let buyReq = 0; const buyCb = {};
+  let buyReq = 0; const buyCb = {}, socCb = {};
   function onAccount(m) {
     NET.authed = true;
     if (m.pass) { S.acct = { id: m.id, pass: m.pass }; save(); netSync(); }                 // 新しく作った
@@ -782,7 +805,7 @@
     $('#acctShow').textContent = NET.showPass ? 'パスワードをかくす' : 'パスワードを表示';
     $('#acctShow').disabled = $('#acctCopy').disabled = !has;
   }
-  const humanOpp = o => ({ human: true, name: String(o.name || 'プレイヤー').slice(0, 12), rating: o.rating | 0, ava: o.ava | 0, level: Math.min(BOT_MAX, rankFromRating(o.rating | 0)) });
+  const humanOpp = o => ({ human: true, pid: o.pid || null, name: String(o.name || 'プレイヤー').slice(0, 12), rating: o.rating | 0, ava: o.ava | 0, level: Math.min(BOT_MAX, rankFromRating(o.rating | 0)) });
   function setClocks(c) { if (!G || !c) return; G.clock[1] = c[1]; G.clock[2] = c[2]; G.turnStart = performance.now(); }
   function isMine(gid) { return G && G.online && G.online.g === gid; }
 
@@ -806,7 +829,7 @@
         } else if (!G) {
           stopMatch();
           if (!$('#title').hidden) { $('#title').hidden = true; document.body.classList.remove('on-title'); }
-          newGame(humanOpp(m.opp), m.color, { online: { g: m.g }, moves: m.moves, hc: m.hc || null });
+          newGame(humanOpp(m.opp), m.color, { online: { g: m.g }, moves: m.moves, hc: m.hc || null, size: m.size });
           setClocks(m.clock);
           toast('中断していた対局を再開しました');
           if (m.scoring) scoreGame();
@@ -826,6 +849,7 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
+      case 'soc': if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
       case 'froom': if (M && M.friend && !M.found) { M.code = m.code; if (window.FRIEND) window.FRIEND.onRoom(m); } break;
       case 'fnone': if (M && M.friend && M.joining) { M = null; } if (window.FRIEND) window.FRIEND.onNone(m); break;
       case 'rematch':
@@ -849,12 +873,12 @@
       const act = JSON.parse(localStorage.getItem(KEY + '.active') || 'null');
       if (act && act.g === m.g && act.friend) {
         const label = m.winner === 0 ? '持碁' : m.winner === act.color ? '勝ち' : (m.reason === '切断' ? '切断負け' : '負け');
-        friendRecord(m.winner === act.color, m.winner === 0, act.color, act.name, label, hcRec(act.h | 0).concat(m.moves || []), act.h | 0);
+        friendRecord(m.winner === act.color, m.winner === 0, act.color, act.name, label, hcRec(act.h | 0, act.size).concat(m.moves || []), act.h | 0, act.size);
         toast(`前回のフレンド戦の結果：${label}`, 4500); renderHome();
       } else if (act && act.g === m.g) {
         const sc = m.winner === 0 ? 0.5 : m.winner === act.color ? 1 : 0;
         const label = sc === 1 ? '勝ち' : sc === 0.5 ? '持碁' : (m.reason === '切断' ? '切断負け' : '負け');
-        const r = applyRating(sc, act.op, act.color, act.name, label, m.moves || null);
+        const r = applyRating(sc, act.op, act.color, act.name, label, m.moves || null, act.size);
         toast(`前回の対局の結果：${label}（${r.d >= 0 ? '+' : ''}${r.d}）`, 4500); renderHome();
       }
     } catch (e) {}
@@ -862,11 +886,11 @@
 
   /* ---------- 対人戦のえらびかた：ランダムマッチ／フレンドマッチ ---------- */
   // 置き石の位置（9路）：右上・左下・右下・左上・天元の順
-  const HC_PTS = [24, 56, 60, 20, 40];
+  const HC_PTS = { 9: [24, 56, 60, 20, 40], 13: [48, 120, 126, 42, 84] };
   const HC_NAME = ['互先', '定先', '2子局', '3子局', '4子局', '5子局'];
-  const hcStones = h => h >= 2 ? HC_PTS.slice(0, h) : [];
+  const hcStones = (h, n) => h >= 2 ? HC_PTS[n === 13 ? 13 : 9].slice(0, h) : [];
   // 棋譜用：置き石を「黒・白パス・黒…」として先頭に入れる（検討モードでそのまま並ぶ）
-  const hcRec = h => { const r = []; hcStones(h).forEach((p, i, a) => { r.push(p); if (i < a.length - 1) r.push(-1); }); return r; };
+  const hcRec = (h, n) => { const r = []; hcStones(h, n).forEach((p, i, a) => { r.push(p); if (i < a.length - 1) r.push(-1); }); return r; };
   function openPvp() { stopMatch(); showScreen('pvp'); if (window.FRIEND) window.FRIEND.renderPvp(); }
   function openFriend() { showScreen('friend'); if (window.FRIEND) window.FRIEND.open(); }
   // フレンドマッチ：つながっていなければ、つないでから送る
@@ -878,29 +902,31 @@
   }
   const FR = {
     available: () => !!NET_URL,
+    random(size) { showScreen('home'); startMatch(size); },
     online: () => NET.ok,
     host(hc) { friendSend({ t: 'fhost', hc }); },
     join(code) { friendSend({ t: 'fjoin', code }, { joining: true }); },
     cancel() { if (M && M.friend && !M.found) { netSend({ t: 'fcancel' }); clearTimeout(M.timer); M = null; } },
     waiting: () => !!(M && M.friend && !M.found),
-    random() { showScreen('home'); startMatch(); },
     openFriend, back: () => { FR.cancel(); showScreen('home'); renderHome(); }
   };
 
   /* ---------- マッチング ---------- */
   // サーバーにつながれば、まず人を探す。見つからなければ Bot（「Botとはマッチしない」なら待ち続ける）
   let M = null;
-  function startMatch() {
+  function startMatch(size) {
     stopMatch();
+    size = size === 13 ? 13 : 9;
     const myRank = rankFromRating(S.rating);
-    M = { t0: Date.now(), fixed: S.botLevel !== 'auto', myRank, found: false, timer: 0 };
+    M = { t0: Date.now(), fixed: S.botLevel !== 'auto', myRank, found: false, timer: 0, size };
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
     setImg($('#mtMe'), myFaceSrc());
     $('#optNoBot').checked = !!S.noBot;
     $('#mtNoBotNote').hidden = !S.noBot;
-    if (NET_URL) { if (NET.ok) { netHello(); netSend({ t: 'seek' }); } else netConnect(); }
+    $('#mtTitle').textContent = `対戦相手を探しています（${size}路）`;
+    if (NET_URL) { if (NET.ok) { netHello(); netSend({ t: 'seek', size }); } else netConnect(); }
     M.timer = setInterval(matchTick, 250);
     matchTick();
   }
@@ -938,8 +964,8 @@
     if (G && G.over) { $('#result').hidden = true; G = null; }   // フレンド戦の「もう一局」
     const opp = humanOpp(m.opp), hc = m.hc || null;
     showFound(A.faceUri(opp.ava), opp.name, `${RANKS[rankFromRating(opp.rating)]}・レート ${opp.rating}`, m.color,
-      hc ? `フレンドマッチ・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : 'オンラインのプレイヤーとマッチしました', hc);
-    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
+      hc ? `フレンドマッチ・${hc.size === 13 ? '13路' : '9路'}・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : `オンラインのプレイヤーとマッチしました（${m.size === 13 ? '13路' : '9路'}）`, hc);
+    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc, size: m.size }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
   }
   function matchFound() {
     M.found = true; clearInterval(M.timer);
@@ -947,7 +973,7 @@
     const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
     const myColor = Math.random() < 0.5 ? 1 : 2;
     showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, M.fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました');
-    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor); }, 2200);
+    const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz }); }, 2200);
   }
   function stopMatch() {
     if (M) { clearInterval(M.timer); clearTimeout(M.timer); if (!M.found) netSend({ t: M.friend ? 'fcancel' : 'cancel' }); }
@@ -964,19 +990,19 @@
     if (!M) return;
     $('#matching').hidden = true;
     $('#matchPill').hidden = false; $('#game').classList.add('waiting');
-    openReview([]);
+    openReview([], M.size);
   };
   $('#mpOpen').onclick = () => { if (M && !M.found) { $('#matching').hidden = false; } };
 
   /* ---------- 入力 ---------- */
   $('#board').addEventListener('click', e => {
     const r = e.currentTarget.getBoundingClientRect();
-    const x = Math.floor(((e.clientX - r.left) / r.width * 9.3) - 0.15);
-    const y = Math.floor(((e.clientY - r.top) / r.height * 9.3) - 0.15);
-    if (x < 0 || x > 8 || y < 0 || y > 8) return;
-    if (R) { reviewTap(y * 9 + x); return; }
+    const x = Math.floor(((e.clientX - r.left) / r.width * (BN + .3)) - 0.15);
+    const y = Math.floor(((e.clientY - r.top) / r.height * (BN + .3)) - 0.15);
+    if (x < 0 || x >= BN || y < 0 || y >= BN) return;
+    if (R) { reviewTap(y * BN + x); return; }
     if (!G || G.over || G.toPlay !== G.me || G.net) return;
-    const p = y * 9 + x;
+    const p = y * BN + x;
     if (G.board[p]) return;
     if (!E.play(G.board, p, G.me, G.ko)) { const [bx, by] = pointXY($('#board'), p); A.burst(bx, by, 'bad'); sound('bad'); toast(p === G.ko ? 'コウなので、すぐには取り返せません' : 'そこには打てません'); return; }
     if (S.settings.confirm && G.pend !== p) { G.pend = p; render(); return; }
@@ -989,7 +1015,7 @@
   $('#resignBtn').onclick = () => { if (G && !G.over) confirmBox('投了しますか？ 負けになります。', () => { if (!G || G.over) return; if (G.online) netSend({ t: 'resign', g: G.online.g }); endGame(3 - G.me, '中押し'); }); };
   $('#startMatch').onclick = () => { sound('stone'); openPvp(); };
   $('#resHome').addEventListener('click', stopPonder);
-  $('#resBoard').onclick = () => { const rec = G ? G.record.slice() : []; reviewBack = G && G.solo ? G.solo.back : null; $('#result').hidden = true; G = null; openReview(rec); };
+  $('#resBoard').onclick = () => { const rec = G ? (G.hc ? hcRec(G.hc.h, BN) : []).concat(G.record) : []; reviewBack = G && G.solo ? G.solo.back : null; $('#result').hidden = true; G = null; openReview(rec); };
 
   /* ---------- 設定 ---------- */
   function renderSettings() {
@@ -1045,6 +1071,7 @@
     const v = e.target.value.trim().slice(0, 12);
     S.name = v || 'あなた'; save(); renderHome();
   });
+  $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
   for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound']]) {
     $(id).addEventListener('change', e => { S.settings[key] = e.target.checked; save(); });
   }
@@ -1055,15 +1082,16 @@
 
   /* ---------- 検討モード ---------- */
   let reviewBack = null;
-  const COLS = 'ABCDEFGHJ';
-  const coord = p => p < 0 ? 'パス' : COLS[p % 9] + (9 - ((p / 9) | 0));
+  const COLS = 'ABCDEFGHJKLMN';
+  const coord = p => p < 0 ? 'パス' : COLS[p % BN] + (BN - ((p / BN) | 0));
   function setMode(m) {
     const rv = m === 'review';
     $('#rvTop').hidden = !rv; $('#rvPanel').hidden = !rv;
     $('#opBar').hidden = rv; $('#meBar').hidden = rv; $('#playActions').hidden = rv;
     $('#game').classList.toggle('reviewing', rv);
   }
-  function openReview(rec) {
+  function openReview(rec, size) {
+    setSize(size || BN);
     R = { main: rec.slice(), line: rec.slice(), idx: rec.length, hint: null, hintReq: 0 };
     showScreen('game'); $('#result').hidden = true;
     setMode('review');
@@ -1071,7 +1099,7 @@
     reviewRender();
   }
   function replay(line, n) {
-    let b = new Array(81).fill(0), ko = -1, c = 1, last = -1;
+    let b = new Array(BN * BN).fill(0), ko = -1, c = 1, last = -1;
     const caps = { 1: 0, 2: 0 };
     for (let i = 0; i < n; i++) {
       const p = line[i];
@@ -1085,28 +1113,29 @@
     const st = replay(R.line, R.idx);
     R.st = st;
     let s = '';
-    for (let p = 0; p < 81; p++) {
+    for (let p = 0; p < BN * BN; p++) {
       const v = st.b[p]; if (!v) continue;
-      const x = p % 9 + 0.5, y = ((p / 9) | 0) + 0.5;
+      const x = p % BN + 0.5, y = ((p / BN) | 0) + 0.5;
       s += `<g class="stone${p === R.drop ? ' drop' : ''}"><circle cx="${x + .04}" cy="${y + .06}" r=".46" fill="#000" opacity=".28"/><circle cx="${x}" cy="${y}" r=".46" fill="url(#g${v === 1 ? 'B' : 'W'})"/></g>`;
     }
     $('#stones').innerHTML = s; R.drop = -1;
     $('#terr').innerHTML = '';
     let m = '';
     if (st.last >= 0) {
-      const x = st.last % 9 + 0.5, y = ((st.last / 9) | 0) + 0.5;
+      const x = st.last % BN + 0.5, y = ((st.last / BN) | 0) + 0.5;
       m += `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${st.b[st.last] === 1 ? '#fff3dc' : '#e0503e'}" stroke-width=".07"/>`;
     }
     if (R.hint && R.hint.at === R.idx + ':' + R.line.slice(0, R.idx).join(',')) {
       R.hint.cands.forEach((h, i) => {
         if (h.move < 0) return;
-        const x = h.move % 9 + 0.5, y = ((h.move / 9) | 0) + 0.5;
+        const x = h.move % BN + 0.5, y = ((h.move / BN) | 0) + 0.5;
         m += `<circle cx="${x}" cy="${y}" r=".38" fill="${i === 0 ? '#e0503e' : '#e0503ebb'}" stroke="#fff3dc" stroke-width=".04"/><text x="${x}" y="${y + .15}" text-anchor="middle" font-size=".42" font-weight="900" fill="#fff6ea" font-family="'M PLUS Rounded 1c', system-ui">${i + 1}</text>`;
       });
     } else if (R.hint && !R.hint.loading) { R.hint = null; $('#rvHintOut').hidden = true; }
     $('#marks').innerHTML = m;
     const branch = R.main.length > 0 && (R.line.length !== R.main.length || R.line.some((p, i) => p !== R.main[i]));
     $('#rvMove').textContent = `${R.idx}手目` + (R.line.length ? ` / ${R.line.length}` : '');
+    $('#rvSize').hidden = R.main.length > 0; $('#rvSize').textContent = BN === 9 ? '13路にする' : '9路にする';
     $('#rvBranch').hidden = !branch;
     $('#rvMain').disabled = !branch;
     $('#rvTurn').innerHTML = `<b>次は${st.c === 1 ? '黒' : '白'}番</b><small>アゲハマ 黒${st.caps[1]}・白${st.caps[2]}</small>`;
@@ -1164,7 +1193,8 @@
     }
     reviewRender();
   };
-  $('#openReview').onclick = () => openReview([]);
+  $('#openReview').onclick = () => openReview([], 9);
+  $('#rvSize').onclick = () => { if (R && !R.main.length) { openReview([], BN === 9 ? 13 : 9); } };
 
   /* ---------- Botの強さ ---------- */
   (function setupBotPick() {
@@ -1225,7 +1255,7 @@
 
   // ソロモード（solo.js）から使う機能
   window.APP = {
-    E, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
+    E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
     saveLocal, econOn, FR, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
@@ -1240,11 +1270,19 @@
       if ((S.zeni || 0) < price) { cb({ ok: false, reason: 'zeni' }); return; }
       S.zeni -= price;
       const r = S.room;
+      if (what.av) { S.avOwned = (S.avOwned || []).concat(what.av); save(); cb({ ok: true }); return; }
       if (what.item) r.ownedItems[what.item] = (r.ownedItems[what.item] || 0) + 1;
       else if (what.floor) r.owned.floors.push(what.floor);
       else if (what.wall) r.owned.walls.push(what.wall);
       save(); cb({ ok: true });
     },
+    // マイルームのつながり（日記・チャット・フレンドなど）。サーバーにつながっていないときは reason: 'offline'
+    soc(op, data, cb) {
+      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
+      const req = ++buyReq; if (cb) socCb[req] = cb;
+      netSend(Object.assign({ t: 'soc', op, req }, data || {}));
+    },
+    online: () => econOn(),
     // 部屋の配置をサーバーへ（もようがえを終えたとき・部屋を出るとき）
     saveRoom() {
       saveLocal();

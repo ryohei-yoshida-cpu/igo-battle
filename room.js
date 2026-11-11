@@ -5,12 +5,16 @@
  *   ・お客さん：だれが遊びに来るか（自分のキャラは通算5勝、ほかのキャラはそのキャラに5勝）
  */
 (function () {
-  const P = window.APP, A = P.A, S = P.S, R = window.ROOMART, LINES = window.ROOM_LINES || {};
+  const P = window.APP, A = P.A, S = P.S, R = window.ROOMART, LINES = window.ROOM_LINES || {}, AV = window.AVATAR, SO = window.SOCIAL;
   const $ = s => document.querySelector(s);
   const N = R.N;
 
   /* ---------- データ ---------- */
+  // ほかの人の部屋をたずねているときは guest に、その部屋の情報が入る（見るだけ）
+  let guest = null, mySoc = null, meInfo = { pid: S.pid || null, foot: [], friends: [], freq: [], blocks: [], cset: 'all' };
+  const DEF_ROOM = () => ({ floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [] });
   function room() {
+    if (guest) { const g = guest.room || (guest.room = DEF_ROOM()); g.items = g.items || []; g.walls = g.walls || []; return g; }
     if (!S.room) {
       S.room = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [], inv: {}, owned: { floors: ['wood'], walls: ['plain'] }, seq: 2, seen: [] };
       touch();
@@ -99,17 +103,40 @@
       const q = [R.proj(sel.x, sel.y, 0), R.proj(sel.x + f.w, sel.y, 0), R.proj(sel.x + f.w, sel.y + f.d, 0), R.proj(sel.x, sel.y + f.d, 0)];
       s += `<polygon points="${q.map(p => p.join(',')).join(' ')}" class="rm-foot ${ok ? 'ok' : 'ng'}"/>`;
     }
+    const owner = mode === 'view' ? ownerSpot() : null;
     const ents = solids.map(it => Object.assign(rectOf(it), { it }))
-      .concat(mode === 'view' ? visitors.map(v => ({ x: v.x, y: v.y, w: 1, d: 1, v })) : []);
+      .concat(mode === 'view' && !guest ? visitors.map(v => ({ x: v.x, y: v.y, w: 1, d: 1, v })) : [])
+      .concat(owner ? [{ x: owner.x, y: owner.y, w: 1, d: 1, av: true }] : []);
     for (const e of drawOrder(ents)) {
       if (e.it) s += `<g data-uid="${e.it.uid}" class="${sel === e.it ? 'rm-sel' : ''}">${R.drawFloorItem(e.it)}</g>`;
+      else if (e.av) s += drawOwner(e);
       else s += R.drawVisitor(e.v, A.faceUri(e.v.idx), e.v.key);
     }
     $('#roomSvg').innerHTML = s;
-    $('#roomZeni').textContent = `${S.zeni.toLocaleString()} 銭`;
+    $('#roomZeni').textContent = guest ? `部屋番号 ${guest.pid}` : `${S.zeni.toLocaleString()} 銭`;
+    $('#roomTitle').textContent = guest ? `${guest.name}さんの部屋` : 'マイルーム';
+    const info = guest || mySoc;
+    $('#roomHito').hidden = !(info && info.hito); $('#roomHito').textContent = info && info.hito ? info.hito : '';
+    $('#roomVisits').textContent = info && info.visits ? `訪問 今日${info.visits.today}・合計${info.visits.total}` : '';
+    $('#rmEdit').hidden = !!guest;
     $('#roomTools').hidden = !(mode === 'edit' && sel);
     if (sel) { $('#rmRot').hidden = !!sel.side; $('#rmName').textContent = cat(sel.k).name; }
     $('#roomStage').classList.toggle('editing', mode === 'edit');
+  }
+
+  /* ---------- 部屋の持ち主（アバター）が立つ ---------- */
+  function ownerSpot() {
+    const busy = new Set();
+    for (const it of room().items) if (cat(it.k).kind !== 'flat') { const f = rectOf(it); for (let x = f.x; x < f.x + f.w; x++) for (let y = f.y; y < f.y + f.d; y++) busy.add(x + ',' + y); }
+    for (const v of guest ? [] : visitors) busy.add(v.x + ',' + v.y);
+    for (const [x, y] of [[8, 8], [7, 9], [9, 7], [6, 8], [8, 6], [9, 9], [5, 9], [9, 5], [10, 10], [4, 10], [10, 4]]) if (!busy.has(x + ',' + y)) return { x, y };
+    for (let x = N - 1; x >= 0; x--) for (let y = N - 1; y >= 0; y--) if (!busy.has(x + ',' + y)) return { x, y };
+    return null;
+  }
+  function drawOwner(e) {
+    const look = guest ? guest.av : S.av;
+    const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 46, h = w * 432 / 200;
+    return `<g class="rm-owner"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="0 -14 200 432">${AV.inner(look || AV.PRESETS.girl)}</svg></g>`;
   }
 
   /* ---------- 遊びに来るキャラ ---------- */
@@ -195,6 +222,7 @@
   function onDown(e) {
     $('#roomBubble').hidden = true;
     const vg = e.target.closest && e.target.closest('.rm-visitor');
+    if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
     if (mode === 'view') {
       if (vg) { const v = visitors.find(x => x.key === vg.dataset.key); if (v) talk(v); return; }
       const it = findItem(e); if (!it) return;
@@ -278,9 +306,22 @@
   }
   const STYLE_NAME = { wa: '和', yo: '洋', chu: '中' };
   const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
+  // 交流パネル（common/social.js）にわたす情報
+  const ctx = () => ({
+    mine: !guest, pid: guest ? guest.pid : meInfo.pid, name: guest ? guest.name : P.S.name, data: guest || mySoc || {}, me: meInfo,
+    visit, home: goHome, reload: () => loadSocial(guest ? guest.pid : null)
+  });
   function renderPanel() {
     const p = $('#roomPanel'), r = room();
-    document.querySelectorAll('#roomTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
+    document.querySelectorAll('#roomTabs button').forEach(b => {
+      b.hidden = b.dataset.own === '1' ? !!guest : b.dataset.own === '0' ? !guest : false;
+      b.setAttribute('aria-pressed', String(b.dataset.tab === tab));
+    });
+    if (['diary', 'chat', 'social', 'owner'].includes(tab)) {
+      if (!P.online()) { p.innerHTML = '<p class="rm-help">日記・一言チャット・交流は、サーバーにつながっているときに使えます。</p>'; return; }
+      SO.render(tab, ctx(), p);
+      return;
+    }
     if (tab === 'shop') {
       let h = `<div class="rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
       h += `<div class="rm-seg small">${[['all', 'すべて'], ['wa', '和'], ['yo', '洋'], ['chu', '中']].map(([k, n]) => `<button data-style="${k}" aria-pressed="${shopStyle === k}">${n}</button>`).join('')}</div><div class="rm-grid-list">`;
@@ -316,6 +357,7 @@
     }
   }
   function onPanelClick(e) {
+    if (SO.onClick(e, ctx())) return;
     const b = e.target.closest('button'); if (!b) return;
     const r = room();
     if (b.dataset.kind) { shopKind = b.dataset.kind; renderPanel(); return; }
@@ -348,7 +390,7 @@
   function setMode(m) {
     if (mode === 'edit' && m === 'view') flush();   // もようがえを終えたときだけ、部屋の配置をサーバーへ送る
     mode = m;
-    if (m === 'view') { sel = null; placeVisitors(); }
+    if (m === 'view') { sel = null; if (!guest) placeVisitors(); }
     $('#rmEdit').textContent = m === 'edit' ? 'もようがえを終わる' : 'もようがえ';
     $('#rmEdit').classList.toggle('primary', m === 'edit');
     $('#roomBubble').hidden = true;
@@ -356,13 +398,58 @@
   }
 
   function open() {
+    guest = null;
     room();
     tab = 'shop'; mode = 'view'; sel = null;
     P.showScreen('myroom');
     setMode('view');
     renderPanel();
+    loadSocial(null);
     // 遊びに来ていたら、ひとこと
     if (visitors.length) setTimeout(() => { if (!$('#myroom').hidden) talk(visitors[0]); }, 500);
+  }
+  // 交流の情報を読みこむ（自分の部屋なら「自分の情報」と「自分の部屋」、ほかの部屋ならその部屋）
+  function loadSocial(pid) {
+    if (!P.online()) return;
+    if (!pid) {
+      P.soc('me', {}, res => {
+        if (!res.ok) return;
+        meInfo = res; S.pid = res.pid;
+        P.soc('visit', { pid: res.pid }, r2 => { if (r2.ok && !guest) { mySoc = r2; render(); renderPanel(); } });
+      });
+    } else {
+      P.soc('visit', { pid }, res => {
+        if (!res.ok) { P.toast(SO.why(res)); if (res.reason === 'blocked') goHome(); return; }
+        if (res.mine) { goHome(); return; }
+        guest = res; render(); renderPanel();
+      });
+    }
+  }
+  function visit(pid) {
+    pid = String(pid || '');
+    if (!pid) return;
+    if (pid === String(meInfo.pid)) { goHome(); return; }
+    if (mode === 'edit') setMode('view');
+    flush();
+    P.soc('visit', { pid }, res => {
+      if (!res.ok) { P.toast(SO.why(res)); return; }
+      if (res.mine) { goHome(); return; }
+      guest = res; tab = 'diary'; sel = null; mode = 'view';
+      P.showScreen('myroom'); $('#roomBubble').hidden = true;
+      render(); renderPanel(); P.sound('stone');
+    });
+  }
+  function goHome() { guest = null; tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
+  // えらぶ画面に出す、小さな自分の部屋
+  function mini() {
+    const g = guest; guest = null;
+    const r = room();
+    let s = R.DEFS + R.drawWalls(r.wall) + R.drawFloor(r.floor);
+    for (const w of r.walls) s += R.drawWallItem(w, {});
+    const ents = r.items.map(it => Object.assign(rectOf(it), { it }));
+    for (const e of drawOrder(ents)) s += R.drawFloorItem(e.it);
+    guest = g;
+    return `<svg viewBox="0 0 ${R.W} ${R.H}" aria-hidden="true">${s}</svg>`;
   }
 
   // つなぐ
@@ -372,21 +459,25 @@
   s.addEventListener('pointerup', onUp);
   s.addEventListener('pointercancel', onUp);
   $('#roomPanel').addEventListener('click', onPanelClick);
-  $('#roomTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.tab) { tab = b.dataset.tab; renderPanel(); } });
+  $('#roomTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.tab) { tab = b.dataset.tab; renderPanel(); if (['diary', 'chat', 'social', 'owner'].includes(tab)) loadSocial(guest ? guest.pid : null); } });
   $('#rmEdit').onclick = () => setMode(mode === 'edit' ? 'view' : 'edit');
   $('#rmRot').onclick = rotateSel;
   $('#rmStore').onclick = storeSel;
   $('#rmDone').onclick = () => { sel = null; render(); };
-  $('#roomBack').onclick = () => { if (mode === 'edit') setMode('view'); flush(); P.renderHome(); P.showScreen('home'); };
+  $('#roomBack').onclick = () => {
+    if (guest) { goHome(); return; }
+    if (mode === 'edit') setMode('view'); flush();
+    if (window.AVATAR_UI) window.AVATAR_UI.openHub(); else { P.renderHome(); P.showScreen('home'); }
+  };
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
   $('#openRoom').onclick = open;
   s.setAttribute('viewBox', `0 0 ${R.W} ${R.H}`);
 
   // サーバーから銭・持ち物・部屋が届いたとき（もようがえ中は配置を上書きしない）
   function refresh() {
-    if ($('#myroom').hidden) return;
+    if ($('#myroom').hidden || guest) return;
     if (mode === 'edit') { $('#roomZeni').textContent = `${S.zeni.toLocaleString()} 銭`; renderPanel(); return; }
     sel = null; render(); renderPanel();
   }
-  window.ROOM = { open, refresh };
+  window.ROOM = { open, refresh, visit, mini };
 })();

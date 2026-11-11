@@ -2,7 +2,9 @@
  * ブラウザ本体では <script> で読み込み、Web Worker ではそのまま実行される。 */
 (function (root) {
   'use strict';
-  const N = 9, NN = 81;
+  // 盤の大きさ（9路・13路）ごとに、エンジンを1つずつ作る
+  function make(N) {
+  const NN = N * N;
   const NB = [], DG = [];
   for (let p = 0; p < NN; p++) {
     const x = p % N, y = (p / N) | 0;
@@ -341,7 +343,7 @@
         node = ch; path.push(ch);
         if (ch.N < 3) break;
       }
-      playout(f, c, 160, amaf, lastMv);
+      playout(f, c, NN * 2, amaf, lastMv);
       const sc = f.score() - komi;
       const winner = sc > 0 ? 1 : sc < 0 ? 2 : 0; // 0 = 持碁
       for (let p = 0; p < NN; p++) { const o = f.ownerOf(p); if (o === 1) own[p]++; else if (o === 2) own[p]--; }
@@ -465,7 +467,7 @@
     const wr = best.N ? best.W / best.N : 0.5;
     const out = { winrate: wr, margin, playouts: n, reused };
     // 投了：はっきり負けている（勝率8%未満、または15目以上の差で勝率25%未満）
-    if (!d.noResign && d.moveNum >= 16 && root.N >= 150 && (wr < 0.08 || (margin < -15 && wr < 0.25))) return Object.assign(out, { resign: true });
+    if (!d.noResign && d.moveNum >= N * 2 - 2 && root.N >= 150 && (wr < 0.08 || (margin < -15 && wr < 0.25))) return Object.assign(out, { resign: true });
     if (!d.noResign && d.oppPassed && !ahead && wr < 0.3) return Object.assign(out, { resign: true });
     // 相手がパスした後：形勢がはっきりしていれば、ツナギ・コウ・ダメだけを打ち、残りはパス
     if (d.oppPassed && (ahead || settled)) {
@@ -479,7 +481,7 @@
       return Object.assign(out, { move: -1 });
     }
     // 自分からパスするのは、ツナギ・コウ・ダメが残っていないときだけ
-    if (!must && d.moveNum >= 30 && settled && ahead) return Object.assign(out, { move: -1 });
+    if (!must && d.moveNum >= NN * 0.37 && settled && ahead) return Object.assign(out, { move: -1 });
     let choice = best;
     // 弱いbotほど、2〜5番手の手もときどき選ぶ
     const T = Math.max(0, 0.7 - 0.15 * S);
@@ -525,21 +527,25 @@
     const base = FB.fromArray(board, -1), f = new FB();
     for (let i = 0; i < n; i++) {
       f.copyFrom(base);
-      playout(f, (i & 1) + 1, 200, null, -1);
+      playout(f, (i & 1) + 1, NN * 2 + 40, null, -1);
       for (let p = 0; p < NN; p++) { const o = f.ownerOf(p); if (o === 1) own[p]++; else if (o === 2) own[p]--; }
     }
     return Array.from(own, v => v / n);
   }
 
-  const api = { N, NN, NB, DG, group, play, think, analyze, ownership, FB, ponderStart, ponderStop, budget,  resetTree: () => { tree = null; pondering = false; } };
-  root.GoEngine = api;
+  return { N, NN, NB, DG, group, play, think, analyze, ownership, FB, ponderStart, ponderStop, budget, resetTree: () => { tree = null; pondering = false; } };
+  }
+  const E9 = make(9), E13 = make(13);
+  root.GoEngine = E9;
+  root.GoEngines = { 9: E9, 13: E13 };
 
   if (typeof window === 'undefined' && typeof self !== 'undefined') {
     self.onmessage = e => {
       const d = e.data;
+      const { think, ponderStart, ponderStop, analyze, ownership } = d.size === 13 ? E13 : E9;
+      if (d.type === 'stop') { E9.ponderStop(); E13.ponderStop(); E9.resetTree(); E13.resetTree(); return; }
       if (d.type === 'think') { ponderStop(); self.postMessage(Object.assign({ id: d.id }, think(d))); }
       else if (d.type === 'ponder') ponderStart(d);
-      else if (d.type === 'stop') { ponderStop(); tree = null; }
       else if (d.type === 'analyze') { ponderStop(); self.postMessage(Object.assign({ id: d.id }, analyze(d))); }
       else if (d.type === 'score') ponderStop(), self.postMessage({ id: d.id, own: ownership(d.board, d.n || 800) });
     };

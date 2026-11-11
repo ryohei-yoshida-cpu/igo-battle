@@ -27,9 +27,9 @@
     tono: 'うむ、余も見物させてもらうぞ。友が来るまで、茶でも持て。'
   };
   const HC_SUB = ['コミ7目', 'コミなし', '置き石2', '置き石3', '置き石4', '置き石5'];
-  const st = { tab: 'make', h: 0, black: 'random', min: 5, code: '' };
+  const st = { tab: 'make', h: 0, black: 'random', min: 5, size: 9, code: '' };
   try { Object.assign(st, JSON.parse(localStorage.getItem('kuro9.friend') || '{}'), { tab: 'make', code: '' }); } catch (e) {}
-  const keep = () => { try { localStorage.setItem('kuro9.friend', JSON.stringify({ h: st.h, black: st.black, min: st.min })); } catch (e) {} };
+  const keep = () => { try { localStorage.setItem('kuro9.friend', JSON.stringify({ h: st.h, black: st.black, min: st.min, size: st.size })); } catch (e) {} };
 
   /* ---------- 対人戦：どちらで打つ？ ---------- */
   function renderPvp() {
@@ -39,10 +39,12 @@
     const rival = others[Math.floor(Math.random() * others.length)];
     P.setImg($('#pmRandA'), A.charaUri(me)); P.setImg($('#pmRandB'), A.charaUri(rival));
     P.setImg($('#pmFrA'), A.charaUri(ci('koharu') === me ? ci('hinata') : ci('koharu'))); P.setImg($('#pmFrB'), A.charaUri(ci('mike')));
+    for (const b of document.querySelectorAll('#pvpSize button')) b.setAttribute('aria-checked', String(+b.dataset.v === st.size));
     $('#pvpNote').textContent = FR.available() ? '' : 'この版はサーバーにつながっていないので、ランダムマッチはBotとの対局になります。';
   }
   $('#pvpBack').onclick = () => FR.back();
-  $('#goRandom').onclick = () => { P.sound('stone'); FR.random(); };
+  $('#goRandom').onclick = () => { P.sound('stone'); FR.random(st.size); };
+  for (const b of document.querySelectorAll('#pvpSize button')) b.onclick = () => { P.sound('stone'); st.size = +b.dataset.v; if (st.size === 13 && st.min < 10) st.min = 10; if (st.size === 9 && st.min > 10) st.min = 5; keep(); renderPvp(); };
   $('#goFriend').onclick = () => {
     P.sound('stone');
     if (!FR.available()) { P.toast('この版ではフレンドマッチは使えません（サーバーにつながっていません）', 3500); return; }
@@ -64,12 +66,12 @@
   $('#frBack').onclick = () => { FR.cancel(); P.showScreen('pvp'); renderPvp(); };
 
   // 9路のちいさな盤（置き石つき）
-  function miniBoard(h) {
-    const n = 9, c = 6, pad = 5, w = pad * 2 + c * (n - 1);
+  function miniBoard(h, n) {
+    const c = n === 13 ? 4.2 : 6, pad = 5, w = pad * 2 + c * (n - 1), stars = n === 13 ? [42, 48, 84, 120, 126] : [20, 24, 40, 56, 60];
     let s = `<svg viewBox="0 0 ${w} ${w}" aria-hidden="true"><rect width="${w}" height="${w}" rx="4" class="mb-bg"/>`;
-    for (let i = 0; i < n; i++) s += `<path class="mb-l" d="M${pad} ${pad + i * c}H${pad + c * 8}M${pad + i * c} ${pad}V${pad + c * 8}"/>`;
-    for (const p of [20, 24, 40, 56, 60]) s += `<circle class="mb-star" cx="${pad + (p % 9) * c}" cy="${pad + ((p / 9) | 0) * c}" r=".9"/>`;
-    for (const p of P.hcStones(h)) s += `<circle class="mb-b" cx="${pad + (p % 9) * c}" cy="${pad + ((p / 9) | 0) * c}" r="2.6"/>`;
+    for (let i = 0; i < n; i++) s += `<path class="mb-l" d="M${pad} ${pad + i * c}H${pad + c * (n - 1)}M${pad + i * c} ${pad}V${pad + c * (n - 1)}"/>`;
+    for (const p of stars) s += `<circle class="mb-star" cx="${pad + (p % n) * c}" cy="${pad + ((p / n) | 0) * c}" r=".9"/>`;
+    for (const p of P.hcStones(h, n)) s += `<circle class="mb-b" cx="${pad + (p % n) * c}" cy="${pad + ((p / n) | 0) * c}" r="${n === 13 ? 2 : 2.6}"/>`;
     return s + '</svg>';
   }
   function talk(key, text) {
@@ -81,14 +83,19 @@
   }
   function renderMake() {
     const g = $('#hcGrid');
-    if (!g.childElementCount) {
+    if (g.dataset.size !== String(st.size)) {
+      g.dataset.size = st.size; g.innerHTML = '';
       P.HC_NAME.forEach((name, h) => {
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'hc-btn'; b.dataset.h = h; b.setAttribute('role', 'radio');
-        b.innerHTML = `${miniBoard(h)}<b>${name}</b><small>${HC_SUB[h]}</small>`;
+        b.innerHTML = `${miniBoard(h, st.size)}<b>${name}</b><small>${HC_SUB[h]}</small>`;
         b.onclick = () => { P.sound('stone'); st.h = h; if (h > 0 && st.black === 'random') st.black = 'guest'; keep(); renderMake(); };
         g.append(b);
       });
+    }
+    if (!g.dataset.wired) {
+      g.dataset.wired = 1;
+      for (const b of document.querySelectorAll('#frSize button')) b.onclick = () => { st.size = +b.dataset.v; if (st.size === 13 && st.min < 10) st.min = 10; keep(); renderMake(); };
       for (const b of document.querySelectorAll('#frBlack button')) b.onclick = () => { st.black = b.dataset.v; keep(); renderMake(); };
       for (const b of document.querySelectorAll('#frTime button')) b.onclick = () => { st.min = +b.dataset.v; keep(); renderMake(); };
     }
@@ -97,15 +104,16 @@
     const rnd = document.querySelector('#frBlack [data-v=random]'); rnd.hidden = st.h > 0;
     for (const b of document.querySelectorAll('#frBlack button')) b.setAttribute('aria-checked', String(b.dataset.v === st.black));
     for (const b of document.querySelectorAll('#frTime button')) b.setAttribute('aria-checked', String(+b.dataset.v === st.min));
+    for (const b of document.querySelectorAll('#frSize button')) b.setAttribute('aria-checked', String(+b.dataset.v === st.size));
     const [key, text] = HC_TALK[st.h];
     if ($('#frTalk').dataset.h !== String(st.h) && !$('#frMake').hidden) { $('#frTalk').dataset.h = st.h; talk(key, text); }
     $('#frSummary').textContent = condText(st);
   }
-  const condText = c => `${P.HC_NAME[c.h]}・${c.black === 'host' ? 'あなたが黒' : c.black === 'guest' ? '友だちが黒' : '黒白はおまかせ'}・持ち時間${c.min}分（1手ごとに＋5秒）`;
+  const condText = c => `${c.size === 13 ? '13路' : '9路'}・${P.HC_NAME[c.h]}・${c.black === 'host' ? 'あなたが黒' : c.black === 'guest' ? '友だちが黒' : '黒白はおまかせ'}・持ち時間${c.min}分（1手ごとに＋5秒）`;
 
   $('#frCreate').onclick = () => {
     P.sound('stone');
-    FR.host({ h: st.h, black: st.black, min: st.min });
+    FR.host({ h: st.h, black: st.black, min: st.min, size: st.size });
     // 待つ画面（合言葉はサーバーから届いたら出す）
     $('#frTabs').hidden = true; $('#frMake').hidden = true; $('#frJoin').hidden = true; $('#frWait').hidden = false;
     $('#frCode').textContent = '····'; $('#frCopy').disabled = true;

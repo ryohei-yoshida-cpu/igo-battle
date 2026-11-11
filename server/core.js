@@ -48,6 +48,10 @@ async function sha(text) { const d = await crypto.subtle.digest('SHA-256', new T
 export const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
 export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); } }; }
 import { ITEMS, FLOORS, WALLS } from './prices.js';
+import { Social } from './social.js';
+import { cleanName } from './ng.js';
+import '../common/avatar-art.js';
+const AVP = globalThis.AVATAR.PRICE;
 export const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000, AWAY_MS = 180 * 1000, START_DELAY_MS = 2500;
 
 export class Core {
@@ -62,6 +66,7 @@ export class Core {
     this.store = opts.store || memStore();
     this.sockInfo = new Map();  // sock → { acct }
     this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
+    this.social = new Social(this);   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
   }
 
   /* ---------- 接続 ---------- */
@@ -114,6 +119,7 @@ export class Core {
     if (m.t === 'register' || m.t === 'login' || m.t === 'sync') return this.account(sock, m, ip);
     if (ECON.includes(m.t)) return this.econ(sock, m);
     if (raw.length > 4000) return;
+    if (m.t === 'soc') { const info = this.sockInfo.get(sock); return info && this.social.handle(sock, info, m); }
     if (m.t === 'hello') return this.hello(sock, m);
     const cid = this.socks.get(sock); if (!cid) return;
     const pl = this.players.get(cid);
@@ -123,7 +129,7 @@ export class Core {
       case 'fjoin': this.fjoin(pl, m); break;
       case 'fcancel': this.closeRoom(pl); break;
       case 'rematch': this.rematch(pl, m); break;
-      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
+      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
       case 'cancel': pl.seekAt = 0; this.lobby(); break;
       case 'move': this.move(pl, m); break;
       case 'resign': { const g = this.gameOf(pl, m.g); if (g && !g.over) this.finish(g, 3 - g.colorOf[pl.cid], '中押し'); break; }
@@ -139,7 +145,7 @@ export class Core {
     if (old && old.sock && old.sock !== sock) { this.socks.delete(old.sock); try { old.sock.close(); } catch (e) {} }
     const pl = old || { cid, seekAt: 0, game: null };
     pl.name = String(m.name || 'プレイヤー').slice(0, 12);
-    const si = this.sockInfo.get(sock); if (si && si.acct) pl.acct = si.acct;
+    const si = this.sockInfo.get(sock); if (si && si.acct) { pl.acct = si.acct; pl.pid = si.pid || pl.pid; }
     pl.rating = Math.max(0, Math.min(4000, m.rating | 0));
     pl.ava = Math.max(0, Math.min(20, m.ava | 0));
     pl.sock = sock;
@@ -149,7 +155,7 @@ export class Core {
     if (g && !g.over) {
       const c = g.colorOf[cid];
       if (g.away[c]) { this.clearTimeout(g.away[c].timer); g.away[c] = null; this.send(g.players[3 - c], { t: 'back', g: g.id }); }
-      this.send(cid, { t: 'resume', g: g.id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), toPlay: g.toPlay, moves: g.moves, oppAway: !!g.away[3 - c], scoring: g.scoring, hc: g.hc || undefined });
+      this.send(cid, { t: 'resume', g: g.id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), toPlay: g.toPlay, moves: g.moves, oppAway: !!g.away[3 - c], scoring: g.scoring, hc: g.hc || undefined, size: g.size || 9 });
     } else if (g && g.over) {
       if (!g.acked[cid]) { this.send(cid, g.endMsg); g.acked[cid] = true; }
       pl.game = null;
@@ -194,7 +200,7 @@ export class Core {
       const data = Object.assign({}, m.data); delete data.zeni; delete data.room;
       const ok = await this.withAcct(info.acct, async rec => {
         if (at < (rec.at || 0)) return false;   // 古いデータで上書きしない
-        rec.data = data; rec.at = at; return true;
+        rec.data = data; rec.at = at; rec.name = cleanName(data.name); return true;
       });
       out({ t: 'synced', at, stale: ok === false });
     }
@@ -204,6 +210,8 @@ export class Core {
     info.acct = id;
     const cid = this.socks.get(sock), pl = cid && this.players.get(cid);
     if (pl) pl.acct = id;
+    // 部屋番号（対局相手の部屋をたずねられるように、相手に見せる番号）
+    this.social.ensurePid(id).then(pid => { info.pid = pid; const p = cid && this.players.get(cid); if (p && p.acct === id) p.pid = pid; }).catch(() => {});
   }
   // 同じアカウントの読み書きが重ならないよう、順番に処理する
   withAcct(id, fn) {
@@ -273,7 +281,8 @@ export class Core {
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         let price, apply;
-        if (m.item && ITEMS[m.item]) { price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
+        if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
+        else if (m.item && ITEMS[m.item]) { price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }
         else { reason = 'item'; return; }
@@ -312,7 +321,7 @@ export class Core {
     this.lobby();
   }
 
-  pub(cid) { const p = this.players.get(cid); return p ? { name: p.name, rating: p.rating, ava: p.ava } : { name: '？', rating: 1050, ava: 0 }; }
+  pub(cid) { const p = this.players.get(cid); return p ? { name: cleanName(p.name), rating: p.rating, ava: p.ava, pid: p.pid || null } : { name: '？', rating: 1050, ava: 0 }; }
   gameOf(pl, gid) { const g = this.games.get(gid); return g && g.colorOf[pl.cid] ? g : null; }
 
   /* ---------- マッチング：待っている人どうし、レートの近い順に ---------- */
@@ -320,27 +329,29 @@ export class Core {
     const q = [...this.players.values()].filter(p => p.seekAt && p.sock && !p.game).sort((a, b) => a.seekAt - b.seekAt);
     while (q.length >= 2) {
       const a = q.shift();
-      let bi = 0, best = Infinity;
-      q.forEach((b, i) => { const d = Math.abs(a.rating - b.rating); if (d < best) { best = d; bi = i; } });
+      let bi = -1, best = Infinity;
+      q.forEach((b, i) => { if ((b.size || 9) !== (a.size || 9)) return; const d = Math.abs(a.rating - b.rating); if (d < best) { best = d; bi = i; } });   // 同じ盤の大きさどうし
+      if (bi < 0) continue;
       const b = q.splice(bi, 1)[0];
-      this.create(a, b);
+      this.create(a, b, null, null, a.size || 9);
     }
   }
   // a, b: プレイヤー。hc があればフレンド戦（a が部屋をつくった人）。black を指定すると黒番が決まる
-  create(a, b, hc, black) {
+  create(a, b, hc, black, size) {
+    size = hc ? hc.size : size === 13 ? 13 : 9;
     const id = 'g' + (++this.seq) + '-' + Math.random().toString(36).slice(2, 7);
     if (!black) black = hc && hc.black === 'host' ? a : hc && hc.black === 'guest' ? b : Math.random() < 0.5 ? a : b;
     const white = black === a ? b : a;
-    const main = hc ? hc.min * 60000 : MAIN_MS;
+    const main = hc ? hc.min * 60000 : MAIN_MS * (size === 13 ? 2 : 1);   // 13路のランダムマッチは10分
     const g = {
       id, players: { 1: black.cid, 2: white.cid }, colorOf: { [black.cid]: 1, [white.cid]: 2 },
-      hc: hc || null, host: hc ? a.cid : null,
+      hc: hc || null, host: hc ? a.cid : null, size,
       moves: [], clock: { 1: main, 2: main }, toPlay: hc && hc.h >= 2 ? 2 : 1, turnStart: this.now() + START_DELAY_MS,
       passes: 0, over: false, scoring: false, away: { 1: null, 2: null }, timer: null, acked: {}, endMsg: null
     };
     this.games.set(id, g);
     for (const p of [black, white]) { p.seekAt = 0; p.game = id; this.closeRoom(p); }
-    for (const c of [1, 2]) this.send(g.players[c], { t: 'start', g: id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), delay: START_DELAY_MS, hc: g.hc || undefined });
+    for (const c of [1, 2]) this.send(g.players[c], { t: 'start', g: id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), delay: START_DELAY_MS, hc: g.hc || undefined, size: g.size });
     this.arm(g);
   }
   abort(g) {
@@ -367,7 +378,7 @@ export class Core {
     const g = this.gameOf(pl, m.g); if (!g || g.over || g.scoring) return;
     const c = g.colorOf[pl.cid];
     if (g.toPlay !== c || (m.n | 0) !== g.moves.length) return;          // 手番ちがい・二重送信
-    const p = m.p | 0; if (p < -1 || p > 80) return;
+    const p = m.p | 0; if (p < -1 || p >= (g.size || 9) ** 2) return;
     const used = Math.max(0, this.now() - g.turnStart);
     if (g.clock[c] - used <= 0) { this.finish(g, 3 - c, '時間切れ'); return; }
     g.clock[c] = g.clock[c] - used + INC_MS;
@@ -389,7 +400,8 @@ export class Core {
     const hc = {
       h: [0, 1, 2, 3, 4, 5].includes(h.h) ? h.h : 0,
       black: ['host', 'guest', 'random'].includes(h.black) ? h.black : 'random',
-      min: [3, 5, 10].includes(h.min) ? h.min : 5
+      min: [3, 5, 10, 15].includes(h.min) ? h.min : 5,
+      size: h.size === 13 ? 13 : 9
     };
     if (hc.h > 0 && hc.black === 'random') hc.black = 'guest';
     hc.komi = hc.h === 0 ? 7 : 0;
@@ -460,10 +472,10 @@ const ECON = ['botstart', 'botend', 'claim', 'buy', 'room'];
 const BOT_DAILY = 600, ONLINE_WIN = 80;
 // アカウントに銭・持ち物・部屋がなければ作る。前のバージョンのデータがあれば、上限つきで引き継ぐ
 function ensureEcon(r) {
-  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; return; }
+  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; return; }
   const d = r.data || {}, old = d.room || {};
   r.zeni = Math.min(3000, Math.max(300, (d.zeni | 0) || 300));
-  r.owned = { items: { goban: 1 }, floors: ['wood'], walls: ['plain'] };
+  r.owned = { items: { goban: 1 }, floors: ['wood'], walls: ['plain'], av: [] };
   let value = 0;
   const add = k => { if (ITEMS[k] && k !== 'goban' && value + ITEMS[k][0] <= 6000) { value += ITEMS[k][0]; r.owned.items[k] = (r.owned.items[k] || 0) + 1; } };
   for (const it of (old.items || []).concat(old.walls || [])) if (it) add(it.k);
@@ -475,7 +487,7 @@ function ensureEcon(r) {
   r.daily = { day: '', bot: 0 }; r.claims = {};
   r.econV = 1;
 }
-function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room }; }
+function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, av: r.av || null, pid: r.pid || null }; }
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの
 function cleanRoom(room, owned) {
   if (!room || typeof room !== 'object') return null;

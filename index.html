@@ -61,8 +61,7 @@
 
     <nav class="home-list">
       <button class="wide-btn" id="openReview" type="button"><b>検討モード</b><small>盤を自由に並べる</small><i aria-hidden="true">›</i></button>
-      <button class="wide-btn" id="openChara" type="button"><b>キャラクター</b><small>あなたの分身をえらぶ</small><i aria-hidden="true">›</i></button>
-      <button class="wide-btn" id="openRoom" type="button"><b>マイルーム</b><small>銭で家具を買って部屋を飾る</small><i aria-hidden="true">›</i></button>
+      <button class="wide-btn" id="openHub" type="button"><b>マイルーム</b><small>アバター・お部屋・キャラクター・日記</small><i aria-hidden="true">›</i></button>
       <button class="wide-btn" id="openRecord" type="button"><b>戦績と棋譜</b><small>レート・成績・最近の対局</small><i aria-hidden="true">›</i></button>
     </nav>
 
@@ -75,10 +74,17 @@
       <button class="btn lac small" id="pvpBack">← ホーム</button>
       <h2>対人戦</h2><span></span>
     </header>
+    <div class="pvp-size">
+      <span>盤の大きさ</span>
+      <div class="chips" id="pvpSize" role="radiogroup">
+        <button type="button" role="radio" data-v="9">9路<small>5分・早碁</small></button>
+        <button type="button" role="radio" data-v="13">13路<small>10分・じっくり</small></button>
+      </div>
+    </div>
     <button class="mode-card random" id="goRandom" type="button">
       <span class="mc-pair"><img id="pmRandA" alt=""><img id="pmRandB" alt=""><i class="mc-vs">VS</i></span>
       <span class="mc-k">ランダムマッチ</span>
-      <span class="mc-sub">近い強さの誰かと、レートをかけた真剣勝負。<br>9路・5分＋1手5秒・コミ7目</span>
+      <span class="mc-sub">近い強さの誰かと、レートをかけた真剣勝負。<br>1手ごとに＋5秒・コミ7目</span>
       <span class="bc-go">相手をさがす</span>
     </button>
     <button class="mode-card friend" id="goFriend" type="button">
@@ -105,6 +111,11 @@
         <img class="fr-bust" id="frTalkImg" alt="">
         <div class="fr-bubble"><b id="frTalkName"></b><p id="frTalkText"></p></div>
       </div>
+      <div class="fr-label">盤の大きさ</div>
+      <div class="chips" id="frSize" role="radiogroup">
+        <button type="button" role="radio" data-v="9">9路</button>
+        <button type="button" role="radio" data-v="13">13路</button>
+      </div>
       <div class="fr-label">手合い（ハンデ）</div>
       <div class="hc-grid" id="hcGrid" role="radiogroup" aria-label="手合い"></div>
       <div class="fr-label" id="frBlackLabel">黒番（先手）を持つのは</div>
@@ -118,6 +129,7 @@
         <button type="button" role="radio" data-v="3">3分</button>
         <button type="button" role="radio" data-v="5">5分</button>
         <button type="button" role="radio" data-v="10">10分</button>
+        <button type="button" role="radio" data-v="15">15分</button>
       </div>
       <p class="fr-summary" id="frSummary"></p>
       <button class="btn primary fr-go" id="frCreate" type="button">この手合いで部屋をつくる</button>
@@ -154,14 +166,63 @@
     </div>
   </section>
 
+  <!-- マイルームのえらぶ画面：アバター／マイルーム／キャラクター -->
+  <section id="hub" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="hubBack">← ホーム</button>
+      <h2>マイルーム</h2>
+      <span class="zeni-chip" id="hubZeni"></span>
+    </header>
+    <button class="hub-card av" id="openAvatar" type="button">
+      <span class="hub-fig" id="hubAv"></span>
+      <span class="hub-k">アバター</span>
+      <span class="hub-sub">顔・髪・ポーズ・服・靴を、銭で買って着がえる</span>
+    </button>
+    <button class="hub-card room" id="openRoom" type="button">
+      <span class="hub-fig room" id="hubRoom"></span>
+      <span class="hub-k">マイルーム</span>
+      <span class="hub-sub" id="hubRoomSub">家具をかざって、日記と一言チャット</span>
+    </button>
+    <button class="hub-card chara" id="openChara" type="button">
+      <img class="hub-img" id="hubChara" alt="">
+      <span class="hub-k">キャラクター</span>
+      <span class="hub-sub">対局で一緒に戦う、囲碁の相棒</span>
+    </button>
+  </section>
+
+  <!-- アバター（全ゲーム共通） -->
+  <section id="avatar" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="avBack">← もどる</button>
+      <h2>アバター</h2>
+      <span class="zeni-chip" id="avZeni"></span>
+    </header>
+    <div class="av-stage">
+      <div class="av-big" id="avBig"></div>
+      <div class="av-side">
+        <div class="av-colors">
+          <b>髪の色</b><div class="swatches" id="avHairColors"></div>
+          <b>肌の色</b><div class="swatches" id="avSkins"></div>
+        </div>
+        <div class="av-presets"><button class="btn lac small" data-preset="girl">女の子の基本</button><button class="btn lac small" data-preset="boy">男の子の基本</button></div>
+        <button class="btn primary" id="avSave" type="button">この姿にする</button>
+        <p class="av-note" id="avNote"></p>
+      </div>
+    </div>
+    <nav class="rm-tabs av-tabs" id="avTabs"></nav>
+    <div class="av-grid" id="avGrid2"></div>
+  </section>
+
   <!-- マイルーム -->
   <section id="myroom" class="screen" hidden>
     <header class="bar">
-      <button class="btn lac small" id="roomBack">← ホーム</button>
-      <h2>マイルーム</h2>
+      <button class="btn lac small" id="roomBack">← もどる</button>
+      <h2 id="roomTitle">マイルーム</h2>
       <span class="zeni-chip" id="roomZeni"></span>
     </header>
     <div class="room-stage" id="roomStage">
+      <div class="room-hito" id="roomHito" hidden></div>
+      <div class="room-visits" id="roomVisits"></div>
       <svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg>
       <div class="room-bubble" id="roomBubble" hidden>
         <b></b><p></p>
@@ -177,9 +238,13 @@
     <div class="room-actions">
       <button type="button" class="btn lac small" id="rmEdit">もようがえ</button>
       <nav class="rm-tabs" id="roomTabs">
-        <button type="button" data-tab="shop">ショップ</button>
-        <button type="button" data-tab="inv">倉庫</button>
-        <button type="button" data-tab="guest">お客さん</button>
+        <button type="button" data-tab="shop" data-own="1">ショップ</button>
+        <button type="button" data-tab="inv" data-own="1">倉庫</button>
+        <button type="button" data-tab="diary">日記</button>
+        <button type="button" data-tab="chat">一言チャット</button>
+        <button type="button" data-tab="social" data-own="1">交流</button>
+        <button type="button" data-tab="guest" data-own="1">キャラ</button>
+        <button type="button" data-tab="owner" data-own="0">この人</button>
       </nav>
     </div>
     <div class="room-panel" id="roomPanel"></div>
@@ -311,7 +376,7 @@
   <section id="game" class="screen" hidden>
     <div class="rv-top" id="rvTop" hidden>
       <div class="rv-title"><b>検討</b><span id="rvMove">0手目</span><em id="rvBranch" hidden>変化図</em></div>
-      <button class="btn lac small" id="rvClose">閉じる</button>
+      <span class="rv-btns"><button class="btn lac small" id="rvSize" hidden>13路にする</button><button class="btn lac small" id="rvClose">閉じる</button></span>
     </div>
     <div class="pbar op" id="opBar">
       <img class="pb-ava" id="opAvatar" alt="">
@@ -518,8 +583,11 @@
 <script src="app.js"></script>
 <script src="friend.js"></script>
 <script src="solo.js"></script>
-<script src="room-art.js"></script>
+<script src="common/room-art.js"></script>
 <script src="room-lines.js"></script>
+<script src="common/avatar-art.js"></script>
+<script src="common/social.js"></script>
 <script src="room.js"></script>
+<script src="common/avatar.js"></script>
 </body>
 </html>
