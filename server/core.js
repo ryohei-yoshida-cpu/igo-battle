@@ -14,6 +14,9 @@
  *     score  { g, res }                   … 2回パスのあと、整地の結果（黒番のアプリが送る）
  *     decline{ g }                        … マッチした瞬間にBot戦へ移っていたなど、始める前に取り消す
  *     ping   {}
+ *     register {}                          … アカウントを新しく作る（初めて開いたとき）
+ *     login    { id, pass, restore }       … アカウントで入る（restore: 別の端末から引き継ぐ）
+ *     sync     { data, at }                … 保存データ（名前・レート・戦績・進み具合）をサーバーへ
  *   サーバー → アプリ
  *     lobby  { online, seeking }
  *     start  { g, color, opp, clock, moves }
@@ -23,7 +26,18 @@
  *     end    { g, winner, reason, res }   … winner: 1黒 2白 0持碁
  *     aborted{ g }                        … 始まる前に取り消された（探し直す）
  *     pong   { now }
+ *     account  { id, pass?, data, at, restore }   … 入れた（pass は作ったときだけ）
+ *     authfail { restore }                 … IDかパスワードがちがう
+ *     synced   { at }
+ *
+ * アカウントの保存先は store（Cloudflare では Durable Object のストレージ、手元ではメモリ）。
+ * パスワードはそのまま保存せず、ハッシュ（SHA-256）にして保存する。
  */
+const ALPH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // まぎらわしい 0/O/1/I は使わない
+function randCode(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); let s = ''; for (const x of a) s += ALPH[x % ALPH.length]; return s; }
+async function sha(text) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+export const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); } }; }
 export const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000, AWAY_MS = 180 * 1000, START_DELAY_MS = 2500;
 
 export class Core {
@@ -35,12 +49,14 @@ export class Core {
     this.socks = new Map();     // sock → cid
     this.games = new Map();     // g → game
     this.seq = 0;
+    this.store = opts.store || memStore();
+    this.sockInfo = new Map();  // sock → { acct, fails }
   }
 
   /* ---------- 接続 ---------- */
   connect(sock) {
     return {
-      message: raw => { try { this.onMessage(sock, raw); } catch (e) { /* 壊れたメッセージは無視 */ } },
+      message: raw => { try { const r = this.onMessage(sock, raw); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 壊れたメッセージは無視 */ } },
       close: () => this.onClose(sock)
     };
   }
@@ -56,8 +72,10 @@ export class Core {
   }
 
   onMessage(sock, raw) {
-    if (typeof raw !== 'string' || raw.length > 4000) return;
+    if (typeof raw !== 'string' || raw.length > 300000) return;
     const m = JSON.parse(raw);
+    if (m.t === 'register' || m.t === 'login' || m.t === 'sync') return this.account(sock, m);
+    if (raw.length > 4000) return;
     if (m.t === 'hello') return this.hello(sock, m);
     const cid = this.socks.get(sock); if (!cid) return;
     const pl = this.players.get(cid);
@@ -96,7 +114,37 @@ export class Core {
     this.lobby();
   }
 
+  /* ---------- アカウント（保存データ） ---------- */
+  async account(sock, m) {
+    const info = this.sockInfo.get(sock) || { acct: null, fails: 0 };
+    this.sockInfo.set(sock, info);
+    const out = msg => { try { sock.send(JSON.stringify(msg)); } catch (e) {} };
+    if (m.t === 'register') {
+      let id; do { id = randCode(8); } while (await this.store.get('acct:' + id));
+      const pass = randCode(8);
+      await this.store.put('acct:' + id, { h: await sha(id + ':' + pass), data: null, at: 0, created: this.now() });
+      info.acct = id;
+      out({ t: 'account', id, pass, data: null, at: 0, fresh: true });
+    } else if (m.t === 'login') {
+      if (info.fails >= 5) { try { sock.close(); } catch (e) {} return; }   // 総当たり対策
+      const id = normCode(m.id), pass = normCode(m.pass);
+      const rec = id && await this.store.get('acct:' + id);
+      if (!rec || rec.h !== await sha(id + ':' + pass)) { info.fails++; out({ t: 'authfail', restore: !!m.restore }); return; }
+      info.acct = id;
+      out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore });
+    } else if (m.t === 'sync') {
+      if (!info.acct || !m.data || typeof m.data !== 'object') return;
+      const rec = await this.store.get('acct:' + info.acct); if (!rec) return;
+      const at = +m.at || this.now();
+      if (at < (rec.at || 0)) { out({ t: 'synced', at: rec.at, stale: true }); return; }   // 古いデータで上書きしない
+      rec.data = m.data; rec.at = at;
+      await this.store.put('acct:' + info.acct, rec);
+      out({ t: 'synced', at });
+    }
+  }
+
   onClose(sock) {
+    this.sockInfo.delete(sock);
     const cid = this.socks.get(sock); this.socks.delete(sock);
     if (!cid) return;
     const pl = this.players.get(cid); if (!pl || pl.sock !== sock) return;

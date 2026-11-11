@@ -65,7 +65,8 @@
 - `server/dev.mjs` … 手元で試すとき用（`node server/dev.mjs` → http://localhost:8787）
 - `wrangler.toml` / `.assetsignore` … Cloudflare の設定
 - `.github/workflows/deploy.yml` … main に push すると自動で Cloudflare に公開
-- `config.js` … GitHub Pages など別の場所で開くときだけ、サーバーの住所を書く
+- `config.js` … GitHub Pages など別の場所で開くときの、サーバーの住所
+- アカウント：はじめて開くとサーバーが ID とパスワード（各8文字）を作り、保存データ（名前・レート・戦績・進み具合）をサーバーにも保存する。設定画面の「アカウント」から確認でき、別の端末で入力すると引き継げる。保存先は Durable Object のストレージ（パスワードはハッシュで保存）
 
 ### はじめての公開（1回だけ）
 

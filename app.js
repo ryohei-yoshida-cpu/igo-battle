@@ -46,7 +46,9 @@
   if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
   if (S.avatar.type !== 'preset') S.avatar = { type: 'preset', id: 0 };   // 写真アバターは廃止
   if (S.avatar.type === 'preset') S.avatar.id = ((S.avatar.id | 0) % A.VARIANTS.length + A.VARIANTS.length) % A.VARIANTS.length;
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  // 保存：この端末に保存し、サーバー（アカウント）にも少し後に送る
+  let syncHook = null;
+  const save = () => { if (syncHook) S._at = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (syncHook) syncHook(); };
 
   function displayRank() {
     const r = rankFromRating(S.rating);
@@ -603,6 +605,7 @@
     NET.ws = ws;
     ws.onopen = () => {
       NET.ok = true; NET.retry = 0;
+      netAuth();
       netHello();
       if (M && !M.found) netSend({ t: 'seek' });
       clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 25000);
@@ -617,6 +620,63 @@
   }
   function netSend(m) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(m)); }
   function netHello() { netSend({ t: 'hello', cid: S.cid, name: S.name, rating: S.rating, ava: charaIdx() }); }
+
+  /* ---------- アカウント：保存データをサーバーにも置く ----------
+   * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
+   * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
+  const LOCAL_ONLY = ['acct', 'cid', '_at'];
+  const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
+  const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+  function syncData() {
+    const d = {};
+    for (const k in S) if (!LOCAL_ONLY.includes(k)) d[k] = S[k];
+    // 大きくなりすぎたら、古い対局の棋譜から省く
+    if (JSON.stringify(d).length > 100000 && Array.isArray(d.history)) d.history = d.history.map((h, i) => i < 10 ? h : Object.assign({}, h, { rec: null }));
+    return d;
+  }
+  let syncT = 0;
+  function netSync() { clearTimeout(syncT); if (NET.ok && NET.authed) netSend({ t: 'sync', data: syncData(), at: S._at || Date.now() }); }
+  syncHook = () => { clearTimeout(syncT); syncT = setTimeout(netSync, 1500); };
+  function netAuth() {
+    NET.authed = false;
+    if (S.acct && S.acct.id) netSend({ t: 'login', id: S.acct.id, pass: S.acct.pass });
+    else netSend({ t: 'register' });
+  }
+  function applyServerData(d, at) {
+    const keep = { acct: S.acct, cid: S.cid };
+    for (const k of Object.keys(S)) delete S[k];
+    Object.assign(S, fresh(), d || {}, keep, { _at: at || Date.now() });
+    S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
+    S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    document.body.classList.toggle('washi', S.settings.board === 'washi');
+    renderHome();
+    if (!$('#settings').hidden) renderSettings();
+  }
+  function onAccount(m) {
+    NET.authed = true;
+    if (m.pass) { S.acct = { id: m.id, pass: m.pass }; save(); netSync(); }                 // 新しく作った
+    else if (m.restore) {                                                                   // 別の端末から引き継いだ
+      S.acct = { id: m.id, pass: NET.pendingPass }; NET.pendingPass = null;
+      if (m.data) { applyServerData(m.data, m.at); toast('データを引き継ぎました'); }
+      else { save(); netSync(); toast('このIDにはまだデータがないので、この端末のデータを保存しました'); }
+    } else if (m.data && (m.at || 0) > (S._at || 0)) applyServerData(m.data, m.at);       // サーバーのほうが新しい
+    else if ((S._at || 0) > (m.at || 0) || !m.data) netSync();                              // この端末のほうが新しい
+    if (!$('#settings').hidden) renderAccount();
+    netHello();
+  }
+  function onAuthFail(m) {
+    if (m.restore) { NET.pendingPass = null; toast('IDかパスワードがちがいます'); return; }
+    // 保存していたIDが使えない（サーバー側で消えたなど）→ 新しく作り直す
+    S.acct = null; netSend({ t: 'register' });
+  }
+  function renderAccount() {
+    const has = S.acct && S.acct.id;
+    $('#acctId').textContent = has ? fmtCode(S.acct.id) : (NET_URL ? 'サーバーにつながると作られます' : '—');
+    $('#acctPass').textContent = has ? (NET.showPass ? fmtCode(S.acct.pass) : '••••-••••') : '—';
+    $('#acctShow').textContent = NET.showPass ? 'パスワードをかくす' : 'パスワードを表示';
+    $('#acctShow').disabled = $('#acctCopy').disabled = !has;
+  }
   const humanOpp = o => ({ human: true, name: String(o.name || 'プレイヤー').slice(0, 12), rating: o.rating | 0, ava: o.ava | 0, level: Math.min(BOT_MAX, rankFromRating(o.rating | 0)) });
   function setClocks(c) { if (!G || !c) return; G.clock[1] = c[1]; G.clock[2] = c[2]; G.turnStart = performance.now(); }
   function isMine(gid) { return G && G.online && G.online.g === gid; }
@@ -656,6 +716,8 @@
       case 'away': if (isMine(m.g)) { G.oppAway = Date.now() + 180000; toast('相手の通信が切れました。3分戻らなければ、あなたの勝ちです'); render(); } break;
       case 'back': if (isMine(m.g)) { G.oppAway = 0; toast('相手が戻ってきました'); render(); } break;
       case 'end': onlineEnd(m); break;
+      case 'account': onAccount(m); break;
+      case 'authfail': onAuthFail(m); break;
     }
   }
   function onlineEnd(m) {
@@ -781,6 +843,7 @@
 
   /* ---------- 設定 ---------- */
   function renderSettings() {
+    renderAccount();
     $('#nameInput').value = S.name;
     const ci = charaIdx(), cv = A.VARIANTS[ci];
     setImg($('#charaBig'), A.charaUri(ci));
@@ -804,6 +867,23 @@
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
   $('#openSettings').onclick = () => { renderSettings(); $('#settings').hidden = false; };
+  $('#acctShow').onclick = () => { NET.showPass = !NET.showPass; renderAccount(); };
+  $('#acctCopy').onclick = () => {
+    if (!S.acct) return;
+    const text = `九路 Blitz の引き継ぎ\nID：${fmtCode(S.acct.id)}\nパスワード：${fmtCode(S.acct.pass)}`;
+    const ok = () => toast('IDとパスワードをコピーしました');
+    try { navigator.clipboard.writeText(text).then(ok, () => toast('コピーできませんでした。画面を見てメモしてください')); } catch (e) { toast('コピーできませんでした。画面を見てメモしてください'); }
+  };
+  $('#rsGo').onclick = () => {
+    const id = normCode($('#rsId').value), pass = normCode($('#rsPass').value);
+    if (id.length !== 8 || pass.length !== 8) { toast('IDとパスワードは、それぞれ8文字です'); return; }
+    if (!NET.ok) { toast('サーバーにつながっていません。少し待ってからもう一度'); return; }
+    if (S.acct && id === S.acct.id) { toast('それはこの端末のIDです'); return; }
+    confirmBox('この端末のデータ（レート・戦績・進み具合）を、引き継ぐデータで置きかえますか？', () => {
+      NET.pendingPass = pass;
+      netSend({ t: 'login', id, pass, restore: true });
+    });
+  };
   $('#openChara').onclick = () => { renderSettings(); showScreen('chara'); };
   $('#openRecord').onclick = () => { renderHome(); showScreen('record'); };
   $('#meChip').onclick = () => { renderHome(); showScreen('record'); };

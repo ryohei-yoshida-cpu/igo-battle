@@ -18,7 +18,11 @@ export default {
 };
 
 export class Lobby {
-  constructor(ctx, env) { this.ctx = ctx; this.core = new Core(); }
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    // アカウントは Durable Object のストレージ（消えない）に保存
+    this.core = new Core({ store: { get: k => ctx.storage.get(k), put: (k, v) => ctx.storage.put(k, v) } });
+  }
   async fetch(req) {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);

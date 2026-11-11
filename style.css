@@ -655,3 +655,18 @@ body.washi .bd-grain { display: none; }
 .rank-card > small { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .1em; }
 .rank-big { font-weight: 900; font-size: clamp(44px, 14vw, 60px); line-height: 1.05; color: #fff3dc; text-shadow: 0 0 18px rgba(232, 196, 110, .35); }
 .field select.select { font-size: 16px; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; color: var(--text); }
+
+/* アカウント */
+.acct-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.acct-box > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); min-width: 0; }
+.acct-box small { font-size: 11px; color: var(--muted); font-weight: 700; }
+.acct-box b { font-size: 17px; font-weight: 900; letter-spacing: .08em; font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.acct-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.acct-restore { border-radius: 12px; border: 1px dashed var(--line); padding: 8px 12px; }
+.acct-restore summary { cursor: pointer; font-weight: 800; font-size: 13.5px; }
+.acct-restore[open] { display: flex; flex-direction: column; gap: 8px; }
+.acct-restore input { font: inherit; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: var(--text); }
+
+/* 確認ダイアログとお知らせは、設定シートより前に出す */
+#confirm { z-index: 40; }
+#toast { z-index: 50; }
