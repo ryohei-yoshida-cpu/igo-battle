@@ -49,6 +49,8 @@
     const row = k => [0.299, 0.587, 0.114].map(w => (c[k] * w / ref).toFixed(4)).join(' ') + ' 0 0';
     return `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${row(0)} ${row(1)} ${row(2)} 0 0 0 1 0"/></filter>`;
   }
+  // 「ぱっちり」をショートの髪で使うときは、男の子の頭の形に女の子の目をのせた顔（元の顔は横を長い髪でかくしていたため）
+  const faceFile = l => l.face === 'girl' && l.hair !== 'girl' ? 'girl2' : l.face;
   function inner(look) {
     const l = clean(look), b = l.body, pre = 'av' + (++seq) + '_';
     let defs = '';
@@ -56,13 +58,13 @@
     const tinted = (key, slot, ref) => { const col = COLOR[slot + ':' + l[slot]]; if (!col) return null; defs += tint(pre + key, col, ref); return key; };
     const fTop = tinted('t', 'top', REF.top), fBot = tinted('b', 'bottom', REF.bottom), fShoe = tinted('s', 'shoes', REF.shoes), fHair = tinted('h', 'hairColor', REF.hair);
     return `<defs>${defs}</defs><ellipse cx="160" cy="752" rx="92" ry="12" fill="rgba(0,0,0,.16)"/>` +
-      img(b + '_body') + img(l.face + '_face') + img(b + '_bottom', fBot) + img(b + '_top', fTop) + img(b + '_socks') + img(b + '_shoes', fShoe) + img(l.hair + '_hair', fHair);
+      img(b + '_body') + img(faceFile(l) + '_face') + img(b + '_bottom', fBot) + img(b + '_top', fTop) + img(b + '_socks') + img(b + '_shoes', fShoe) + img(l.hair + '_hair', fHair);
   }
   const svg = (look, cls) => `<svg viewBox="${VB}" class="${cls || 'av-svg'}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
   const CROP = { face: '40 20 240 260', hair: '0 0 320 420', body: VB, top: '20 220 280 260', bottom: '40 380 240 200', shoes: '40 590 240 190' };
   const thumb = (look, tab) => `<svg viewBox="${CROP[tab] || VB}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
   // 先に読みこんでおく
-  if (typeof Image !== 'undefined') setTimeout(() => { for (const g of ['girl', 'boy']) for (const p of ['body', 'face', 'hair', 'top', 'bottom', 'socks', 'shoes']) new Image().src = base + g + '_' + p + '.png'; }, 800);
+  if (typeof Image !== 'undefined') setTimeout(() => { for (const g of ['girl', 'boy']) for (const p of ['body', 'face', 'hair', 'top', 'bottom', 'socks', 'shoes']) new Image().src = base + g + '_' + p + '.png'; new Image().src = base + 'girl2_face.png'; }, 800);
 
   root.AVATAR = { W, H, VB, CATALOG, SLOTS, TABS, PRICE, COLOR, PRESETS, DEFAULT, clean, inner, svg, thumb };
 })(typeof window !== 'undefined' ? window : globalThis);
