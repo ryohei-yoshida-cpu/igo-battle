@@ -33,15 +33,18 @@
   function changed() { return JSON.stringify(AV.clean(look)) !== JSON.stringify(myLook()); }
   function unowned() { return AV.SLOTS.map(([sl]) => sl).filter(sl => !owned(sl, look[sl])); }
   // タブの中身：髪のタブは「髪型」と「髪の色」
-  const sections = tab => tab === 'hair' ? [['hair', '髪型'], ['hairColor', '髪の色']] : tab === 'face' || tab === 'body' ? [[tab, '']] : [[tab, '色']];
+  // 元の絵の服（色を買う）と、素材シートの服（形ごと買う）を分けて並べる
+  const sections = tab => tab === 'hair' ? [['hair', '髪型（元の絵）', id => !AV.isSheet(id)], ['hairColor', '髪の色（元の絵の髪だけ）'], ['hair', 'いろいろな髪型', AV.isSheet]]
+    : tab === 'face' || tab === 'body' ? [[tab, '']]
+    : [[tab, tab === 'shoes' ? 'いろいろな靴' : 'いろいろな服', AV.isSheet], [tab, '元の絵の服の色', id => !AV.isSheet(id)]];
   function render() {
     $('#avBig').innerHTML = AV.svg(look);
     $('#avZeni').textContent = zeniText();
     $('#avTabs').innerHTML = AV.TABS.map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
     let h = '';
-    for (const [sl, title] of sections(slot)) {
+    for (const [sl, title, only] of sections(slot)) {
       if (title) h += `<div class="av-sec">${title}</div>`;
-      h += AV.CATALOG[sl].map(([id, name, price]) => {
+      h += AV.CATALOG[sl].filter(([id]) => !only || only(id)).map(([id, name, price]) => {
         const have = owned(sl, id), wearing = look[sl] === id;
         const preview = Object.assign({}, look, { [sl]: id });
         return `<button type="button" class="av-item ${wearing ? 'on' : ''}" data-sl="${sl}" data-id="${id}">${AV.thumb(preview, slot)}<b>${name}</b>` +
