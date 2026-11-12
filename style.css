@@ -1075,3 +1075,76 @@ div.tk-item { cursor: default; }
 @keyframes actTalk { 40% { transform: translateY(-6px); } }
 @keyframes actTalkR { 40% { transform: translateY(-6px) scaleX(-1); } }
 .rd-card { position: relative; z-index: 2; }
+
+/* ---------- メニュー：ルーム（ほかのカードと同じく、キャラの絵で） ---------- */
+.room-card { background: linear-gradient(110deg, #3f7a5a 0%, #23523f 50%, #12301f 100%) !important; min-height: 132px; padding: 12px 16px; align-items: flex-end; box-shadow: 0 14px 34px -14px #3f8a5acc !important; }
+.room-card .rc-chara { position: absolute; top: 0; height: 100%; width: 34%; object-fit: cover; object-position: 50% 10%; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 30%, #000 75%, transparent); mask-image: linear-gradient(to right, transparent 0, #000 30%, #000 75%, transparent); }
+.room-card .rc-chara.a { right: 22%; }
+.room-card .rc-chara.b { right: -2%; }
+.room-card .rc-av { position: absolute; right: 47%; bottom: 0; height: 100%; z-index: 1; }
+.room-card .rc-av svg { height: 100%; width: auto; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); }
+.room-card .rc-text { align-self: flex-start; z-index: 2; }
+.room-card .bc-go { position: absolute; left: 16px; bottom: 10px; z-index: 2; }
+.room-card .rc-text { margin-bottom: 44px; }
+.room-card > i { display: none; }
+
+/* ---------- プレゼントボックス ---------- */
+.gift-fab { position: fixed; z-index: 5; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 6px; padding: 8px 14px 8px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 220, 190, .4); background: linear-gradient(135deg, #f2a74a, #b0601e); color: #fff6ea; font-weight: 900; box-shadow: 0 8px 20px -8px #f2a74a; }
+.gift-fab span { font-size: 20px; line-height: 1; }
+.gift-fab b { font-size: 13px; }
+.gift-fab.has { animation: giftBob 1.6s ease-in-out infinite; }
+@keyframes giftBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px) rotate(-2deg); } }
+.gift-badge { position: absolute; top: -6px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e0302a; color: #fff; font-style: normal; font-size: 12px; font-weight: 900; display: grid; place-items: center; border: 2px solid #fff3dc; }
+#giftBox { z-index: 45; }
+.gf-card { position: relative; width: min(92vw, 420px); max-height: 80vh; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 20px; background: linear-gradient(170deg, #3a2414, #1c120a); border: 1px solid var(--kin); box-shadow: 0 20px 50px rgba(0, 0, 0, .6); overflow: hidden; }
+.gf-chara { position: absolute; right: -20px; top: -10px; height: 150px; width: 130px; object-fit: cover; object-position: 50% 8%; opacity: .9; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to left, #000 50%, transparent), linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+.gf-head { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-right: 100px; }
+.gf-head .btn { white-space: nowrap; flex: none; }
+.room-card .rc-text small { max-width: none; line-height: 1.4; }
+.gf-head b { font-size: 16px; white-space: nowrap; color: var(--kin); letter-spacing: .06em; }
+.gf-list { position: relative; list-style: none; margin: 46px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.gf-list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 246, 234, .07); border: 1px solid var(--line); }
+.gf-ic { font-size: 22px; }
+.gf-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gf-t b { font-size: 13.5px; }
+.gf-t small { font-size: 11px; color: var(--muted); }
+.gf-z { font-weight: 900; color: var(--kin); white-space: nowrap; }
+.gf-empty { position: relative; margin: 50px 0 10px; font-size: 13px; line-height: 1.8; color: var(--muted); text-align: center; }
+
+/* ---------- ハンコの大演出 ---------- */
+.fx-stamp { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px max(16px, env(safe-area-inset-left, 0px)); text-align: center; color: #fff6ea; background: radial-gradient(circle at 50% 45%, rgba(80, 30, 10, .55), rgba(0, 0, 0, .86) 70%); cursor: pointer; overflow: hidden; }
+.fx-rays { position: absolute; left: 50%; top: 45%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; pointer-events: none; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 215, 120, .16) 0deg 8deg, transparent 8deg 20deg); }
+.fx-stamp.go .fx-rays { animation: fxRays 1s .6s ease-out forwards, fxSpin 30s linear infinite; }
+@keyframes fxRays { to { opacity: 1; } }
+@keyframes fxSpin { to { transform: rotate(360deg); } }
+.fx-chara { position: absolute; bottom: 0; right: -6%; height: 70%; max-width: 70%; object-fit: cover; object-position: 50% 6%; opacity: 0; pointer-events: none; -webkit-mask-image: linear-gradient(to top, transparent 0, #000 30%); mask-image: linear-gradient(to top, transparent 0, #000 30%); }
+.fx-stamp.go .fx-chara { animation: fxChara .6s 1.0s ease-out forwards; }
+@keyframes fxChara { from { opacity: 0; transform: translateX(60px); } to { opacity: .55; transform: none; } }
+.fx-kicker { position: relative; font-size: 18px; font-weight: 900; letter-spacing: .5em; color: var(--kin); opacity: 0; }
+.fx-stamp.go .fx-kicker { animation: fxFade .4s .1s forwards; }
+.fx-seal { position: relative; width: min(58vw, 240px); aspect-ratio: 1; border-radius: 18px; display: grid; place-items: center; border: 7px solid #d8261c; color: #d8261c; background: rgba(255, 246, 234, .94);
+  box-shadow: inset 0 0 0 4px rgba(255, 246, 234, .94), inset 0 0 0 8px #d8261c, 0 20px 50px rgba(0, 0, 0, .5); transform: scale(4) rotate(-30deg); opacity: 0; }
+.fx-seal span { writing-mode: vertical-rl; font-size: clamp(34px, 11vw, 52px); font-weight: 900; letter-spacing: .12em; line-height: 1.1; text-shadow: 0 0 1px #d8261c; filter: url(#none); }
+.fx-stamp.go .fx-seal { animation: fxSeal .62s cubic-bezier(.5, 0, .7, .4) forwards; }
+@keyframes fxSeal { 0% { opacity: 0; transform: scale(4) rotate(-30deg); } 70% { opacity: 1; transform: scale(.9) rotate(-8deg); } 85% { transform: scale(1.08) rotate(-8deg); } 100% { opacity: 1; transform: scale(1) rotate(-8deg); } }
+.fx-title { position: relative; font-size: clamp(24px, 7vw, 34px); font-weight: 900; letter-spacing: .04em; text-shadow: 0 3px 14px rgba(0, 0, 0, .8); opacity: 0; }
+.fx-stamp.go .fx-title { animation: fxUp .5s .75s forwards; }
+.fx-sub { position: relative; font-size: 14px; font-weight: 700; opacity: 0; }
+.fx-stamp.go .fx-sub { animation: fxUp .5s .9s forwards; }
+.fx-rewards { position: relative; list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fx-rewards li { padding: 8px 16px; border-radius: 999px; background: linear-gradient(135deg, rgba(232, 196, 110, .92), rgba(201, 140, 50, .92)); color: #2a1a10; font-weight: 900; font-size: 14px; opacity: 0; box-shadow: 0 6px 16px rgba(0, 0, 0, .4); }
+.fx-stamp.go .fx-rewards li { animation: fxUp .45s forwards; }
+.fx-stamp.go .fx-rewards li:nth-child(1) { animation-delay: 1.05s; }
+.fx-stamp.go .fx-rewards li:nth-child(2) { animation-delay: 1.25s; }
+.fx-stamp.go .fx-rewards li:nth-child(3) { animation-delay: 1.45s; }
+.fx-tap { position: relative; font-size: 12px; color: rgba(255, 246, 234, .6); margin-top: 10px; opacity: 0; }
+.fx-stamp.go .fx-tap { animation: fxFade .4s 1.6s forwards; }
+@keyframes fxFade { to { opacity: 1; } }
+@keyframes fxUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.fx-stamp.mission .fx-seal { border-color: #2a6ad8; color: #2a6ad8; box-shadow: inset 0 0 0 4px rgba(255, 246, 234, .94), inset 0 0 0 8px #2a6ad8, 0 20px 50px rgba(0, 0, 0, .5); }
+body.fx-shake #app { animation: fxShake .35s; }
+@keyframes fxShake { 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, 2px); } 80% { transform: translate(3px, -1px); } }

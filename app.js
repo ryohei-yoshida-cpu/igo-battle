@@ -34,17 +34,17 @@
       name: 'あなた', avatar: { type: 'preset', id: 0 },
       rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1,
       bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [],
-      settings: { confirm: true, fx: true, sound: true, board: 'kaya', tickerMode: 'all' }, botLevel: 'auto', noBot: false,
+      settings: { confirm: true, fx: true, sound: true, bgm: true, board: 'kaya', tickerMode: 'all' }, botLevel: 'auto', noBot: false,
       solo: { mode: 'beginner', bot: 3, open: {}, lessons: [] }
     };
   }
   let S = fresh();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
-  S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya', tickerMode: 'all' }, S.settings);
+  S.settings = Object.assign({ confirm: true, fx: true, sound: true, bgm: true, board: 'kaya', tickerMode: 'all' }, S.settings);
   if (S.settings.board !== 'washi') S.settings.board = 'kaya';
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
   // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
-  if (S.zeni == null) S.zeni = 3000;   // はじめに3000銭のプレゼント
+  if (S.zeni == null) { S.zeni = 0; S.gifts = [{ id: 1, kind: 'welcome', amount: 3000, label: 'はじめてのプレゼント', t: Date.now() }]; }   // はじめの3000銭はプレゼントボックスへ
   S.vs = S.vs || {};
   // 旧バージョン（コード描画のキャラ：0〜3小春、4〜5玄斎）からの引っ越し
   if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
@@ -285,7 +285,7 @@
     const ki = k => A.VARIANTS.findIndex(v => v.key === k);
     setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('shima'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
     if (window.AVATAR) $('#homeAv').innerHTML = window.AVATAR.svg(S.av || window.AVATAR.PRESETS.girl);
-    if (window.ROOM && !$('#home').hidden) $('#homeRoom').innerHTML = window.ROOM.mini();
+    setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('tono')));
     // 新しく使えるようになったキャラを知らせる
     const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
     if (S.charaOpenN != null && nOpen > S.charaOpenN) {
@@ -575,7 +575,11 @@
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
     const nr = displayRank();
-    if (nr > oldRank) { if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: RANKS[nr] }); if (econOn()) APP_SOC('rank', { rank: RANKS[nr] }); }
+    if (nr > oldRank) {
+      if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: RANKS[nr] });
+      if (econOn()) { APP_SOC('rank', { rank: RANKS[nr] }); netSend({ t: 'rankup', rank: nr, name: RANKS[nr] }); }   // ごほうび1000銭はプレゼントボックスへ
+      else { S.rankGift = S.rankGift || []; if (!S.rankGift.includes(nr) && window.GIFT) { S.rankGift.push(nr); window.GIFT.add('rank', 1000, `${RANKS[nr]}昇格のごほうび`); } }
+    }
     return { old, d, oldRank, newRank: nr, capped };
   }
 
@@ -658,17 +662,27 @@
     $('#resHome').onclick = leaveGame;
     $('#resOld').textContent = r.old; $('#resNew').textContent = S.rating;
     const de = $('#resDelta'); de.textContent = (r.d >= 0 ? '+' : '') + r.d; de.className = r.d >= 0 ? 'up' : 'down';
-    if (r.newRank > r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`; }
+    if (r.newRank > r.oldRank) {
+      pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`;
+      // 盛大に：ハンコがとんできて「〇級昇格」。ごほうびと、使えるようになったキャラ
+      const nu = A.VARIANTS.map((v, i) => i).filter(i => UNLOCK[A.VARIANTS[i].key] > r.oldRank && UNLOCK[A.VARIANTS[i].key] <= r.newRank);
+      const rw = ['ごほうび 1000銭（プレゼントボックスに届きました）'].concat(nu.map(i => `「${A.VARIANTS[i].name}」をキャラクターに選べるようになりました！`));
+      setTimeout(() => window.FX && window.FX.stamp({ kicker: r.newRank >= DAN_FROM ? '昇段' : '昇級', stamp: RANKS[r.newRank] + '昇格', title: `${RANKS[r.newRank]}に昇格しました！`, rewards: rw, chara: nu.length ? nu[nu.length - 1] : charaIdx(), kind: 'rank' }), 700);
+    }
     else if (r.newRank < r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に降${r.newRank >= DAN_FROM ? '段' : '級'}`; }
     else if (r.capped) { pr.hidden = false; pr.textContent = 'Botとの対局でレートが上がるのは初段（1700）までです。この先は対人戦で！'; }
     else pr.hidden = true;
     $('#result').hidden = false;
   }
 
+  // 対人戦・Bot戦をやめたら「対人戦」の画面へもどる
   function leaveGame() {
     if (M && M.rematch) M = null;
-    $('#result').hidden = true; showScreen('home');
+    $('#result').hidden = true;
+    const size = G && G.size;
     G = null; renderHome();
+    openPvp();
+    if (size && window.FRIEND && window.FRIEND.setSize) window.FRIEND.setSize(size);
   }
 
   /* ---------- 通信切断（3分で負け） ---------- */
@@ -729,7 +743,7 @@
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost'];   // 銭と部屋はサーバーが別に管理する
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost', 'gifts', 'loginDay', 'rankGift'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -772,7 +786,7 @@
     const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room, av: S.av, avOwned: S.avOwned, pid: S.pid };
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, fresh(), d || {}, keep, { _at: at || Date.now() });
-    S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya', tickerMode: 'all' }, S.settings);
+    S.settings = Object.assign({ confirm: true, fx: true, sound: true, bgm: true, board: 'kaya', tickerMode: 'all' }, S.settings);
     S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     document.body.classList.toggle('washi', S.settings.board === 'washi');
@@ -784,7 +798,8 @@
   function applyEcon(e, layout) {
     if (!e) return;
     if (typeof e.zeni === 'number') S.zeni = e.zeni;
-    if (e.welcome) setTimeout(() => toast('ようこそ！ 3000銭をプレゼントしました。ショップでお買いものをどうぞ', 5000), 1200);
+    if (e.gifts && window.GIFT) window.GIFT.setGifts(e.gifts);
+    if (e.welcome) setTimeout(() => toast('ようこそ！ プレゼントボックスに3000銭が届いています', 5000), 1200);
     const r = S.room = S.room || {};
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
     if (e.av) S.av = e.av;
@@ -805,7 +820,7 @@
     else if (m.gained && m.why === 'episode') toast(`エピソードクリア！ ＋${m.gained} 銭`, 4000);
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
-  let buyReq = 0; const buyCb = {}, socCb = {};
+  let buyReq = 0; const buyCb = {}, socCb = {}, giftCb = {};
   const APP_SOC = (op, data, cb) => { const req = ++buyReq; if (cb) socCb[req] = cb; netSend(Object.assign({ t: 'soc', op, req }, data || {})); };
   function onAccount(m) {
     NET.authed = true;
@@ -876,6 +891,7 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
+      case 'gifts': if (giftCb[m.req]) { giftCb[m.req](m); delete giftCb[m.req]; } else if (window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
       case 'soc':
         if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
         if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
@@ -931,8 +947,8 @@
   }
   const FR = {
     available: () => !!NET_URL,
-    random(size) { showScreen('home'); startMatch(size); },
-    bot(size) { showScreen('home'); botNow(size); },
+    random(size) { startMatch(size); },
+    bot(size) { botNow(size); },
     online: () => NET.ok,
     host(hc) { friendSend({ t: 'fhost', hc }); },
     join(code) { friendSend({ t: 'fjoin', code }, { joining: true }); },
@@ -1018,7 +1034,7 @@
     M = null;
     $('#matching').hidden = true; $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
   }
-  $('#cancelMatch').onclick = stopMatch;
+  $('#cancelMatch').onclick = () => { stopMatch(); if (!$('#home').hidden || !$('#pvp').hidden) openPvp(); };
   $('#optNoBot').addEventListener('change', e => {
     S.noBot = e.target.checked; save();
     $('#mtNoBotNote').hidden = !S.noBot;
@@ -1078,7 +1094,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound; $('#optTicker').value = S.settings.tickerMode || 'all';
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all';
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1111,9 +1127,10 @@
     const v = e.target.value.trim().slice(0, 12);
     S.name = v || 'あなた'; save(); renderHome();
   });
+  $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
-  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound']]) {
+  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound'], ['#optBgm', 'bgm']]) {
     $(id).addEventListener('change', e => { S.settings[key] = e.target.checked; save(); });
   }
   $('#resetRate').onclick = () => confirmBox('レートを1050（10級）に戻し、成績と履歴を消します。元に戻せません。', () => {
@@ -1306,7 +1323,7 @@
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
-    saveLocal, econOn, FR, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
+    saveLocal, econOn, FR, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
       if (econOn()) netSend({ t: 'claim', kind, id });

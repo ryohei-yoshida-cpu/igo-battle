@@ -309,8 +309,10 @@
     const st = RD.story, n = st.parts.length;
     if (RD.part >= n - 1) {
       S.solo.read = S.solo.read || {};
-      if (!S.solo.read[st.id]) P.claim('episode', st.id, 500);   // エピソードを初めて読み終えたら 500銭
+      const first = !S.solo.read[st.id];
+      if (first) P.claim('episode', st.id, 500);   // エピソードを初めて読み終えたら 500銭
       S.solo.read[st.id] = true; P.save();
+      if (window.FX) window.FX.stamp({ kicker: 'エピソードクリア', stamp: '読了', title: st.title, sub: '最後まで読んでくれて、ありがとうございました！', rewards: first ? ['ごほうび 500銭'] : [], chara: st.chara || (st.user ? null : 'koharu'), kind: 'clear' });
       const r = $('#rdStage').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win'); P.sound('ok');
       for (const el of document.querySelectorAll('.rd-actor')) el.classList.remove('speak');
       card('完', st.title, '最後まで読んでくれて、ありがとうございました。', [['物語をえらぶ', 'primary', open], ['最初から読む', 'lac', () => openReader(st, 0)]]);
@@ -341,14 +343,23 @@
       const l = own || (nl && RD.part % 2 === 0 ? nl : makeDrill());
       const desc = l.drill ? '自動で選ばれる3問に正解しよう。' : `${l.teacher}のトレーニングを受けて、問題に正解しよう。`;
       card('続きを読むには', `ミッション：${l.title}`, desc, [
-        ['レクチャーを受ける', 'primary', () => runLesson(l, ok => { if (ok) { unlockNext(); resumeNext(); } else back(); })], ['あとで', 'lac', open]
+        ['レクチャーを受ける', 'primary', () => runLesson(l, ok => { if (ok) missionClear(l.title); else back(); })], ['あとで', 'lac', open]
       ]);
     }
+  }
+  // ミッションクリア：ハンコの演出のあと、次の幕へ
+  function missionClear(name) {
+    unlockNext();
+    P.showScreen('reader');
+    card('ミッションクリア', RD.story.parts[RD.part + 1].title, '', []);
+    const go = () => resumeNext();
+    if (window.FX) window.FX.stamp({ kicker: 'ミッションクリア', stamp: '合格', title: name, sub: '次の幕が読めるようになりました！', chara: RD.story.chara || 'koharu', kind: 'mission', done: go });
+    else go();
   }
   function resumeNext() { P.showScreen('reader'); RD.part++; RD.line = 0; showLine(); }
   function startGame(lv, back) {
     P.jissen(`Bot ${P.RANKS[lv]}に勝て`, () => P.startSoloGame(lv, {
-      done: (cleared) => { if (cleared) { unlockNext(); resumeNext(); } else startGame(lv, back); },
+      done: (cleared) => { if (cleared) missionClear(`Bot ${P.RANKS[lv]}に勝利`); else startGame(lv, back); },
       back
     }));
   }

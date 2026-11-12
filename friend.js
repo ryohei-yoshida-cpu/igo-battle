@@ -202,5 +202,5 @@
   });
   P.setImg($('#joinImg'), A.charaUri(ci('koharu')));
 
-  window.FRIEND = { renderPvp, open, onRoom, onNone, inviteTo, joinWith };
+  window.FRIEND = { renderPvp, open, onRoom, onNone, inviteTo, joinWith, setSize: n => { st.size = n === 13 ? 13 : 9; renderPvp(); } };
 })();

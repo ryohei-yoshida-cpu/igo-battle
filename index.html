@@ -35,6 +35,17 @@
 </section>
 
 <!-- 一言コメント（画面の一番上に流れる一行） -->
+<!-- 演出：ハンコ -->
+<div class="fx-stamp" id="fxStamp" hidden></div>
+<!-- プレゼントボックス -->
+<div class="overlay dim" id="giftBox" hidden>
+  <div class="gf-card">
+    <img class="gf-chara" id="giftChara" alt="">
+    <div class="gf-head"><b>プレゼントボックス</b><button type="button" class="btn lac small" id="giftClose">とじる</button></div>
+    <ul class="gf-list" id="giftList"></ul>
+    <button type="button" class="btn primary" id="giftAll" hidden>ぜんぶ受け取る</button>
+  </div>
+</div>
 <div id="ticker" hidden>
   <button type="button" class="tk-line" id="tkLine" aria-label="一言コメントの履歴">
     <span class="tk-ava" id="tkAva"></span>
@@ -71,10 +82,11 @@
     </div>
 
     <button class="room-card" id="openHub" type="button">
-      <span class="rc-room" id="homeRoom"></span>
+      <img class="rc-chara a" id="roomCharaA" alt="">
+      <img class="rc-chara b" id="roomCharaB" alt="">
       <span class="rc-av" id="homeAv"></span>
-      <span class="rc-text"><b>ルーム</b><small>アバター・マイルーム・キャラクター</small></span>
-      <i aria-hidden="true">›</i>
+      <span class="rc-text"><b>ルーム</b><small>アバター・マイルーム<br>キャラクター</small></span>
+      <span class="bc-go">ルームへ</span>
     </button>
 
     <nav class="home-tiles">
@@ -83,6 +95,7 @@
       <button class="tile rev" id="openReview" type="button"><img id="tileRev" alt=""><b>検討</b></button>
     </nav>
 
+    <button class="gift-fab" id="openGift" type="button" aria-label="プレゼントボックス"><span aria-hidden="true">🎁</span><b>プレゼント</b><i class="gift-badge" id="giftBadge" hidden>0</i></button>
     <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
   </section>
 
@@ -581,6 +594,7 @@
           </select>
         </label>
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
+        <label class="toggle"><input type="checkbox" id="optBgm"><i></i>BGM（和の音楽）</label>
       </div>
 
       <div class="field"><span>アカウント（データの保存と引き継ぎ）</span>
@@ -644,6 +658,7 @@
 <script src="story_tosho.js"></script>
 <script src="app.js"></script>
 <script src="friend.js"></script>
+<script src="fx.js"></script>
 <script src="solo.js"></script>
 <script src="common/room-items-more.js"></script>
 <script src="common/room-art.js"></script>

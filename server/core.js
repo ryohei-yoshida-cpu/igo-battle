@@ -178,7 +178,7 @@ export class Core {
       let id; do { id = randCode(8); } while (await this.store.get('acct:' + id));
       const pass = randCode(8);
       const rec = { h: await sha(id + ':' + pass), data: null, at: 0, created: this.now() };
-      ensureEcon(rec); delete rec.welcome;
+      ensureEcon(rec); delete rec.welcome; dailyGift(rec, this.now());
       await this.store.put('acct:' + id, rec);
       this.bindAcct(sock, info, id);
       out({ t: 'account', id, pass, data: null, at: 0, fresh: true, econ: Object.assign(pubEcon(rec), { welcome: true }) });
@@ -188,7 +188,7 @@ export class Core {
       if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
       this.bindAcct(sock, info, id);
       let welcome = false;
-      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); if (r.welcome) { welcome = true; delete r.welcome; } return true; });
+      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } return true; });
       out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore, econ: Object.assign(pubEcon(rec2 || rec), { welcome }) });
     } else if (m.t === 'sync') {
       if (!info.acct || !m.data || typeof m.data !== 'object') return;
@@ -280,6 +280,30 @@ export class Core {
         list.push(cid); r.zeni += amount; gained = amount;
       });
       if (rec) out({ t: 'zeni', zeni: rec.zeni, gained, why: kind });
+    } else if (m.t === 'gifts') {
+      const rec = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); });
+      if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni });
+    } else if (m.t === 'gifttake') {
+      // 受け取る：id を指定（'all' なら全部）
+      let got = 0;
+      const rec = await this.withAcct(id, async r => {
+        ensureEcon(r);
+        const keep = [];
+        for (const g of r.gifts || []) { if (m.id === 'all' || g.id === (m.id | 0)) got += g.amount; else keep.push(g); }
+        r.gifts = keep; r.zeni += got;
+      });
+      if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni, got });
+    } else if (m.t === 'rankup') {
+      // 昇級・昇段のごほうび 1000銭（段級位ごとに1回だけ。プレゼントボックスへ）
+      const rank = m.rank | 0, name = String(m.name || '').slice(0, 6);
+      if (rank < 1 || rank > 30) return;
+      const rec = await this.withAcct(id, async r => {
+        ensureEcon(r);
+        const list = r.claims.rank = r.claims.rank || [];
+        if (list.includes(rank)) return false;
+        list.push(rank); addGift(r, 'rank', RANKUP, `${name}昇格のごほうび`, this.now());
+      });
+      if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni });
     } else if (m.t === 'buy') {
       let ok = false, reason = '';
       const rec = await this.withAcct(id, async r => {
@@ -472,15 +496,27 @@ export class Core {
 }
 
 /* ---------- 銭まわりの決まり ---------- */
-const ECON = ['botstart', 'botend', 'claim', 'buy', 'room'];
-const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000;
+const ECON = ['botstart', 'botend', 'claim', 'buy', 'room', 'gifts', 'gifttake', 'rankup'];
+const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000, RANKUP = 1000, DAILY = 100;
+// プレゼントボックス：受け取るまで銭にならない。{ id, kind, amount, label, t }
+function addGift(r, kind, amount, label, t) {
+  r.gifts = r.gifts || []; r.giftSeq = (r.giftSeq || 0) + 1;
+  r.gifts.push({ id: r.giftSeq, kind, amount, label, t }); if (r.gifts.length > 50) r.gifts.shift();
+}
+// 毎日はじめてつないだら 100銭（日本時間の日付）
+function dailyGift(r, now) {
+  const day = new Date(now + 9 * 3600e3).toISOString().slice(0, 10);
+  if (r.loginDay === day) return false;
+  r.loginDay = day; addGift(r, 'daily', DAILY, 'ログインボーナス（' + day.slice(5).replace('-', '/') + '）', now); return true;
+}
 // アカウントに銭・持ち物・部屋がなければ作る。前のバージョンのデータがあれば、上限つきで引き継ぐ
 function ensureEcon(r) {
   // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
-  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; r.zeni += WELCOME; r.econV = 2; r.welcome = true; return; }
+  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; return; }
   if (r.econV === 2) return;
   const d = r.data || {}, old = d.room || {};
-  r.zeni = Math.min(3000, Math.max(0, d.zeni | 0)) + WELCOME;   // 前のデータの銭（3000まで）＋プレゼント
+  r.zeni = Math.min(3000, Math.max(0, d.zeni | 0));   // 前のデータの銭（3000まで）。はじめてのプレゼントはプレゼントボックスへ
+  addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now());
   r.owned = { items: { goban: 1 }, floors: ['wood'], walls: ['plain'], av: [] };
   let value = 0;
   const add = k => { if (ITEMS[k] && k !== 'goban' && value + ITEMS[k][0] <= 6000) { value += ITEMS[k][0]; r.owned.items[k] = (r.owned.items[k] || 0) + 1; } };
@@ -493,7 +529,7 @@ function ensureEcon(r) {
   r.daily = { day: '', bot: 0 }; r.claims = {};
   r.econV = 2; r.welcome = true;
 }
-function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, av: r.av || null, pid: r.pid || null }; }
+function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの
 function cleanRoom(room, owned) {
   if (!room || typeof room !== 'object') return null;
