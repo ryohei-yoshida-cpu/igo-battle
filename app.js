@@ -556,10 +556,13 @@
     applyScore(res);
   }
 
-  function applyRating(score, opRating, color, opName, reason, rec, size) {
+  // Bot との対局でレートが上がるのは初段（1700）まで
+  const BOT_CAP = TH[DAN_FROM];
+  function applyRating(score, opRating, color, opName, reason, rec, size, vsBot) {
     const win = score === 1, draw = score === 0.5;
     const old = S.rating, oldRank = displayRank();
-    const d = eloDelta(S.rating, opRating, score, S.games);
+    let d = eloDelta(S.rating, opRating, score, S.games), capped = false;
+    if (vsBot && d > 0 && S.rating + d > BOT_CAP) { d = Math.max(0, BOT_CAP - S.rating); capped = true; }
     S.rating = Math.max(800, S.rating + d);
     S.games++;
     if (win) { S.wins++; S.streak++; } else if (draw) S.draws = (S.draws || 0) + 1; else S.streak = 0;
@@ -570,7 +573,7 @@
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
-    return { old, d, oldRank, newRank: displayRank() };
+    return { old, d, oldRank, newRank: displayRank(), capped };
   }
 
   // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
@@ -594,7 +597,7 @@
     if (reason === '中押し') label = win ? '中押し勝ち' : '中押し負け';
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
-    const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice());
+    const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：勝つともらえる（強い相手ほど多い。持碁は半分）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     let zeni = 0;
     if ((win || draw) && !G.friend) {
@@ -658,6 +661,7 @@
     const de = $('#resDelta'); de.textContent = (r.d >= 0 ? '+' : '') + r.d; de.className = r.d >= 0 ? 'up' : 'down';
     if (r.newRank > r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`; }
     else if (r.newRank < r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に降${r.newRank >= DAN_FROM ? '段' : '級'}`; }
+    else if (r.capped) { pr.hidden = false; pr.textContent = 'Botとの対局でレートが上がるのは初段（1700）までです。この先は対人戦で！'; }
     else pr.hidden = true;
     $('#result').hidden = false;
   }
@@ -926,6 +930,7 @@
   const FR = {
     available: () => !!NET_URL,
     random(size) { showScreen('home'); startMatch(size); },
+    bot(size) { showScreen('home'); botNow(size); },
     online: () => NET.ok,
     host(hc) { friendSend({ t: 'fhost', hc }); },
     join(code) { friendSend({ t: 'fjoin', code }, { joining: true }); },
@@ -937,6 +942,14 @@
   /* ---------- マッチング ---------- */
   // サーバーにつながれば、まず人を探す。見つからなければ Bot（「Botとはマッチしない」なら待ち続ける）
   let M = null;
+  // 人を待たずに、すぐ Bot と打つ
+  function botNow(size) {
+    startMatch(size);
+    if (!M) return;
+    netSend({ t: 'cancel' });
+    clearInterval(M.timer);
+    matchFound();
+  }
   function startMatch(size) {
     stopMatch();
     size = size === 13 ? 13 : 9;
