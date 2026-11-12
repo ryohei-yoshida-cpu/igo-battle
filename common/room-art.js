@@ -329,18 +329,14 @@
 
   // 遊びに来たキャラ（顔の写真＋着物のからだ）
   const CHARA_COLORS = { koharu: '#2f4f8a', gensai: '#4a6a8a', hinata: '#e58fb0', shima: '#6b5a4a', tomoe: '#8a2a2a', mike: '#d9a35a', tono: '#5a3a8a' };
+  // 遊びに来たキャラ：カットインの絵から切りぬいた立ち姿（img/visit_<key>.webp）。足もとはふわっと消えて、床の影に立つ
   function drawVisitor(v, faceUrl, key) {
     const [sx, sy] = proj(v.x + .5, v.y + .5, 0);
-    const col = CHARA_COLORS[key] || '#555';
-    const id = 'vf' + key;
+    const w = 62, h = w * 624 / 340;
     return `<g class="rm-visitor" data-key="${key}">
-      <ellipse cx="${sx}" cy="${sy}" rx="15" ry="6" fill="rgba(0,0,0,.25)"/>
-      <path d="M${sx - 14},${sy} Q${sx - 16},${sy - 30} ${sx - 8},${sy - 40} L${sx + 8},${sy - 40} Q${sx + 16},${sy - 30} ${sx + 14},${sy} Z" fill="${col}"/>
-      <path d="M${sx - 7},${sy - 40} L${sx},${sy - 28} L${sx + 7},${sy - 40}" fill="none" stroke="#f5efe0" stroke-width="2.4"/>
-      <rect x="${sx - 14}" y="${sy - 20}" width="28" height="5" fill="${shade(col, -0.35)}"/>
-      <clipPath id="${id}"><circle cx="${sx}" cy="${sy - 54}" r="15"/></clipPath>
-      <circle cx="${sx}" cy="${sy - 54}" r="16.5" fill="#fff6ea"/>
-      <image href="${faceUrl}" x="${sx - 15}" y="${sy - 69}" width="30" height="30" clip-path="url(#${id})" preserveAspectRatio="xMidYMid slice"/>
+      <ellipse cx="${sx}" cy="${sy}" rx="20" ry="7" fill="rgba(0,0,0,.28)"/>
+      <image href="img/visit_${key}.webp" x="${sx - w / 2}" y="${sy - h + 10}" width="${w}" height="${h}" preserveAspectRatio="xMidYMax meet"/>
+      <rect x="${sx - 16}" y="${sy - h * 0.8}" width="32" height="${h * 0.8}" fill="transparent"/>
     </g>`;
   }
 

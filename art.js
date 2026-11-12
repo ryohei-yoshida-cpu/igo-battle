@@ -25,7 +25,7 @@
     return r === me ? (me === 0 ? 1 : 0) : r;
   }
   // 先に読みこんでおく（対局中のカットインが一瞬で出るように）
-  setTimeout(() => VARIANTS.forEach((v, i) => { new Image().src = charaUri(i); new Image().src = faceUri(i); }), 400);
+  setTimeout(() => VARIANTS.forEach((v, i) => { new Image().src = charaUri(i); new Image().src = faceUri(i); new Image().src = 'img/visit_' + v.key + '.webp'; }), 400);
 
   function rnd(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
