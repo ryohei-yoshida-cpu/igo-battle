@@ -55,6 +55,9 @@
   const saveLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };   // この端末だけ（通信しない）
   const save = () => { if (syncHook) S._at = Date.now(); saveLocal(); if (syncHook) syncHook(); };
 
+  // キャラクターは段級位で順に使えるようになる（三段で全員）
+  const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 12 };
+  const charaOpen = i => displayRank() >= (UNLOCK[A.VARIANTS[i].key] || 0);
   function displayRank() {
     const r = rankFromRating(S.rating);
     if (r < DAN_FROM) return r;
@@ -279,7 +282,18 @@
   function renderHome() {
     setImg($('#heroChara'), myCharaSrc());
     setImg($('#soloChara'), A.charaUri(charaIdx() === 0 ? 1 : 0));
-    setImg($('#chipFace'), myAvatarSrc());
+    const ki = k => A.VARIANTS.findIndex(v => v.key === k);
+    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('shima'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
+    if (window.AVATAR) $('#homeAv').innerHTML = window.AVATAR.svg(S.av || window.AVATAR.PRESETS.girl);
+    if (window.ROOM && !$('#home').hidden) $('#homeRoom').innerHTML = window.ROOM.mini();
+    // 新しく使えるようになったキャラを知らせる
+    const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
+    if (S.charaOpenN != null && nOpen > S.charaOpenN) {
+      const nv = A.VARIANTS.filter((v, i) => charaOpen(i) && UNLOCK[v.key] > 0).sort((a, b) => UNLOCK[b.key] - UNLOCK[a.key])[0];
+      if (nv) setTimeout(() => toast(`新しいキャラ「${nv.name}」が仲間になりました！ ルーム → キャラクターで選べます`, 5000), 600);
+    }
+    if (S.charaOpenN !== nOpen) { S.charaOpenN = nOpen; saveLocal(); }
+    if (window.AVATAR) $('#chipFace').innerHTML = window.AVATAR.thumb(S.av || window.AVATAR.PRESETS.girl, 'icon');
     $('#homeName').textContent = S.name;
     const dr = displayRank();
     $('#homeRank').textContent = `${RANKS[dr]}・${S.rating}`;
@@ -320,9 +334,16 @@
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop'];
+  // 対局のアイコン：アバターの顔（右下に相棒のキャラ）。Bot はキャラそのもの
+  function setPb(el, look, ci) {
+    const AVT = window.AVATAR;
+    if (look && AVT) el.innerHTML = `${AVT.thumb(look, 'icon')}<img class="pb-chara" src="${A.faceUri(ci)}" alt="">`;
+    else el.innerHTML = `<img class="pb-solo" src="${A.faceUri(ci)}" alt="">`;
+  }
   function showScreen(id) {
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
+    document.dispatchEvent(new CustomEvent('kuro9screen', { detail: id }));
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
   }
 
@@ -352,9 +373,9 @@
     if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo }); }
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined, size: BN })); } catch (e) {} }
     showScreen('game'); setMode('play');
-    setImg($('#meAvatar'), myAvatarSrc()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
-    if (bot.human) { setImg($('#opAvatar'), A.faceUri(bot.ava)); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・${G.friend ? 'フレンド' : 'オンライン'}`; }
-    else { setImg($('#opAvatar'), A.faceUri(oppChara(bot))); $('#opName').textContent = `${A.VARIANTS[oppChara(bot)].name}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`; }
+    setPb($('#meAvatar'), S.av || (window.AVATAR && window.AVATAR.PRESETS.girl), charaIdx()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
+    if (bot.human) { setPb($('#opAvatar'), bot.av, bot.ava); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・${G.friend ? 'フレンド' : 'オンライン'}`; }
+    else { setPb($('#opAvatar'), null, oppChara(bot)); $('#opName').textContent = `${A.VARIANTS[oppChara(bot)].name}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`; }
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
@@ -805,7 +826,7 @@
     $('#acctShow').textContent = NET.showPass ? 'パスワードをかくす' : 'パスワードを表示';
     $('#acctShow').disabled = $('#acctCopy').disabled = !has;
   }
-  const humanOpp = o => ({ human: true, pid: o.pid || null, name: String(o.name || 'プレイヤー').slice(0, 12), rating: o.rating | 0, ava: o.ava | 0, level: Math.min(BOT_MAX, rankFromRating(o.rating | 0)) });
+  const humanOpp = o => ({ human: true, pid: o.pid || null, av: o.av || null, name: String(o.name || 'プレイヤー').slice(0, 12), rating: o.rating | 0, ava: o.ava | 0, level: Math.min(BOT_MAX, rankFromRating(o.rating | 0)) });
   function setClocks(c) { if (!G || !c) return; G.clock[1] = c[1]; G.clock[2] = c[2]; G.turnStart = performance.now(); }
   function isMine(gid) { return G && G.online && G.online.g === gid; }
 
@@ -849,7 +870,9 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
-      case 'soc': if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
+      case 'soc':
+        if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
+        if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
       case 'froom': if (M && M.friend && !M.found) { M.code = m.code; if (window.FRIEND) window.FRIEND.onRoom(m); } break;
       case 'fnone': if (M && M.friend && M.joining) { M = null; } if (window.FRIEND) window.FRIEND.onNone(m); break;
       case 'rematch':
@@ -1032,13 +1055,15 @@
       b.setAttribute('aria-label', 'アバター ' + v.name);
       b.setAttribute('aria-pressed', String(S.avatar.type === 'preset' && S.avatar.id === i));
       const im = document.createElement('img'); im.alt = ''; im.src = A.faceUri(i); b.append(im);
-      const nm = document.createElement('span'); nm.textContent = v.name; b.append(nm);
+      const open = charaOpen(i);
+      const nm = document.createElement('span'); nm.textContent = open ? v.name : `${RANKS[UNLOCK[v.key]]}で解放`; b.append(nm);
+      if (!open) { b.classList.add('locked'); b.onclick = () => toast(`${v.name}は${RANKS[UNLOCK[v.key]]}になると使えます`); grid.append(b); return; }
       b.onclick = () => { S.avatar = { type: 'preset', id: i }; save(); renderSettings(); renderHome(); };
       grid.append(b);
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound;
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound; $('#optTicker').checked = !!S.settings.ticker;
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1072,7 +1097,7 @@
     S.name = v || 'あなた'; save(); renderHome();
   });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
-  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound']]) {
+  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound'], ['#optTicker', 'ticker']]) {
     $(id).addEventListener('change', e => { S.settings[key] = e.target.checked; save(); });
   }
   $('#resetRate').onclick = () => confirmBox('レートを1050（10級）に戻し、成績と履歴を消します。元に戻せません。', () => {
@@ -1239,6 +1264,14 @@
     if (G && !G.over) { showScreen('game'); return; }   // 中断していた対局が再開済み
     showScreen('home'); renderHome();
   }
+  // タイトル：キャラクター総出演（扇のように並べる）
+  (() => {
+    const order = ['mike', 'shima', 'koharu', 'hinata', 'gensai', 'tomoe', 'tono'], n = order.length;
+    $('#ttCast').innerHTML = order.map((k, j) => {
+      const i = A.VARIANTS.findIndex(v => v.key === k), t = j - (n - 1) / 2;
+      return `<figure class="tt-card" style="--t:${t};--d:${(j * 0.09).toFixed(2)}s;z-index:${10 - Math.abs(Math.round(t))}"><img src="${A.charaUri(i)}" alt=""><figcaption>${A.VARIANTS[i].name}</figcaption></figure>`;
+    }).join('');
+  })();
   $('#title').addEventListener('click', leaveTitle);
   $('#title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') leaveTitle(); });
   $('#openSolo').onclick = () => window.SOLO && window.SOLO.open();
@@ -1257,7 +1290,7 @@
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
-    saveLocal, econOn, FR, HC_PTS, HC_NAME, hcStones, MAIN_MS,
+    saveLocal, econOn, FR, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
       if (econOn()) netSend({ t: 'claim', kind, id });

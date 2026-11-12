@@ -25,8 +25,8 @@
   $('#openAvatar').onclick = () => { P.sound('stone'); open(); };
 
   /* ---------- 着せかえ ---------- */
-  function open() {
-    look = myLook(); slot = 'face';
+  function open(startSlot) {
+    look = myLook(); slot = startSlot || 'face';
     P.showScreen('avatar');
     render();
   }

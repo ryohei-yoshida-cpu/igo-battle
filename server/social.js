@@ -58,6 +58,7 @@ export class Social {
   // 部屋番号（6けた）。はじめて必要になったときに作る
   async ensurePid(id) {
     const rec = await this.store.get('acct:' + id); if (!rec) return null;
+    for (const p of this.core.players.values()) if (p.acct === id && rec.av) p.av = rec.av;
     if (rec.pid) return rec.pid;
     let pid; do { pid = String(100000 + Math.floor(Math.random() * 900000)); } while (await this.store.get('pid:' + pid));
     await this.store.put('pid:' + pid, id);
@@ -73,6 +74,7 @@ export class Social {
     const id = info.acct; if (!id) { out({ ok: false, reason: 'auth' }); return; }
     const me = await this.ensurePid(id); if (!me) return;
     const myName = this.nameOf(id);
+    const myAv = () => { const p = [...this.core.players.values()].find(p => p.acct === id); return (p && p.av) || null; };
     const op = m.op, now = this.core.now();
     const text = s => String(s || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
     // 書きこみの回数制限と、言葉のチェック
@@ -93,7 +95,7 @@ export class Social {
 
     if (op === 'me') {
       const s = fixSoc(await this.store.get('soc:' + id));
-      out({ ok: true, pid: me, hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset });
+      out({ ok: true, pid: me, chat: s.chat.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset });
       return;
     }
     if (op === 'avatar') {
@@ -104,6 +106,8 @@ export class Social {
         for (const [slot] of AV.SLOTS) if (AV.PRICE[slot + ':' + look[slot]] > 0 && !owned.has(slot + ':' + look[slot])) return false;
         r.av = look; ok = true;
       });
+      if (ok) for (const p of this.core.players.values()) if (p.acct === id) p.av = rec.av;
+      if (ok) for (const inf of this.core.sockInfo.values()) if (inf.acct === id) inf.av = rec.av;
       out({ ok, look: rec && rec.av });
       if (ok) this.touchActive(me);
       return;
@@ -159,7 +163,7 @@ export class Social {
       const s = await this.withSoc(oid, s => {
         if (!canWrite(s, pid)) { reason = has(s.blocks, me) ? 'blocked' : 'closed'; return false; }
         reason = gate(t, op); if (reason) return false;
-        const item = { id: s.seq++, pid: me, name: myName, text: t, t: now };
+        const item = { id: s.seq++, pid: me, name: myName, text: t, t: now, av: myAv() };
         if (op === 'chat') { s.chat.unshift(item); s.chat = s.chat.slice(0, LIM.chats); return; }
         const d = s.diary.find(d => d.id === (m.did | 0));
         if (!d) { reason = 'gone'; return false; }
@@ -167,6 +171,8 @@ export class Social {
       });
       if (reason || !s) { out({ ok: false, reason: reason || 'gone' }); return; }
       out({ ok: true, diary: s.diary, chat: s.chat });
+      // 部屋の持ち主がつながっていたら、新しい一言コメントをすぐ知らせる（画面上の流れる一行）
+      if (op === 'chat') for (const p of this.core.players.values()) if (p.acct === oid && p.sock) { try { p.sock.send(JSON.stringify({ t: 'soc', op: 'push', item: s.chat[0] })); } catch (e) {} }
       return;
     }
     if (op === 'del') {

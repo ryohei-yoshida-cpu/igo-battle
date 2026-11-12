@@ -103,7 +103,7 @@
       const q = [R.proj(sel.x, sel.y, 0), R.proj(sel.x + f.w, sel.y, 0), R.proj(sel.x + f.w, sel.y + f.d, 0), R.proj(sel.x, sel.y + f.d, 0)];
       s += `<polygon points="${q.map(p => p.join(',')).join(' ')}" class="rm-foot ${ok ? 'ok' : 'ng'}"/>`;
     }
-    const owner = mode === 'view' ? ownerSpot() : null;
+    const owner = ownerSpot();
     const ents = solids.map(it => Object.assign(rectOf(it), { it }))
       .concat(mode === 'view' && !guest ? visitors.map(v => ({ x: v.x, y: v.y, w: 1, d: 1, v })) : [])
       .concat(owner ? [{ x: owner.x, y: owner.y, w: 1, d: 1, av: true }] : []);
@@ -119,6 +119,8 @@
     $('#roomHito').hidden = !(info && info.hito); $('#roomHito').textContent = info && info.hito ? info.hito : '';
     $('#roomVisits').textContent = info && info.visits ? `訪問 今日${info.visits.today}・合計${info.visits.total}` : '';
     $('#rmEdit').hidden = !!guest;
+    $('#rmShopBig').hidden = !!guest;
+    $('#rmShopBig').setAttribute('aria-pressed', String(tab === 'shop')); $('#rmDiaryBig').setAttribute('aria-pressed', String(tab === 'diary'));
     $('#roomTools').hidden = !(mode === 'edit' && sel);
     if (sel) { $('#rmRot').hidden = !!sel.side; $('#rmName').textContent = cat(sel.k).name; }
     $('#roomStage').classList.toggle('editing', mode === 'edit');
@@ -129,20 +131,31 @@
     const busy = new Set();
     for (const it of room().items) if (cat(it.k).kind !== 'flat') { const f = rectOf(it); for (let x = f.x; x < f.x + f.w; x++) for (let y = f.y; y < f.y + f.d; y++) busy.add(x + ',' + y); }
     for (const v of guest ? [] : visitors) busy.add(v.x + ',' + v.y);
-    for (const [x, y] of [[8, 8], [7, 9], [9, 7], [6, 8], [8, 6], [9, 9], [5, 9], [9, 5], [10, 10], [4, 10], [10, 4]]) if (!busy.has(x + ',' + y)) return { x, y };
+    const av = room().av;
+    if (av && Number.isInteger(av.x) && Number.isInteger(av.y) && !busy.has(av.x + ',' + av.y)) return { x: av.x, y: av.y };
+    for (const [x, y] of [[3, 9], [9, 3], [2, 8], [8, 2], [4, 10], [10, 4], [9, 9], [10, 10]]) if (!busy.has(x + ',' + y)) return { x, y };
     for (let x = N - 1; x >= 0; x--) for (let y = N - 1; y >= 0; y--) if (!busy.has(x + ',' + y)) return { x, y };
     return null;
   }
   function drawOwner(e) {
     const look = guest ? guest.av : S.av;
     const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 46, h = w * AV.H / AV.W;
-    return `<g class="rm-owner"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="${AV.VB}">${AV.inner(look || AV.PRESETS.girl)}</svg></g>`;
+    const on = drag && drag.av;
+    // 背の高い絵なので、つかめるのは足もと〜おなかのあたりだけ（うしろの家具をさわれるように）
+    return `<g class="rm-owner${mode === 'edit' ? ' movable' : ''}${on ? ' rm-sel' : ''}"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="${AV.VB}" pointer-events="none">${AV.inner(look || AV.PRESETS.girl)}</svg>` +
+      `<rect class="rm-owner-hit" x="${sx - 13}" y="${sy - h * 0.55}" width="26" height="${h * 0.55 + 4}" rx="8" fill="transparent"/></g>`;
+  }
+
+  function avFree(x, y) {
+    for (const it of room().items) if (cat(it.k).kind !== 'flat') { const f = rectOf(it); if (x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.d) return false; }
+    return true;
   }
 
   /* ---------- 遊びに来るキャラ ---------- */
   function unlocked() {
     const mine = A.VARIANTS[P.charaIdx()].key;
-    return A.VARIANTS.map((v, idx) => ({ v, idx })).filter(({ v }) => v.key === mine ? (S.wins || 0) >= 5 : (S.vs[v.key] || 0) >= 5);
+    // 段級位で解放されたキャラだけが、5勝したら遊びに来る
+    return A.VARIANTS.map((v, idx) => ({ v, idx })).filter(({ v, idx }) => P.charaOpen(idx) && (v.key === mine ? (S.wins || 0) >= 5 : (S.vs[v.key] || 0) >= 5));
   }
   function placeVisitors() {
     visitors = [];
@@ -231,6 +244,14 @@
       if (it.k === 'goban') { P.confirmBox('対人戦で一局打ちますか？', () => { flush(); P.startMatch(); }); return; }
       return;
     }
+    // 自分のアバターも、もようがえで動かせる
+    if (e.target.closest && e.target.closest('.rm-owner')) {
+      const sp = ownerSpot(); if (!sp) return;
+      const r = room(); r.av = { x: sp.x, y: sp.y };
+      const [sx, sy] = svgPoint(e), g = R.toGrid(sx, sy);
+      sel = null; drag = { av: true, it: r.av, off: [g.x - sp.x, g.y - sp.y], orig: { x: sp.x, y: sp.y }, ok: true };
+      svg().setPointerCapture(e.pointerId); e.preventDefault(); render(); return;
+    }
     const it = findItem(e);
     if (!it) { sel = null; render(); return; }
     sel = it;
@@ -249,6 +270,12 @@
   function onMove(e) {
     if (!drag) return;
     const [sx, sy] = svgPoint(e), it = drag.it;
+    if (drag.av) {
+      const g = R.toGrid(sx, sy);
+      const x = Math.max(0, Math.min(N - 1, Math.round(g.x - drag.off[0]))), y = Math.max(0, Math.min(N - 1, Math.round(g.y - drag.off[1])));
+      if (x !== it.x || y !== it.y) { it.x = x; it.y = y; drag.ok = avFree(x, y); render(); }
+      return;
+    }
     if (drag.wall) {
       const w = R.toWall(sx, sy), u = Math.round(w.u - drag.off);
       const cu = Math.max(0, Math.min(N - cat(it.k).w, u));
@@ -314,9 +341,10 @@
   function renderPanel() {
     const p = $('#roomPanel'), r = room();
     document.querySelectorAll('#roomTabs button').forEach(b => {
-      b.hidden = b.dataset.own === '1' ? !!guest : b.dataset.own === '0' ? !guest : false;
+      b.hidden = b.dataset.own === '2' ? true : b.dataset.own === '1' ? !!guest : b.dataset.own === '0' ? !guest : false;
       b.setAttribute('aria-pressed', String(b.dataset.tab === tab));
     });
+    $('#rmShopBig').setAttribute('aria-pressed', String(tab === 'shop')); $('#rmDiaryBig').setAttribute('aria-pressed', String(tab === 'diary'));
     if (['diary', 'chat', 'social', 'owner'].includes(tab)) {
       if (!P.online()) { p.innerHTML = '<p class="rm-help">日記・一言チャット・交流は、サーバーにつながっているときに使えます。</p>'; return; }
       SO.render(tab, ctx(), p);
@@ -397,10 +425,10 @@
     render();
   }
 
-  function open() {
+  function open(startTab) {
     guest = null;
     room();
-    tab = 'shop'; mode = 'view'; sel = null;
+    tab = startTab || 'inv'; mode = 'view'; sel = null;
     P.showScreen('myroom');
     setMode('view');
     renderPanel();
@@ -415,6 +443,7 @@
       P.soc('me', {}, res => {
         if (!res.ok) return;
         meInfo = res; S.pid = res.pid;
+        if (window.TICKER) window.TICKER.set(res.chat || []);
         P.soc('visit', { pid: res.pid }, r2 => { if (r2.ok && !guest) { mySoc = r2; render(); renderPanel(); } });
       });
     } else {
@@ -435,11 +464,12 @@
       if (!res.ok) { P.toast(SO.why(res)); return; }
       if (res.mine) { goHome(); return; }
       guest = res; tab = 'diary'; sel = null; mode = 'view';
+      if (window.TICKER) setTimeout(window.TICKER.draw, 0);
       P.showScreen('myroom'); $('#roomBubble').hidden = true;
       render(); renderPanel(); P.sound('stone');
     });
   }
-  function goHome() { guest = null; tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
+  function goHome() { guest = null; if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
   // えらぶ画面に出す、小さな自分の部屋
   function mini() {
     const g = guest; guest = null;
@@ -479,5 +509,8 @@
     if (mode === 'edit') { $('#roomZeni').textContent = `${S.zeni.toLocaleString()} 銭`; renderPanel(); return; }
     sel = null; render(); renderPanel();
   }
-  window.ROOM = { open, refresh, visit, mini };
+  // ルームの下の大きなボタン：ショップ・日記
+  $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; renderPanel(); P.sound('stone'); $('#roomPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  $('#rmDiaryBig').onclick = () => { tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  window.ROOM = { open, refresh, visit, mini, info: () => ({ guest: !!guest }) };
 })();

@@ -61,7 +61,7 @@
       img(b + '_body') + img(faceFile(l) + '_face') + img(b + '_bottom', fBot) + img(b + '_top', fTop) + img(b + '_socks') + img(b + '_shoes', fShoe) + img(l.hair + '_hair', fHair);
   }
   const svg = (look, cls) => `<svg viewBox="${VB}" class="${cls || 'av-svg'}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
-  const CROP = { face: '40 20 240 260', hair: '0 0 320 420', body: VB, top: '20 220 280 260', bottom: '40 380 240 200', shoes: '40 590 240 190' };
+  const CROP = { icon: '62 52 196 196', face: '40 20 240 260', hair: '0 0 320 420', body: VB, top: '20 220 280 260', bottom: '40 380 240 200', shoes: '40 590 240 190' };
   const thumb = (look, tab) => `<svg viewBox="${CROP[tab] || VB}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
   // 先に読みこんでおく
   if (typeof Image !== 'undefined') setTimeout(() => { for (const g of ['girl', 'boy']) for (const p of ['body', 'face', 'hair', 'top', 'bottom', 'socks', 'shoes']) new Image().src = base + g + '_' + p + '.png'; new Image().src = base + 'girl2_face.png'; }, 800);

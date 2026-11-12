@@ -145,7 +145,7 @@ export class Core {
     if (old && old.sock && old.sock !== sock) { this.socks.delete(old.sock); try { old.sock.close(); } catch (e) {} }
     const pl = old || { cid, seekAt: 0, game: null };
     pl.name = String(m.name || 'プレイヤー').slice(0, 12);
-    const si = this.sockInfo.get(sock); if (si && si.acct) { pl.acct = si.acct; pl.pid = si.pid || pl.pid; }
+    const si = this.sockInfo.get(sock); if (si && si.acct) { pl.acct = si.acct; pl.pid = si.pid || pl.pid; pl.av = si.av || pl.av; }
     pl.rating = Math.max(0, Math.min(4000, m.rating | 0));
     pl.ava = Math.max(0, Math.min(20, m.ava | 0));
     pl.sock = sock;
@@ -211,7 +211,11 @@ export class Core {
     const cid = this.socks.get(sock), pl = cid && this.players.get(cid);
     if (pl) pl.acct = id;
     // 部屋番号（対局相手の部屋をたずねられるように、相手に見せる番号）
-    this.social.ensurePid(id).then(pid => { info.pid = pid; const p = cid && this.players.get(cid); if (p && p.acct === id) p.pid = pid; }).catch(() => {});
+    this.social.ensurePid(id).then(async pid => {
+      info.pid = pid;
+      const rec = await this.store.get('acct:' + id); info.av = rec && rec.av || null;   // 対局相手に見せるアバター
+      const p = cid && this.players.get(cid); if (p && p.acct === id) { p.pid = pid; p.av = info.av; }
+    }).catch(() => {});
   }
   // 同じアカウントの読み書きが重ならないよう、順番に処理する
   withAcct(id, fn) {
@@ -321,7 +325,7 @@ export class Core {
     this.lobby();
   }
 
-  pub(cid) { const p = this.players.get(cid); return p ? { name: cleanName(p.name), rating: p.rating, ava: p.ava, pid: p.pid || null } : { name: '？', rating: 1050, ava: 0 }; }
+  pub(cid) { const p = this.players.get(cid); return p ? { name: cleanName(p.name), rating: p.rating, ava: p.ava, pid: p.pid || null, av: p.av || null } : { name: '？', rating: 1050, ava: 0 }; }
   gameOf(pl, gid) { const g = this.games.get(gid); return g && g.colorOf[pl.cid] ? g : null; }
 
   /* ---------- マッチング：待っている人どうし、レートの近い順に ---------- */
@@ -505,7 +509,8 @@ function cleanRoom(room, owned) {
   }
   for (const [k, n] of Object.entries(cnt)) if (n > (owned.items[k] || 0)) return null;
   const floor = owned.floors.includes(room.floor) ? room.floor : 'wood', wall = owned.walls.includes(room.wall) ? room.wall : 'plain';
-  return { floor, wall, items, walls };
+  const av = room.av && num(room.av.x, 0, 11) && num(room.av.y, 0, 11) ? { x: room.av.x, y: room.av.y } : undefined;   // 部屋の持ち主（アバター）の立ち位置
+  return { floor, wall, items, walls, av };
 }
 
 /* ---------- 使いすぎ対策の数字 ---------- */

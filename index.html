@@ -30,8 +30,19 @@
     <h1><span>九路</span><b>BLITZ</b></h1>
     <p>九路盤の早碁と、ちいさな物語</p>
   </div>
+  <div class="tt-cast" id="ttCast" aria-hidden="true"></div>
   <button class="tt-start" id="ttStart">画面をタップしてはじめる</button>
 </section>
+
+<!-- 一言コメント（画面の一番上に流れる一行） -->
+<div id="ticker" hidden>
+  <button type="button" class="tk-line" id="tkLine" aria-label="一言コメントの履歴">
+    <span class="tk-ava" id="tkAva"></span>
+    <span class="tk-run"><span class="tk-text" id="tkText"></span></span>
+    <i aria-hidden="true">▾</i>
+  </button>
+  <div class="tk-list" id="tkList" hidden></div>
+</div>
 
 <div id="app">
 
@@ -40,7 +51,7 @@
     <header class="brand">
       <div class="logo"><b>九路</b><span>BLITZ</span></div>
       <button class="me-chip" id="meChip" type="button" aria-label="戦績と棋譜">
-        <img id="chipFace" alt=""><span><b id="homeName"></b><small id="homeRank"></small></span>
+        <span class="chip-av" id="chipFace"></span><span><b id="homeName"></b><small id="homeRank"></small></span>
       </button>
     </header>
 
@@ -48,21 +59,28 @@
       <button class="big-card pvp" id="startMatch" type="button">
         <img class="bc-chara" id="heroChara" alt="">
         <span class="bc-k">対人戦</span>
-        <span class="bc-sub">ランダムマッチ・フレンドマッチ</span>
+        <span class="bc-sub">ランダム・フレンド</span>
         <span class="bc-go">対局へ</span>
       </button>
       <button class="big-card solo" id="openSolo" type="button">
         <img class="bc-chara" id="soloChara" alt="">
-        <span class="bc-k">ソロ<br>ストーリーモード</span>
-        <span class="bc-sub">物語を読みながら、囲碁を覚える</span>
+        <span class="bc-k">ソロ</span>
+        <span class="bc-sub">物語で囲碁を覚える</span>
         <span class="bc-go">物語へ</span>
       </button>
     </div>
 
-    <nav class="home-list">
-      <button class="wide-btn" id="openReview" type="button"><b>検討モード</b><small>盤を自由に並べる</small><i aria-hidden="true">›</i></button>
-      <button class="wide-btn" id="openHub" type="button"><b>マイルーム</b><small>アバター・お部屋・キャラクター・日記</small><i aria-hidden="true">›</i></button>
-      <button class="wide-btn" id="openRecord" type="button"><b>戦績と棋譜</b><small>レート・成績・最近の対局</small><i aria-hidden="true">›</i></button>
+    <button class="room-card" id="openHub" type="button">
+      <span class="rc-room" id="homeRoom"></span>
+      <span class="rc-av" id="homeAv"></span>
+      <span class="rc-text"><b>ルーム</b><small>アバター・マイルーム・キャラクター</small></span>
+      <i aria-hidden="true">›</i>
+    </button>
+
+    <nav class="home-tiles">
+      <button class="tile shop" id="openShop" type="button"><img id="tileShop" alt=""><b>ショップ</b></button>
+      <button class="tile rec" id="openRecord" type="button"><img id="tileRec" alt=""><b>戦歴</b></button>
+      <button class="tile rev" id="openReview" type="button"><img id="tileRev" alt=""><b>検討</b></button>
     </nav>
 
     <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
@@ -166,6 +184,23 @@
     </div>
   </section>
 
+  <!-- ショップ（店員：ひなた） -->
+  <section id="shop" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="shopBack">← ホーム</button>
+      <h2>ショップ</h2>
+      <span class="zeni-chip" id="shopZeni"></span>
+    </header>
+    <div class="shop-clerk">
+      <img id="shopImg" alt="店員のひなた">
+      <div class="shop-bubble" id="shopBubble"><b>ひなた</b><p id="shopTalk"></p></div>
+    </div>
+    <div class="shop-cards">
+      <button class="shop-card av" id="shopAvatar" type="button"><span class="sc-fig" id="shopAvFig"></span><b>アバターショップ</b><small>服・靴・髪の色</small></button>
+      <button class="shop-card room" id="shopRoom" type="button"><span class="sc-fig room" id="shopRoomFig"></span><b>マイルームショップ</b><small>家具・床・壁紙</small></button>
+    </div>
+  </section>
+
   <!-- マイルームのえらぶ画面：アバター／マイルーム／キャラクター -->
   <section id="hub" class="screen" hidden>
     <header class="bar">
@@ -232,13 +267,17 @@
         <button type="button" class="btn primary small" id="rmDone">OK</button>
       </div>
     </div>
+    <div class="room-big" id="roomBig">
+      <button type="button" class="rb-shop" id="rmShopBig">ショップ</button>
+      <button type="button" class="rb-diary" id="rmDiaryBig">日記</button>
+    </div>
     <div class="room-actions">
       <button type="button" class="btn lac small" id="rmEdit">もようがえ</button>
       <nav class="rm-tabs" id="roomTabs">
-        <button type="button" data-tab="shop" data-own="1">ショップ</button>
+        <button type="button" data-tab="shop" data-own="2">ショップ</button>
         <button type="button" data-tab="inv" data-own="1">倉庫</button>
-        <button type="button" data-tab="diary">日記</button>
-        <button type="button" data-tab="chat">一言チャット</button>
+        <button type="button" data-tab="diary" data-own="0">日記</button>
+        <button type="button" data-tab="chat">一言コメント</button>
         <button type="button" data-tab="social" data-own="1">交流</button>
         <button type="button" data-tab="guest" data-own="1">キャラ</button>
         <button type="button" data-tab="owner" data-own="0">この人</button>
@@ -376,7 +415,7 @@
       <span class="rv-btns"><button class="btn lac small" id="rvSize" hidden>13路にする</button><button class="btn lac small" id="rvClose">閉じる</button></span>
     </div>
     <div class="pbar op" id="opBar">
-      <img class="pb-ava" id="opAvatar" alt="">
+      <span class="pb-ava" id="opAvatar"></span>
       <div class="pb-info">
         <div class="pb-name"><i class="mini-stone" id="opStone"></i><span id="opName"></span></div>
         <div class="pb-sub"><span id="opRank"></span>・アゲハマ <b id="opCaps">0</b></div>
@@ -402,7 +441,7 @@
     </div>
 
     <div class="pbar me" id="meBar">
-      <img class="pb-ava" id="meAvatar" alt="">
+      <span class="pb-ava" id="meAvatar"></span>
       <div class="pb-info">
         <div class="pb-name"><i class="mini-stone" id="meStone"></i><span id="meName"></span></div>
         <div class="pb-sub"><span id="meRank"></span>・アゲハマ <b id="meCaps">0</b></div>
@@ -516,6 +555,7 @@
       <div class="field"><span>対局</span>
         <label class="toggle"><input type="checkbox" id="optConfirm"><i></i>着手は2回タップで確定</label>
         <label class="toggle"><input type="checkbox" id="optFx"><i></i>技のカットイン</label>
+        <label class="toggle"><input type="checkbox" id="optTicker"><i></i>一言コメントを画面の一番上に出す（対局中も）</label>
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
       </div>
 
@@ -586,5 +626,7 @@
 <script src="common/social.js"></script>
 <script src="room.js"></script>
 <script src="common/avatar.js"></script>
+<script src="common/ticker.js"></script>
+<script src="shop.js"></script>
 </body>
 </html>
