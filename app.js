@@ -34,13 +34,13 @@
       name: 'あなた', avatar: { type: 'preset', id: 0 },
       rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1,
       bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [],
-      settings: { confirm: true, fx: true, sound: true, board: 'kaya' }, botLevel: 'auto', noBot: false,
+      settings: { confirm: true, fx: true, sound: true, board: 'kaya', tickerMode: 'all' }, botLevel: 'auto', noBot: false,
       solo: { mode: 'beginner', bot: 3, open: {}, lessons: [] }
     };
   }
   let S = fresh();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
-  S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
+  S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya', tickerMode: 'all' }, S.settings);
   if (S.settings.board !== 'washi') S.settings.board = 'kaya';
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
   // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
@@ -293,6 +293,7 @@
       if (nv) setTimeout(() => toast(`新しいキャラ「${nv.name}」が仲間になりました！ ルーム → キャラクターで選べます`, 5000), 600);
     }
     if (S.charaOpenN !== nOpen) { S.charaOpenN = nOpen; saveLocal(); }
+    if (window.ROOM && !document.body.classList.contains('on-title')) window.ROOM.todayVisitor();
     if (window.AVATAR) $('#chipFace').innerHTML = window.AVATAR.thumb(S.av || window.AVATAR.PRESETS.girl, 'icon');
     $('#homeName').textContent = S.name;
     const dr = displayRank();
@@ -573,7 +574,9 @@
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
-    return { old, d, oldRank, newRank: displayRank(), capped };
+    const nr = displayRank();
+    if (nr > oldRank) { if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: RANKS[nr] }); if (econOn()) APP_SOC('rank', { rank: RANKS[nr] }); }
+    return { old, d, oldRank, newRank: nr, capped };
   }
 
   // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
@@ -730,7 +733,7 @@
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid'];   // 銭と部屋はサーバーが別に管理する
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -773,7 +776,7 @@
     const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room, av: S.av, avOwned: S.avOwned, pid: S.pid };
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, fresh(), d || {}, keep, { _at: at || Date.now() });
-    S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya' }, S.settings);
+    S.settings = Object.assign({ confirm: true, fx: true, sound: true, board: 'kaya', tickerMode: 'all' }, S.settings);
     S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     document.body.classList.toggle('washi', S.settings.board === 'washi');
@@ -805,6 +808,7 @@
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
   let buyReq = 0; const buyCb = {}, socCb = {};
+  const APP_SOC = (op, data, cb) => { const req = ++buyReq; if (cb) socCb[req] = cb; netSend(Object.assign({ t: 'soc', op, req }, data || {})); };
   function onAccount(m) {
     NET.authed = true;
     if (m.pass) { S.acct = { id: m.id, pass: m.pass }; save(); netSync(); }                 // 新しく作った
@@ -1076,7 +1080,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound; $('#optTicker').checked = !!S.settings.ticker;
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound; $('#optTicker').value = S.settings.tickerMode || 'all';
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1109,8 +1113,9 @@
     const v = e.target.value.trim().slice(0, 12);
     S.name = v || 'あなた'; save(); renderHome();
   });
+  $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
-  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound'], ['#optTicker', 'ticker']]) {
+  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound']]) {
     $(id).addEventListener('change', e => { S.settings[key] = e.target.checked; save(); });
   }
   $('#resetRate').onclick = () => confirmBox('レートを1050（10級）に戻し、成績と履歴を消します。元に戻せません。', () => {

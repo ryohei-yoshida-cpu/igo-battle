@@ -119,6 +119,8 @@
     $('#roomHito').hidden = !(info && info.hito); $('#roomHito').textContent = info && info.hito ? info.hito : '';
     $('#roomVisits').textContent = info && info.visits ? `訪問 今日${info.visits.today}・合計${info.visits.total}` : '';
     $('#rmEdit').hidden = !!guest;
+    $('#roomGuestBar').hidden = !guest;
+    if (guest) $('#visit').hidden = true;
     $('#rmShopBig').hidden = !!guest;
     $('#rmShopBig').setAttribute('aria-pressed', String(tab === 'shop')); $('#rmDiaryBig').setAttribute('aria-pressed', String(tab === 'diary'));
     $('#roomTools').hidden = !(mode === 'edit' && sel);
@@ -157,8 +159,16 @@
     // 段級位で解放されたキャラだけが、5勝したら遊びに来る
     return A.VARIANTS.map((v, idx) => ({ v, idx })).filter(({ v, idx }) => P.charaOpen(idx) && (v.key === mine ? (S.wins || 0) >= 5 : (S.vs[v.key] || 0) >= 5));
   }
+  // 遊びに来られるキャラ（いまは部屋の中には描かず、部屋の左下に一人ずつ出す）
+  let guests = [], curGuest = null;
   function placeVisitors() {
     visitors = [];
+    guests = unlocked().map(u => ({ key: u.v.key, idx: u.idx, name: u.v.name }));
+    if (!guests.some(g => curGuest && g.key === curGuest.key)) {
+      const today = S.visitDay && guests.find(g => g.key === S.visitDay.key);
+      curGuest = today || guests[Math.floor(Math.random() * guests.length)] || null;
+    }
+    return;
     const list = unlocked().sort(() => Math.random() - .5).slice(0, 2);
     const busy = new Set();
     for (const it of room().items) if (cat(it.k).kind !== 'flat') { const f = rectOf(it); for (let x = f.x; x < f.x + f.w; x++) for (let y = f.y; y < f.y + f.d; y++) busy.add(x + ',' + y); }
@@ -207,18 +217,42 @@
   }
   // キャラごとの、一局打つときの強さ（Bot の級）
   const CHARA_LV = { mike: 1, hinata: 3, shima: 5, tomoe: 7, tono: 8, gensai: 9 };
-  function talk(v) {
-    const b = $('#roomBubble');
-    b.querySelector('b').textContent = v.name;
-    b.querySelector('p').textContent = pickLine(v.key);
-    b.hidden = false;
-    b.dataset.key = v.key;
-    $('#rbNext').onclick = () => talk(v);
-    $('#rbPlay').onclick = () => {
-      const lv = CHARA_LV[v.key] != null ? CHARA_LV[v.key] : Math.min(P.BOT_MAX, Math.max(0, Math.floor(((S.rating || 1050) - 1050) / 50)));
-      P.confirmBox(`${v.name}と一局打ちますか？（Bot ${P.RANKS[lv]}・レート対局）`, () => { b.hidden = true; flush(); P.playChara(v.idx, lv); });
-    };
-    P.sound('tap');
+  // 立ち姿の絵（透過画像があるキャラはそれ、ないキャラはカットインの切りぬき）
+  const STAND = new Set(['hinata', 'shima', 'tomoe', 'mike', 'tono']);
+  const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
+  function showVisit() {
+    const box = $('#visit');
+    if (guest || mode === 'edit' || !curGuest) { box.hidden = true; return; }
+    box.hidden = false;
+    talk(curGuest, true);
+    $('#visitIcons').innerHTML = guests.length > 1 ? guests.map(g => `<button type="button" data-key="${g.key}" aria-pressed="${g.key === curGuest.key}" title="${g.name}"><img src="${A.faceUri(g.idx)}" alt="${g.name}"></button>`).join('') : '';
+  }
+  function talk(v, quiet) {
+    curGuest = v;
+    const img = $('#visitImg');
+    if (img.dataset.key !== v.key) { img.dataset.key = v.key; img.src = standSrc(v.key); img.classList.toggle('bust', !STAND.has(v.key)); img.classList.remove('in'); void img.offsetWidth; img.classList.add('in'); }
+    $('#visitName').textContent = v.name;
+    $('#visitLine').textContent = pickLine(v.key);
+    const b = $('#visitBubble'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+    for (const x of document.querySelectorAll('#visitIcons button')) x.setAttribute('aria-pressed', String(x.dataset.key === v.key));
+    if (!quiet) P.sound('tap');
+  }
+  $('#visitNext').onclick = () => curGuest && talk(curGuest);
+  $('#visitImg').onclick = () => curGuest && talk(curGuest);
+  $('#visitIcons').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const g = guests.find(x => x.key === b.dataset.key); if (g) talk(g); });
+  $('#visitPlay').onclick = () => {
+    const v = curGuest; if (!v) return;
+    const lv = CHARA_LV[v.key] != null ? CHARA_LV[v.key] : Math.min(P.BOT_MAX, Math.max(0, Math.floor(((S.rating || 1050) - 1050) / 50)));
+    P.confirmBox(`${v.name}と一局打ちますか？（Bot ${P.RANKS[lv]}・レート対局）`, () => { flush(); P.playChara(v.idx, lv); });
+  };
+  // 今日遊びに来たキャラ（一日一回、お知らせ）
+  function todayVisitor() {
+    const list = unlocked(); if (!list.length) return;
+    const day = new Date().toDateString();
+    if (S.visitDay && S.visitDay.day === day) return;
+    const u = list[Math.floor(Math.random() * list.length)];
+    S.visitDay = { day, key: u.v.key }; P.saveLocal();
+    if (window.TICKER) window.TICKER.mine({ type: 'visit', chara: u.v.key, name: u.v.name });
   }
 
   /* ---------- 操作 ---------- */
@@ -233,8 +267,7 @@
     return r.items.find(i => i.uid === uid) || r.walls.find(i => i.uid === uid) || null;
   }
   function onDown(e) {
-    $('#roomBubble').hidden = true;
-    const vg = e.target.closest && e.target.closest('.rm-visitor');
+    const vg = null;
     if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
     if (mode === 'view') {
       if (vg) { const v = visitors.find(x => x.key === vg.dataset.key); if (v) talk(v); return; }
@@ -421,8 +454,8 @@
     if (m === 'view') { sel = null; if (!guest) placeVisitors(); }
     $('#rmEdit').textContent = m === 'edit' ? 'もようがえを終わる' : 'もようがえ';
     $('#rmEdit').classList.toggle('primary', m === 'edit');
-    $('#roomBubble').hidden = true;
     render();
+    showVisit();
   }
 
   function open(startTab) {
@@ -433,8 +466,7 @@
     setMode('view');
     renderPanel();
     loadSocial(null);
-    // 遊びに来ていたら、ひとこと
-    if (visitors.length) setTimeout(() => { if (!$('#myroom').hidden) talk(visitors[0]); }, 500);
+
   }
   // 交流の情報を読みこむ（自分の部屋なら「自分の情報」と「自分の部屋」、ほかの部屋ならその部屋）
   function loadSocial(pid) {
@@ -443,7 +475,7 @@
       P.soc('me', {}, res => {
         if (!res.ok) return;
         meInfo = res; S.pid = res.pid;
-        if (window.TICKER) window.TICKER.set(res.chat || []);
+        if (window.TICKER) window.TICKER.set(res.chat || [], res.notes || []);
         P.soc('visit', { pid: res.pid }, r2 => { if (r2.ok && !guest) { mySoc = r2; render(); renderPanel(); } });
       });
     } else {
@@ -465,11 +497,11 @@
       if (res.mine) { goHome(); return; }
       guest = res; tab = 'diary'; sel = null; mode = 'view';
       if (window.TICKER) setTimeout(window.TICKER.draw, 0);
-      P.showScreen('myroom'); $('#roomBubble').hidden = true;
+      P.showScreen('myroom'); showVisit();
       render(); renderPanel(); P.sound('stone');
     });
   }
-  function goHome() { guest = null; if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
+  function goHome() { guest = null; setTimeout(showVisit, 0); if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
   // えらぶ画面に出す、小さな自分の部屋
   function mini() {
     const g = guest; guest = null;
@@ -512,5 +544,12 @@
   // ルームの下の大きなボタン：ショップ・日記
   $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; renderPanel(); P.sound('stone'); $('#roomPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   $('#rmDiaryBig').onclick = () => { tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-  window.ROOM = { open, refresh, visit, mini, info: () => ({ guest: !!guest }) };
+  // ほかの人の部屋から「対人戦の申込」：フレンドマッチの部屋をつくって、合言葉を相手のお知らせへ
+  $('#rmInvite').onclick = () => {
+    if (!guest) return;
+    const to = { pid: guest.pid, name: guest.name };
+    flush(); P.sound('stone');
+    window.FRIEND.inviteTo(to);
+  };
+  window.ROOM = { open, refresh, visit, mini, todayVisitor, info: () => ({ guest: !!guest }) };
 })();

@@ -18,6 +18,9 @@
  *   block / unblock { pid } … ブロック（その人は部屋に入れない・書きこめない。フレンドも解除）
  *   freq / faccept / fdecline / unfriend { pid } … フレンド
  *   avatar  { look }        … アバターの着がえ（持っているパーツだけ）
+ *   rank    { rank }        … 段級位が上がった → フレンドにお知らせ
+ *   invite  { pid, code }   … 対人戦の申込 → 相手にお知らせ（フレンドマッチの合言葉つき）
+ *   （日記を書くと、フレンドにお知らせ）  お知らせは soc:<ID>.notes（最近30件）。つながっていれば op:'push' ですぐ届く
  */
 import { check, cleanName } from './ng.js';
 import '../common/avatar-art.js';
@@ -30,7 +33,7 @@ const LIM = {
 };
 const NG_MSG = { sexual: 'sexual', violent: 'violent', abuse: 'abuse', contact: 'contact' };
 
-const newSoc = () => ({ hito: '', diary: [], chat: [], visits: { total: 0, day: '', today: 0, seen: [] }, foot: [], cset: 'all', blocks: [], friends: [], freq: [], seq: 1 });
+const newSoc = () => ({ hito: '', diary: [], chat: [], visits: { total: 0, day: '', today: 0, seen: [] }, foot: [], cset: 'all', blocks: [], friends: [], freq: [], notes: [], seq: 1 });
 function fixSoc(s) { return Object.assign(newSoc(), s || {}); }
 const has = (list, pid) => list.some(x => (x.pid || x) === pid);
 
@@ -67,6 +70,21 @@ export class Social {
   }
   idOf(pid) { return this.store.get('pid:' + String(pid || '').replace(/\D/g, '').slice(0, 6)); }
   nameOf(id) { const p = [...this.core.players.values()].find(p => p.acct === id); return cleanName(p && p.name); }
+  // お知らせを相手に届ける（保存して、つながっていればすぐ送る）
+  async notify(oid, note) {
+    const s = await this.withSoc(oid, s => {
+      if (s.blocks.some(b => b.pid === note.pid)) return false;
+      note.id = s.seq++; s.notes.unshift(note); s.notes = s.notes.slice(0, 30);
+    });
+    if (!s) return false;
+    const item = Object.assign({ kind: 'note' }, note);
+    for (const p of this.core.players.values()) if (p.acct === oid && p.sock) { try { p.sock.send(JSON.stringify({ t: 'soc', op: 'push', item })); } catch (e) {} }
+    return true;
+  }
+  async notifyFriends(id, note) {
+    const s = fixSoc(await this.store.get('soc:' + id));
+    for (const f of s.friends.slice(0, 100)) { const oid = await this.idOf(f.pid); if (oid) await this.notify(oid, Object.assign({}, note)); }
+  }
   touchActive(pid) { this.active = [pid].concat(this.active.filter(x => x !== pid)).slice(0, 60); }
 
   async handle(sock, info, m) {
@@ -95,7 +113,7 @@ export class Social {
 
     if (op === 'me') {
       const s = fixSoc(await this.store.get('soc:' + id));
-      out({ ok: true, pid: me, chat: s.chat.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset });
+      out({ ok: true, pid: me, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset });
       return;
     }
     if (op === 'avatar') {
@@ -155,6 +173,17 @@ export class Social {
       });
       this.touchActive(me);
       out({ ok: true, hito: s.hito, diary: s.diary });
+      if (op === 'diary') this.notifyFriends(id, { type: 'diary', pid: me, name: myName, av: myAv(), t: now }).catch(() => {});
+      return;
+    }
+    if (op === 'rank') {
+      const r = text(m.rank).slice(0, 6);
+      const last = this.rankAt && this.rankAt.get(id) || 0;
+      if (!r || check(r) || now - last < 60000) { out({ ok: false }); return; }
+      this.rankAt = this.rankAt || new Map(); this.rankAt.set(id, now);
+      if (this.rankAt.size > 5000) this.rankAt.delete(this.rankAt.keys().next().value);
+      out({ ok: true });
+      this.notifyFriends(id, { type: 'rank', pid: me, name: myName, av: myAv(), rank: r, t: now }).catch(() => {});
       return;
     }
     if (op === 'comment' || op === 'chat') {
@@ -193,6 +222,15 @@ export class Social {
       return;
     }
     if (pid === me) { out({ ok: false, reason: 'self' }); return; }
+    if (op === 'invite') {
+      const code = String(m.code || '').replace(/\D/g, '').slice(0, 4);
+      this.inviteAt = this.inviteAt || new Map();
+      if (code.length !== 4 || now - (this.inviteAt.get(id) || 0) < 10000) { out({ ok: false, reason: 'fast' }); return; }
+      this.inviteAt.set(id, now); if (this.inviteAt.size > 5000) this.inviteAt.delete(this.inviteAt.keys().next().value);
+      const ok = await this.notify(oid, { type: 'invite', pid: me, name: myName, av: myAv(), code, t: now });
+      out({ ok, reason: ok ? null : 'blocked' });
+      return;
+    }
     if (op === 'block' || op === 'unblock') {
       const name = cleanName(m.name);
       const s = await this.withSoc(id, s => {

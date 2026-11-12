@@ -55,6 +55,7 @@
 
   /* ---------- フレンドマッチ ---------- */
   function open() {
+    $('#frInviteNote').hidden = !inviteTarget;
     if (!FR.waiting()) { st.code = ''; showPane(st.tab); $('#joinTalk').textContent = '合言葉を教えてもらいましたか？ 4けたの数字を入れてください！'; }
     renderMake(); renderCode();
   }
@@ -65,7 +66,7 @@
     $('#frMake').hidden = tab !== 'make'; $('#frJoin').hidden = tab !== 'join'; $('#frWait').hidden = true;
   }
   for (const b of document.querySelectorAll('#frTabs button')) b.onclick = () => { P.sound('stone'); showPane(b.dataset.tab); if (b.dataset.tab === 'join') renderCode(); };
-  $('#frBack').onclick = () => { FR.cancel(); P.showScreen('pvp'); renderPvp(); };
+  $('#frBack').onclick = () => { inviteTarget = null; $('#frInviteNote').hidden = true; FR.cancel(); P.showScreen('pvp'); renderPvp(); };
 
   // 9路のちいさな盤（置き石つき）
   function miniBoard(h, n) {
@@ -125,7 +126,26 @@
     $('#frWaitName').textContent = A.VARIANTS[ci(HC_TALK[st.h][0])].name;
     $('#frWaitText').textContent = FR.online() ? '部屋をつくっています…' : 'サーバーにつないでいます…';
   };
+  // 対人戦の申込：部屋ができたら、相手のお知らせに合言葉を届ける（あとは普通のフレンドマッチと同じ）
+  let inviteTarget = null;
+  function inviteTo(to) {
+    inviteTarget = to;
+    P.showScreen('friend'); st.code = ''; showPane('make'); renderMake(); renderCode();
+    $('#frInviteNote').hidden = false; $('#frInviteNote').textContent = `${to.name}さんへの対人戦の申込。部屋をつくると、相手の一言コメント欄に部屋番号が届きます。`;
+  }
+  function joinWith(code) {
+    P.showScreen('friend'); showPane('join');
+    st.code = String(code || '').replace(/\D/g, '').slice(0, 4); renderCode();
+    $('#joinTalk').textContent = '部屋番号を入れておきました！「入る」を押してくださいね。';
+  }
   function onRoom(m) {
+    if (inviteTarget) {
+      const to = inviteTarget; inviteTarget = null;
+      P.soc('invite', { pid: to.pid, code: m.code }, res => {
+        if (res.ok) { P.toast(`${to.name}さんに申込みを送りました`); if (window.TICKER) window.TICKER.mine({ type: 'myinvite', name: to.name, code: m.code }); }
+        else P.toast(res.reason === 'blocked' ? 'この人には申し込めません' : '申込みを送れませんでした');
+      });
+    }
     $('#frCode').textContent = m.code; $('#frCopy').disabled = false;
     $('#frCond').textContent = condText(m.hc);
     const key = HC_TALK[m.hc.h][0];
@@ -182,5 +202,5 @@
   });
   P.setImg($('#joinImg'), A.charaUri(ci('koharu')));
 
-  window.FRIEND = { renderPvp, open, onRoom, onNone };
+  window.FRIEND = { renderPvp, open, onRoom, onNone, inviteTo, joinWith };
 })();

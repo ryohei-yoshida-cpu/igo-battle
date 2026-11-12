@@ -22,7 +22,7 @@ for kind in ['top', 'bottom', 'shoes']:
             if kind == 'shoes': ty = B - ys.max() * s        # 靴は足もとで合わせる
             else: ty = T - ys.min() * s                         # 服は上の端で合わせる
             if kind == 'top': ty = T - ys.min() * sy
-            sx = s * 1.155 if kind == "top" else s   # 上の服は横に1.155倍（1.1×1.05。肩が出ないように）
+            sx = s * 1.155 if kind in ("top", "bottom") else s   # 上の服・下の服は横に1.155倍（1.1×1.05）
             M = np.float32([[sx, 0, cxr - cx * sx], [0, sy, ty]])
             out = cv2.warpAffine(rgba, M, (320, 780), flags=cv2.INTER_AREA, borderValue=0)
             out[out[..., 3] == 0, :3] = 0

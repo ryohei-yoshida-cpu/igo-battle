@@ -82,7 +82,7 @@
       const text = box.value.trim();
       if (!text && ds.post !== 'hito') { P.toast(WHY.empty); return true; }
       b.disabled = true;
-      P.soc(ds.post, { pid: ctx.pid, text }, res => { b.disabled = false; if (res.ok) { box.value = ''; P.sound('ok'); P.toast(ds.post === 'hito' ? 'ひとことを決めました' : '書きこみました'); } after(res); });
+      P.soc(ds.post, { pid: ctx.pid, text }, res => { b.disabled = false; if (res.ok) { box.value = ''; P.sound('ok'); P.toast(ds.post === 'hito' ? 'ひとことを決めました' : '書きこみました'); if (ds.post === 'diary' && window.TICKER) window.TICKER.mine({ type: 'mydiary' }); } after(res); });
       return true;
     }
     if (ds.comment) {

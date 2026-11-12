@@ -129,6 +129,7 @@
       <button type="button" role="radio" data-tab="join" aria-checked="false">部屋に入る<small>合言葉を入れる</small></button>
     </div>
 
+    <p class="fr-invite" id="frInviteNote" hidden></p>
     <div class="fr-pane" id="frMake">
       <div class="fr-talk" id="frTalk">
         <img class="fr-bust" id="frTalkImg" alt="">
@@ -261,16 +262,24 @@
       <div class="room-hito" id="roomHito" hidden></div>
       <div class="room-visits" id="roomVisits"></div>
       <svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg>
-      <div class="room-bubble" id="roomBubble" hidden>
-        <b></b><p></p>
-        <div class="rb-btns"><button type="button" class="btn lac small" id="rbNext">ほかの話</button><button type="button" class="btn primary small" id="rbPlay">一局打つ</button></div>
-      </div>
       <div class="room-tools" id="roomTools" hidden>
         <span id="rmName"></span>
         <button type="button" class="btn lac small" id="rmRot">回転</button>
         <button type="button" class="btn lac small" id="rmStore">しまう</button>
         <button type="button" class="btn primary small" id="rmDone">OK</button>
       </div>
+    </div>
+    <!-- 遊びに来たキャラ：部屋の左下に立って、下に吹き出し -->
+    <div class="visit" id="visit" hidden>
+      <div class="visit-bubble" id="visitBubble">
+        <img class="visit-chara" id="visitImg" alt="">
+        <p><b id="visitName"></b><span id="visitLine"></span></p>
+        <span class="vb-btns"><button type="button" id="visitNext">ほかの話</button><button type="button" class="play" id="visitPlay">一局打つ</button></span>
+      </div>
+      <div class="visit-icons" id="visitIcons"></div>
+    </div>
+    <div class="room-guestbar" id="roomGuestBar" hidden>
+      <button type="button" class="btn primary" id="rmInvite">対人戦の申込</button>
     </div>
     <div class="room-big" id="roomBig">
       <button type="button" class="rb-shop" id="rmShopBig">ショップ</button>
@@ -560,7 +569,13 @@
       <div class="field"><span>対局</span>
         <label class="toggle"><input type="checkbox" id="optConfirm"><i></i>着手は2回タップで確定</label>
         <label class="toggle"><input type="checkbox" id="optFx"><i></i>技のカットイン</label>
-        <label class="toggle"><input type="checkbox" id="optTicker"><i></i>一言コメントを画面の一番上に出す（対局中も）</label>
+        <label class="sel-row">一言コメント・お知らせの表示
+          <select id="optTicker">
+            <option value="all">すべての画面（対局中も）</option>
+            <option value="room">マイルームだけ</option>
+            <option value="off">表示しない</option>
+          </select>
+        </label>
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
       </div>
 
