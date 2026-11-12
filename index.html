@@ -274,13 +274,14 @@
       <div class="visit-bubble" id="visitBubble">
         <img class="visit-chara" id="visitImg" alt="">
         <p><b id="visitName"></b><span id="visitLine"></span></p>
-        <span class="vb-btns"><button type="button" id="visitNext">ほかの話</button><button type="button" class="play" id="visitPlay">一局打つ</button></span>
+        <span class="vb-btns"><button type="button" id="visitHide">隠す</button><button type="button" id="visitNext">ほかの話</button><button type="button" class="play" id="visitPlay">一局打つ</button></span>
       </div>
       <div class="visit-icons" id="visitIcons"></div>
     </div>
     <div class="room-guestbar" id="roomGuestBar" hidden>
       <button type="button" class="btn primary" id="rmInvite">対人戦の申込</button>
     </div>
+    <div class="room-lower" id="roomLower">
     <div class="room-big" id="roomBig">
       <button type="button" class="rb-shop" id="rmShopBig">ショップ</button>
       <button type="button" class="rb-diary" id="rmDiaryBig">日記</button>
@@ -298,6 +299,7 @@
       </nav>
     </div>
     <div class="room-panel" id="roomPanel"></div>
+    </div>
   </section>
 
   <!-- キャラクター -->
@@ -379,6 +381,8 @@
       <button class="btn lac small skip" id="rdSkip" type="button">実戦へ ≫</button>
     </div>
     <div class="rd-stage" id="rdStage">
+      <img class="rd-actor left" id="rdActL" alt="" hidden>
+      <img class="rd-actor right" id="rdActR" alt="" hidden>
       <div class="rd-card" id="rdCard" hidden>
         <div class="rd-card-k" id="rdCardK"></div>
         <div class="rd-card-t" id="rdCardT"></div>
@@ -632,6 +636,7 @@
 <script src="tsume.js"></script>
 <script src="lessons.js"></script>
 <script src="stories.js"></script>
+<script src="episodes.js"></script>
 <script src="drills.js"></script>
 <script src="scripts.js"></script>
 <script src="story_ikkyoku.js"></script>
@@ -640,6 +645,7 @@
 <script src="app.js"></script>
 <script src="friend.js"></script>
 <script src="solo.js"></script>
+<script src="common/room-items-more.js"></script>
 <script src="common/room-art.js"></script>
 <script src="room-lines.js"></script>
 <script src="common/avatar-art.js"></script>

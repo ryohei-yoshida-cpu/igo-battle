@@ -44,7 +44,7 @@
   if (S.settings.board !== 'washi') S.settings.board = 'kaya';
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
   // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
-  if (S.zeni == null) S.zeni = 300 + (S.wins || 0) * 10;   // はじめは300銭（これまでの勝ち数ぶんもおまけ）
+  if (S.zeni == null) S.zeni = 3000;   // はじめに3000銭のプレゼント
   S.vs = S.vs || {};
   // 旧バージョン（コード描画のキャラ：0〜3小春、4〜5玄斎）からの引っ越し
   if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
@@ -601,12 +601,8 @@
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
     const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
-    // 銭：勝つともらえる（強い相手ほど多い。持碁は半分）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
-    let zeni = 0;
-    if ((win || draw) && !G.friend) {
-      zeni = G.solo ? 30 : G.online ? 80 : 20 + 5 * (G.bot.level | 0);
-      if (draw) zeni = Math.round(zeni / 2);
-    }
+    // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
+    const zeni = G.friend || G.record.length < (G.online ? 8 : 16) ? 0 : 100;
     if (win && !G.friend) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
     G.zeni = zeni;
     if (econOn()) {
@@ -733,7 +729,7 @@
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay'];   // 銭と部屋はサーバーが別に管理する
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -788,6 +784,7 @@
   function applyEcon(e, layout) {
     if (!e) return;
     if (typeof e.zeni === 'number') S.zeni = e.zeni;
+    if (e.welcome) setTimeout(() => toast('ようこそ！ 3000銭をプレゼントしました。ショップでお買いものをどうぞ', 5000), 1200);
     const r = S.room = S.room || {};
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
     if (e.av) S.av = e.av;
@@ -799,12 +796,13 @@
     saveLocal(); renderHome();
     if (window.ROOM) window.ROOM.refresh();
   }
-  const ZENI_WHY = { short: '短すぎる対局なので、銭はもらえませんでした', cap: '今日のBot戦の銭は上限（600銭）に達しました' };
+  const ZENI_WHY = { short: '短すぎる対局なので、銭はもらえませんでした', cap: '今日のBot戦の銭は上限（2000銭）に達しました' };
   function onZeni(m) {
     if (typeof m.zeni === 'number') S.zeni = m.zeni;
     saveLocal(); renderHome();
     if (window.ROOM) window.ROOM.refresh();
     if (ZENI_WHY[m.why]) { toast(ZENI_WHY[m.why], 3500); if (!$('#result').hidden) $('#resZeni').hidden = true; }
+    else if (m.gained && m.why === 'episode') toast(`エピソードクリア！ ＋${m.gained} 銭`, 4000);
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
   let buyReq = 0; const buyCb = {}, socCb = {};

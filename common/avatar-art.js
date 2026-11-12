@@ -51,20 +51,26 @@
   for (const [slot, list] of Object.entries(SHEET)) list.forEach(([name, price], i) => CATALOG[slot].push([PFX[slot] + String(i).padStart(2, '0'), name, price]));
   const isSheet = id => /^[htbs]\d\d$/.test(id);
   // サーバーが持ち物を確かめる項目（値段のあるもの）
-  const SLOTS = [['face', '顔'], ['hair', '髪'], ['hairColor', '髪の色'], ['body', '体'], ['top', '上の服'], ['bottom', '下の服'], ['shoes', '靴']];
+  // 背景（3672.png から切りぬき）。アバターの大きな絵のうしろに出る
+  CATALOG.bg = [['none', 'なし', 0]].concat(['白いスタジオ', '草原', '桜並木', '南の海', '雪の森', 'お城', '魔法の門', '夜の街', '神社', 'ネオン街', 'カフェ', '教室', '子ども部屋', '図書館', 'ステージ', '夏祭り', 'ハロウィン', '海の底', '宇宙', '雲の上のお城']
+    .map((name, i) => ['bg' + String(i).padStart(2, '0'), name, [300, 300, 600, 600, 600, 900, 1200, 900, 600, 900, 600, 300, 300, 600, 900, 900, 900, 1200, 1200, 1200][i]]));
+  const SLOTS = [['face', '顔'], ['hair', '髪'], ['hairColor', '髪の色'], ['body', '体'], ['top', '上の服'], ['bottom', '下の服'], ['shoes', '靴'], ['bg', '背景']];
   // 着せかえ画面のタブ
-  const TABS = [['face', '顔'], ['hair', '髪'], ['body', '体'], ['top', '上の服'], ['bottom', '下の服'], ['shoes', '靴']];
+  const TABS = [['face', '顔'], ['hair', '髪'], ['body', '体'], ['top', '上の服'], ['bottom', '下の服'], ['shoes', '靴'], ['bg', '背景']];
+  // 値段は4段階（下300・中600・上900・特1200 … 対局3・6・9・12回ぶん）
+  const TIER = p => p === 0 ? 0 : p <= 300 ? 300 : p <= 700 ? 600 : p <= 1000 ? 900 : 1200;
+  for (const list of Object.values(CATALOG)) for (const it of list) it[2] = TIER(it[2]);
   const PRICE = {}, COLOR = {};
   for (const [slot, list] of Object.entries(CATALOG)) for (const [id, , price, col] of list) { PRICE[slot + ':' + id] = price; COLOR[slot + ':' + id] = col || null; }
   const PRESETS = {
-    girl: { face: 'girl', hair: 'girl', body: 'girl', hairColor: 'kuro', top: 'grey', bottom: 'denim', shoes: 'olive' },
-    boy: { face: 'boy', hair: 'boy', body: 'boy', hairColor: 'kuro', top: 'grey', bottom: 'denim', shoes: 'olive' }
+    girl: { face: 'girl', hair: 'girl', body: 'girl', hairColor: 'kuro', top: 'grey', bottom: 'denim', shoes: 'olive', bg: 'none' },
+    boy: { face: 'boy', hair: 'boy', body: 'boy', hairColor: 'kuro', top: 'grey', bottom: 'denim', shoes: 'olive', bg: 'none' }
   };
   const DEFAULT = PRESETS.girl;
   function clean(look) {
     const l = Object.assign({}, DEFAULT, look || {});
     for (const [slot] of SLOTS) if (PRICE[slot + ':' + l[slot]] == null) l[slot] = DEFAULT[slot];
-    return { face: l.face, hair: l.hair, body: l.body, hairColor: l.hairColor, top: l.top, bottom: l.bottom, shoes: l.shoes };
+    return { face: l.face, hair: l.hair, body: l.body, hairColor: l.hairColor, top: l.top, bottom: l.bottom, shoes: l.shoes, bg: l.bg };
   }
 
   // 明るさを保ったまま色をつける（feColorMatrix）
@@ -92,9 +98,12 @@
       (isSheet(l.shoes) ? img(l.shoes + '_' + b) : img(b + '_socks') + img(b + '_shoes', fShoe)) +
       (isSheet(l.hair) ? img(l.hair + '_hair') : img(l.hair + '_hair', fHair)) + (DECO.has(l.face) ? img('f_' + l.face + '_deco') : '');
   }
-  const svg = (look, cls) => `<svg viewBox="${VB}" class="${cls || 'av-svg'}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
+  // withBg：背景つき（着せかえ画面などの大きな絵）。背景は絵の大きさいっぱいに広げる
+  const bgImg = (look, x, y, w, h) => { const b = clean(look).bg; return b && b !== 'none' ? `<image href="${base}${b}.webp" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice"/>` : ''; };
+  const svg = (look, cls, withBg) => `<svg viewBox="${VB}" class="${cls || 'av-svg'}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid meet">${withBg ? bgImg(look, -240, -40, W + 480, H + 80) : ''}${inner(look)}</svg>`;
+  const bgThumb = id => id === 'none' ? '<svg viewBox="0 0 4 3" class="av-thumb"><rect width="4" height="3" fill="#efe4d0"/><path d="M1 1L3 2M3 1L1 2" stroke="#b9a88a" stroke-width=".12"/></svg>' : `<svg viewBox="0 0 480 385" class="av-thumb"><image href="${base}${id}.webp" width="480" height="385"/></svg>`;
   const CROP = { icon: '62 52 196 196', face: '58 50 204 204', hair: '0 0 320 420', body: VB, top: '20 220 280 260', bottom: '40 380 240 200', shoes: '40 590 240 190' };
-  const thumb = (look, tab) => `<svg viewBox="${CROP[tab] || VB}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
+  const thumb = (look, tab) => tab === 'bg' ? bgThumb(clean(look).bg) : `<svg viewBox="${CROP[tab] || VB}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
   // 先に読みこんでおく
   if (typeof Image !== 'undefined') setTimeout(() => { for (const g of ['girl', 'boy']) for (const p of ['body', 'face', 'hair', 'top', 'bottom', 'socks', 'shoes']) new Image().src = base + g + '_' + p + '.png'; new Image().src = base + 'girl2_face.png'; }, 800);
 

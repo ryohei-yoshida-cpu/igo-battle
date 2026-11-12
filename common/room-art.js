@@ -247,19 +247,24 @@
     { id: 'fuku', name: '「福」飾り', style: 'chu', kind: 'wall', w: 1, h: 1, v: 3.6, price: 150,
       wall: () => `<path d="M.5 0L1 .5L.5 1L0 .5Z" fill="${RED}"/><text x=".5" y=".68" font-size=".5" text-anchor="middle" fill="${GOLD}" font-weight="900">福</text>` }
   ];
+  // 追加の家具（common/room-items-more.js）
+  if (typeof window !== 'undefined' && window.ROOM_MORE) CATALOG.push(...window.ROOM_MORE({ WOOD, DARKWOOD, KAYA, RED, GOLD, CREAM, shade }));
+  // 値段は4段階（下100・中200・上300・特400）にそろえる。碁盤は無料
+  const tier = p => p === 0 ? 0 : p <= 150 ? 100 : p <= 350 ? 200 : p <= 700 ? 300 : 400;
+  for (const c of CATALOG) if (c.price > 0 && ![100, 200, 300, 400].includes(c.price)) c.price = tier(c.price);
   const BY_ID = {}; CATALOG.forEach(c => BY_ID[c.id] = c);
 
   /* 床と壁紙 */
   const FLOORS = {
     wood: { name: 'フローリング', style: 'yo', price: 0 },
-    tatami: { name: '畳', style: 'wa', price: 300 },
-    tile: { name: '中華タイル', style: 'chu', price: 300 }
+    tatami: { name: '畳', style: 'wa', price: 200 },
+    tile: { name: '中華タイル', style: 'chu', price: 200 }
   };
   const WALLS = {
     plain: { name: '白い壁', style: 'yo', price: 0 },
-    shikkui: { name: '漆喰と柱', style: 'wa', price: 300 },
-    beni: { name: '紅の壁', style: 'chu', price: 300 },
-    stripe: { name: 'ストライプ', style: 'yo', price: 300 }
+    shikkui: { name: '漆喰と柱', style: 'wa', price: 200 },
+    beni: { name: '紅の壁', style: 'chu', price: 200 },
+    stripe: { name: 'ストライプ', style: 'yo', price: 200 }
   };
 
   function drawFloor(type) {

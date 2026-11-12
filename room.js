@@ -238,6 +238,9 @@
     if (!quiet) P.sound('tap');
   }
   $('#visitNext').onclick = () => curGuest && talk(curGuest);
+  // キャラを隠す（透けさせて、うしろの部屋が見えるように）
+  $('#visitHide').onclick = () => { const on = !$('#visit').classList.toggle('ghost'); $('#visitHide').textContent = on ? '隠す' : '出す'; S.visitGhost = !on; P.saveLocal(); };
+  if (S.visitGhost) { $('#visit').classList.add('ghost'); $('#visitHide').textContent = '出す'; }
   $('#visitImg').onclick = () => curGuest && talk(curGuest);
   $('#visitIcons').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const g = guests.find(x => x.key === b.dataset.key); if (g) talk(g); });
   $('#visitPlay').onclick = () => {
@@ -364,7 +367,7 @@
     const x0 = a[0] - 4, x1 = b[0] + 4, y0 = t[1] - 4, y1 = u[1] + 4;
     return `<svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" class="rm-thumb">${R.DEFS}${R.drawFloorItem(it)}</svg>`;
   }
-  const STYLE_NAME = { wa: '和', yo: '洋', chu: '中' };
+  const STYLE_NAME = { wa: '和', yo: '洋', chu: '中', fun: 'おもしろ' };
   const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
   // 交流パネル（common/social.js）にわたす情報
   const ctx = () => ({
@@ -385,7 +388,7 @@
     }
     if (tab === 'shop') {
       let h = `<div class="rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
-      h += `<div class="rm-seg small">${[['all', 'すべて'], ['wa', '和'], ['yo', '洋'], ['chu', '中']].map(([k, n]) => `<button data-style="${k}" aria-pressed="${shopStyle === k}">${n}</button>`).join('')}</div><div class="rm-grid-list">`;
+      h += `<div class="rm-seg small">${[['all', 'すべて'], ['wa', '和'], ['yo', '洋'], ['chu', '中'], ['fun', 'おもしろ']].map(([k, n]) => `<button data-style="${k}" aria-pressed="${shopStyle === k}">${n}</button>`).join('')}</div><div class="rm-grid-list">`;
       if (shopKind === 'interior') {
         for (const [kind, table] of [['floors', R.FLOORS], ['walls', R.WALLS]]) for (const [id, it] of Object.entries(table)) {
           if (shopStyle !== 'all' && it.style !== shopStyle) continue;
@@ -542,8 +545,8 @@
     sel = null; render(); renderPanel();
   }
   // ルームの下の大きなボタン：ショップ・日記
-  $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; renderPanel(); P.sound('stone'); $('#roomPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-  $('#rmDiaryBig').onclick = () => { tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; renderPanel(); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
+  $('#rmDiaryBig').onclick = () => { tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
   // ほかの人の部屋から「対人戦の申込」：フレンドマッチの部屋をつくって、合言葉を相手のお知らせへ
   $('#rmInvite').onclick = () => {
     if (!guest) return;

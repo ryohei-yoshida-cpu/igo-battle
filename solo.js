@@ -7,10 +7,16 @@
   const COLS = 'ABCDEFGHJ';
   const pt = s => COLS.indexOf(s[0]) + (9 - (+s.slice(1))) * 9;
   const parse = rows => { const b = []; for (const r of rows) for (const ch of r) b.push(ch === 'X' ? 1 : ch === 'O' ? 2 : 0); return b; };
-  const faceOf = who => A.faceUri(who === '玄斎' ? 1 : 0);
+  // 名前 → キャラ（顔・立ち絵）
+  const NAME2KEY = { 小春: 'koharu', 玄斎: 'gensai', ひなた: 'hinata', 静馬: 'shima', 巴: 'tomoe', みけ: 'mike', こむぎ: 'mike', 殿: 'tono' };
+  const keyOf = who => { for (const n in NAME2KEY) if (who && who.startsWith(n)) return NAME2KEY[n]; return null; };
+  const idxOf = key => Math.max(0, A.VARIANTS.findIndex(v => v.key === key));
+  const faceOf = who => A.faceUri(idxOf(keyOf(who) || 'koharu'));
   const nameClass = who => who === '小春' ? '' : who === '玄斎' ? 'gensai' : 'other';
+  const STAND = new Set(['hinata', 'shima', 'tomoe', 'mike', 'tono']);
+  const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
   const opened = id => S.solo.open[id] || 0;               // 読める幕の最後（0 = 第一幕だけ）
-  const nextLesson = () => LESSONS.find(l => !S.solo.lessons.includes(l.id));
+  const nextLesson = () => LESSONS.find(l => !l.ep && !S.solo.lessons.includes(l.id));   // エピソード専用のトレーニングは別
 
   /* 長い幕は約30行ずつに分ける（区切りごとにミッション）。
    * 区切りはなるべくト書き（ナレーション）の行から始まるようにずらす。 */
@@ -111,8 +117,13 @@
     sel.value = String(S.solo.bot);
 
     const list = $('#storyList'); list.innerHTML = '';
-    let userHead = false;
+    let userHead = false, epHead = false;
     for (const st of STORIES) {
+      if (st.chara && !epHead) {
+        epHead = true;
+        const h = document.createElement('div'); h.className = 'story-sub'; h.innerHTML = '<span>キャラクターのエピソード</span><small>読み終えると 500銭</small>';
+        list.append(h);
+      }
       if (st.user && !userHead) {
         userHead = true;
         const h = document.createElement('div'); h.className = 'story-sub'; h.innerHTML = '<span>読み物 ― オリジナル脚本</span><small>キャラクターとストーリーは関係ありません</small>';
@@ -137,7 +148,7 @@
     $('#lessonHead').hidden = !beg; $('#lessonList').hidden = !beg;
     const ll = $('#lessonList'); ll.innerHTML = '';
     const nx = nextLesson();
-    LESSONS.forEach((l, i) => {
+    LESSONS.filter(l => !l.ep).forEach((l, i) => {
       const done = S.solo.lessons.includes(l.id);
       const b = document.createElement('button'); b.type = 'button';
       b.className = done ? 'done' : '';
@@ -164,6 +175,8 @@
     P.showScreen('reader');
     $('#rdStory').textContent = story.title;
     $('#rdNote').hidden = !story.user;
+    RD.actors = [null, null];
+    for (const im of document.querySelectorAll('.rd-actor')) { im.hidden = true; im.removeAttribute('src'); im.dataset.key = ''; }
     showLine();
   }
   function posIndex(part, line) { let k = line; for (let i = 0; i < part; i++) k += RD.story.parts[i].lines.length; return k; }
@@ -176,6 +189,7 @@
     const nm = $('#rdName'); nm.textContent = who;
     nm.className = 'rd-name ' + nameClass(who) + (side === 1 ? ' right' : '') + (who && who !== RD.lastWho ? ' swap' : '');
     if (who) RD.lastWho = who;
+    showActors(who, side);
     const tx = $('#rdText'); tx.className = 'rd-text' + (who ? '' : ' narr');
     $('#rdCount').textContent = `${RD.line + 1}/${part.lines.length}`;
     $('#rdGauge i').style.width = (100 * (posIndex(RD.part, RD.line) + 1) / RD.story.total) + '%';
@@ -191,6 +205,25 @@
       if (i >= text.length) { clearInterval(typeT); RD.typing = false; }
     }, 28);
     RD.full = text;
+  }
+  // オリジナル脚本でない物語は、話している人を吹き出しの上に出す（左右は名前の位置と同じ）
+  function showActors(who, side) {
+    if (RD.story.user) return;
+    const key = keyOf(who), els = [$('#rdActL'), $('#rdActR')];
+    if (key && side >= 0) {
+      const other = 1 - side;
+      if (RD.actors[other] === key) RD.actors[other] = null;   // 同じ人が反対側にいたら入れかえ
+      RD.actors[side] = key;
+    }
+    els.forEach((el, i) => {
+      const k = RD.actors[i];
+      if (!k) { el.hidden = true; el.dataset.key = ''; return; }
+      if (el.dataset.key !== k) { el.dataset.key = k; el.src = standSrc(k); el.classList.toggle('bust', !STAND.has(k)); el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
+      el.hidden = false;
+      const speaking = key && k === key && i === side;
+      el.classList.toggle('speak', !!speaking);
+      if (speaking) { el.classList.remove('talk'); void el.offsetWidth; el.classList.add('talk'); }
+    });
   }
   function advance() {
     if (!RD || !$('#rdCard').hidden) return;
@@ -253,7 +286,7 @@
     if (!seen.size) list.innerHTML = '<p class="rd-card-d">まだ誰も話していません。</p>';
     for (const [name, desc] of seen) {
       const row = document.createElement('div'); row.className = 'cast-row';
-      if (!st.user && (name === '小春' || name === '玄斎')) { const im = document.createElement('img'); im.alt = ''; im.src = faceOf(name); row.append(im); }
+      if (!st.user && keyOf(name)) { const im = document.createElement('img'); im.alt = ''; im.src = faceOf(name); row.append(im); }
       else { const ini = document.createElement('span'); ini.className = 'cast-ini'; ini.textContent = name[0]; row.append(ini); }
       const d = document.createElement('div'); d.innerHTML = '<b></b><p></p>';
       d.querySelector('b').textContent = name; d.querySelector('p').textContent = desc || '';
@@ -275,8 +308,11 @@
   function endOfPart() {
     const st = RD.story, n = st.parts.length;
     if (RD.part >= n - 1) {
-      S.solo.read = S.solo.read || {}; S.solo.read[st.id] = true; P.save();
+      S.solo.read = S.solo.read || {};
+      if (!S.solo.read[st.id]) P.claim('episode', st.id, 500);   // エピソードを初めて読み終えたら 500銭
+      S.solo.read[st.id] = true; P.save();
       const r = $('#rdStage').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win'); P.sound('ok');
+      for (const el of document.querySelectorAll('.rd-actor')) el.classList.remove('speak');
       card('完', st.title, '最後まで読んでくれて、ありがとうございました。', [['物語をえらぶ', 'primary', open], ['最初から読む', 'lac', () => openReader(st, 0)]]);
       return;
     }
@@ -299,9 +335,11 @@
       ]);
     } else {
       // 新しいレクチャーと実戦ドリルを交互に（レクチャーを全部クリアしたらドリルだけ）
+      // エピソードには、そのキャラのトレーニングが入る。ほかの物語は、レクチャーとドリルを交互に
+      const own = RD.story.lessons && LESSONS.find(x => x.id === RD.story.lessons[Math.min(RD.part, RD.story.lessons.length - 1)]);
       const nl = nextLesson();
-      const l = nl && RD.part % 2 === 0 ? nl : makeDrill();
-      const desc = l.drill ? '自動で選ばれる3問に正解しよう。' : `${l.teacher === '玄斎' ? '玄斎' : '小春'}のレクチャーを聞いて、実戦問題に正解しよう。`;
+      const l = own || (nl && RD.part % 2 === 0 ? nl : makeDrill());
+      const desc = l.drill ? '自動で選ばれる3問に正解しよう。' : `${l.teacher}のトレーニングを受けて、問題に正解しよう。`;
       card('続きを読むには', `ミッション：${l.title}`, desc, [
         ['レクチャーを受ける', 'primary', () => runLesson(l, ok => { if (ok) { unlockNext(); resumeNext(); } else back(); })], ['あとで', 'lac', open]
       ]);
@@ -326,7 +364,13 @@
   let LS = null;
   const voice = {
     '小春': { wrong: 'うーん、そこじゃないみたい。', retry: 'おしい！ もう一度考えてみて。', illegal: 'そこには打てないみたい。', kou: 'コウだから、すぐには取り返せないよ。', escape: '白に逃げられちゃいました……。', dead: 'そこだと、白に取られちゃいます。', next: 'いいね、その調子！', cont: '白が逃げました。続けて！' },
-    '玄斎': { wrong: '違うな。もう一回だ。', retry: '惜しい。もう一度読め。', illegal: 'そこには打てねえ。', kou: 'コウだ。すぐには取り返せねえ。', escape: '白に逃げられた。やり直しだ。', dead: 'それだと取られちまう。', next: 'そうだ、その調子。', cont: '白が逃げた。続けてアタリだ。' }
+    '玄斎': { wrong: '違うな。もう一回だ。', retry: '惜しい。もう一度読め。', illegal: 'そこには打てねえ。', kou: 'コウだ。すぐには取り返せねえ。', escape: '白に逃げられた。やり直しだ。', dead: 'それだと取られちまう。', next: 'そうだ、その調子。', cont: '白が逃げた。続けてアタリだ。' },
+    'ひなた': { wrong: 'ぶっぶー！ そこじゃないよ〜。', retry: 'おしい！ もう一回！', illegal: 'そこには打てないみたい！', kou: 'コウだから、すぐ取り返しちゃダメ〜。', escape: 'あー、逃げられちゃった！', dead: 'そこだと取られちゃうよ！', next: 'いいね、いいね！', cont: '白が逃げたよ！ 追いかけて！' },
+    '静馬': { wrong: '残念ですが、違います。', retry: '惜しい。もう一度考えてみましょう。', illegal: 'そこには打てません。', kou: 'コウです。すぐには取り返せません。', escape: '逃げられてしまいました。', dead: 'その手では取られてしまいます。', next: '良い手です。', cont: '白が逃げました。続けてください。' },
+    '巴': { wrong: '違う。もう一太刀。', retry: '惜しい。構え直せ。', illegal: 'そこには打てぬ。', kou: 'コウだ。焦るな。', escape: '逃げられた。やり直せ。', dead: 'それでは斬られる。', next: '見事。', cont: '白が逃げた。追え。' },
+    'みけ': { wrong: '……ちがう。', retry: '……おしい。', illegal: '……うてない。', kou: '……コウ。まって。', escape: '……にげられた。', dead: '……とられる。', next: '……にゃ。', cont: '……つづけて。' },
+    'こむぎ': { wrong: 'ちがうワン！', retry: 'おしいワン！ もう一回だワン！', illegal: 'そこには打てないワン！', kou: 'コウだから、すぐはダメだワン！', escape: '逃げられたワン……。', dead: 'そこだと取られちゃうワン！', next: 'その調子だワン！', cont: '白が逃げたワン！ 追いかけるワン！' },
+    '殿': { wrong: 'ちがうぞ。もう一度じゃ。', retry: '惜しいのう。', illegal: 'そこは打てぬ場所じゃ。', kou: 'コウじゃ。慌てるでない。', escape: '曲者に逃げられたわ！', dead: 'それでは討ち取られるぞ。', next: '天晴れ！', cont: '曲者が逃げた。追うのじゃ！' }
   };
   const V = who => voice[who] || voice['小春'];
   function runLesson(lesson, onDone) {

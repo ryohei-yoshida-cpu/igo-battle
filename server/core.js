@@ -178,17 +178,18 @@ export class Core {
       let id; do { id = randCode(8); } while (await this.store.get('acct:' + id));
       const pass = randCode(8);
       const rec = { h: await sha(id + ':' + pass), data: null, at: 0, created: this.now() };
-      ensureEcon(rec);
+      ensureEcon(rec); delete rec.welcome;
       await this.store.put('acct:' + id, rec);
       this.bindAcct(sock, info, id);
-      out({ t: 'account', id, pass, data: null, at: 0, fresh: true, econ: pubEcon(rec) });
+      out({ t: 'account', id, pass, data: null, at: 0, fresh: true, econ: Object.assign(pubEcon(rec), { welcome: true }) });
     } else if (m.t === 'login') {
       const id = normCode(m.id), pass = normCode(m.pass);
       const rec = id && await this.store.get('acct:' + id);
       if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
       this.bindAcct(sock, info, id);
-      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); return true; });
-      out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore, econ: pubEcon(rec2 || rec) });
+      let welcome = false;
+      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); if (r.welcome) { welcome = true; delete r.welcome; } return true; });
+      out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore, econ: Object.assign(pubEcon(rec2 || rec), { welcome }) });
     } else if (m.t === 'sync') {
       if (!info.acct || !m.data || typeof m.data !== 'object') return;
       // 保存は1アカウント5秒に1回まで（書きこみ回数＝料金なので）
@@ -256,10 +257,9 @@ export class Core {
       if (!bg) return;
       this.botGames.delete(key);
       const sec = (this.now() - bg.t0) / 1000, moves = m.moves | 0;
-      if (m.result !== 'win' && m.result !== 'draw') return;
+      if (!['win', 'draw', 'loss'].includes(m.result)) return;
       if (sec < 30 || moves < 16) { out({ t: 'zeni', gained: 0, why: 'short' }); return; }   // 早すぎる・短すぎる対局は数えない
-      let amount = bg.solo ? 30 : 20 + 5 * bg.lv;
-      if (m.result === 'draw') amount = Math.round(amount / 2);
+      let amount = GAME_ZENI;   // 対局1回につき100銭（勝ち負けに関係なく）
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         if (r.daily.day !== day) r.daily = { day, bot: 0 };
@@ -268,10 +268,10 @@ export class Core {
       });
       if (rec) out({ t: 'zeni', zeni: rec.zeni, gained: amount, why: amount ? 'bot' : 'cap' });
     } else if (m.t === 'claim') {
-      // レクチャー初クリア 20 銭、ドリル（1問1回まで）3 銭
-      const kind = m.kind === 'lesson' ? 'lesson' : m.kind === 'drill' ? 'drill' : null;
+      // レクチャー初クリア 20 銭、ドリル（1問1回まで）3 銭、ソロのエピソードを読み終えたら 500 銭（1話1回）
+      const kind = ['lesson', 'drill', 'episode'].includes(m.kind) ? m.kind : null;
       const cid = String(m.id || '').slice(0, 24); if (!kind || !/^[\w:.-]+$/.test(cid)) return;
-      const amount = kind === 'lesson' ? 20 : 3, limit = kind === 'lesson' ? 60 : 400;
+      const amount = { lesson: 20, drill: 3, episode: EPISODE_ZENI }[kind], limit = { lesson: 80, drill: 400, episode: 40 }[kind];
       let gained = 0;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
@@ -452,10 +452,10 @@ export class Core {
     g.over = true; this.clearTimeout(g.timer);
     for (const c of [1, 2]) if (g.away[c]) this.clearTimeout(g.away[c].timer);
     g.endMsg = { t: 'end', g: g.id, winner, reason, res: res || null, moves: g.moves };
-    // 対人戦の銭：勝ち 80、持碁 40（8手未満で終わった対局は出さない）。フレンド戦は出さない（なれあいで増やせないように）
+    // 対人戦の銭：1局100（勝ち負けに関係なく。8手未満で終わった対局は出さない）。フレンド戦は出さない（なれあいで増やせないように）
     if (g.moves.length >= 8 && !g.hc) for (const c of [1, 2]) {
       const p = this.players.get(g.players[c]);
-      const amount = winner === c ? ONLINE_WIN : winner === 0 ? ONLINE_WIN / 2 : 0;
+      const amount = GAME_ZENI;
       if (p && p.acct && amount) this.give(p.acct, amount, 'online').catch(() => {});
     }
     for (const c of [1, 2]) this.send(g.players[c], g.endMsg);
@@ -473,12 +473,14 @@ export class Core {
 
 /* ---------- 銭まわりの決まり ---------- */
 const ECON = ['botstart', 'botend', 'claim', 'buy', 'room'];
-const BOT_DAILY = 600, ONLINE_WIN = 80;
+const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000;
 // アカウントに銭・持ち物・部屋がなければ作る。前のバージョンのデータがあれば、上限つきで引き継ぐ
 function ensureEcon(r) {
-  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; return; }
+  // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
+  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; r.zeni += WELCOME; r.econV = 2; r.welcome = true; return; }
+  if (r.econV === 2) return;
   const d = r.data || {}, old = d.room || {};
-  r.zeni = Math.min(3000, Math.max(300, (d.zeni | 0) || 300));
+  r.zeni = Math.min(3000, Math.max(0, d.zeni | 0)) + WELCOME;   // 前のデータの銭（3000まで）＋プレゼント
   r.owned = { items: { goban: 1 }, floors: ['wood'], walls: ['plain'], av: [] };
   let value = 0;
   const add = k => { if (ITEMS[k] && k !== 'goban' && value + ITEMS[k][0] <= 6000) { value += ITEMS[k][0]; r.owned.items[k] = (r.owned.items[k] || 0) + 1; } };
@@ -489,7 +491,7 @@ function ensureEcon(r) {
   const def = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0, on: false }], walls: [] };
   r.room = (Array.isArray(old.items) && old.items.length ? cleanRoom(old, r.owned) : null) || def;
   r.daily = { day: '', bot: 0 }; r.claims = {};
-  r.econV = 1;
+  r.econV = 2; r.welcome = true;
 }
 function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, av: r.av || null, pid: r.pid || null }; }
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの

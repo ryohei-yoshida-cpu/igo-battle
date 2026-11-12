@@ -35,10 +35,10 @@
   // タブの中身：髪のタブは「髪型」と「髪の色」
   // 元の絵の服（色を買う）と、素材シートの服（形ごと買う）を分けて並べる
   const sections = tab => tab === 'hair' ? [['hair', '髪型（元の絵）', id => !AV.isSheet(id)], ['hairColor', '髪の色（元の絵の髪だけ）'], ['hair', 'いろいろな髪型', AV.isSheet]]
-    : tab === 'face' || tab === 'body' ? [[tab, '']]
+    : tab === 'face' || tab === 'body' || tab === 'bg' ? [[tab, '']]
     : [[tab, tab === 'shoes' ? 'いろいろな靴' : 'いろいろな服', AV.isSheet], [tab, '元の絵の服の色', id => !AV.isSheet(id)]];
   function render() {
-    $('#avBig').innerHTML = AV.svg(look);
+    $('#avBig').innerHTML = AV.svg(look, 'av-svg', true);
     $('#avZeni').textContent = zeniText();
     $('#avTabs').innerHTML = AV.TABS.map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
     let h = '';

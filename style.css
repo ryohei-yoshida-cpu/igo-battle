@@ -1051,3 +1051,27 @@ span.pb-ava > svg { width: 100%; height: 100%; display: block; border-radius: 14
 .tk-ava img, .tk-item > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
 .tk-item > img { width: 32px; height: 32px; flex: none; border-radius: 50%; }
 div.tk-item { cursor: default; }
+.av-big { overflow: hidden; padding: 0 !important; } .av-big svg { width: 100%; height: 100%; } .av-item .av-thumb { object-fit: cover; }
+/* マイルーム：部屋と遊びに来たキャラは固定、下だけスクロール */
+#myroom { overflow: hidden; }
+#myroom .room-stage, #myroom .visit, #myroom .room-guestbar { flex: none; }
+.room-lower { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding-bottom: 24px; }
+.room-lower > * { flex: none; }
+#visit.ghost .visit-chara { opacity: .14; filter: none; }
+#visit.ghost .visit-bubble { background: rgba(255, 250, 240, .55); }
+/* ソロ：話している人を吹き出しの上に（左右） */
+.rd-stage { position: relative; }
+.rd-actor { position: absolute; bottom: -6px; height: 96%; max-height: 420px; width: auto; max-width: 52%; object-fit: contain; object-position: bottom; pointer-events: none; transition: filter .25s, opacity .25s, transform .25s; filter: brightness(.55) saturate(.7); opacity: .85; z-index: 0; }
+.rd-actor.left { left: -4px; object-position: left bottom; }
+.rd-actor.right { right: -4px; object-position: right bottom; transform: scaleX(-1); }
+.rd-actor.speak { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .5)); opacity: 1; z-index: 1; }
+.rd-actor.bust { -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent); mask-image: linear-gradient(to bottom, #000 80%, transparent); }
+.rd-actor.enter.left { animation: actInL .35s ease-out; }
+.rd-actor.enter.right { animation: actInR .35s ease-out; }
+.rd-actor.left.talk { animation: actTalk .3s ease-out; }
+.rd-actor.right.talk { animation: actTalkR .3s ease-out; }
+@keyframes actInL { from { opacity: 0; transform: translateX(-30px); } }
+@keyframes actInR { from { opacity: 0; transform: translateX(30px) scaleX(-1); } }
+@keyframes actTalk { 40% { transform: translateY(-6px); } }
+@keyframes actTalkR { 40% { transform: translateY(-6px) scaleX(-1); } }
+.rd-card { position: relative; z-index: 2; }
