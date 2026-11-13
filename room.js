@@ -246,9 +246,11 @@
     if (!quiet) P.sound('tap');
   }
   $('#visitNext').onclick = () => curGuest && talk(curGuest);
-  // キャラを隠す（透けさせて、うしろの部屋が見えるように）
-  $('#visitHide').onclick = () => { const on = !$('#visit').classList.toggle('ghost'); $('#visitHide').textContent = on ? '隠す' : '出す'; S.visitGhost = !on; P.saveLocal(); };
-  if (S.visitGhost) { $('#visit').classList.add('ghost'); $('#visitHide').textContent = '出す'; }
+    // キャラを隠す：吹き出しもキャラも消して、「出す」ボタンだけ残す
+  const setGone = on => { $('#visit').classList.toggle('gone', on); S.visitGhost = on; P.saveLocal(); };
+  $('#visitHide').onclick = () => { setGone(true); P.sound('tap'); };
+  $('#visitShow').onclick = () => { setGone(false); P.sound('tap'); if (curGuest) talk(curGuest, true); };
+  if (S.visitGhost) $('#visit').classList.add('gone');
   $('#visitImg').onclick = () => curGuest && talk(curGuest);
   $('#visitIcons').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const g = guests.find(x => x.key === b.dataset.key); if (g) talk(g); });
   $('#visitPlay').onclick = () => {
