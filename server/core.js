@@ -58,6 +58,7 @@ export const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000, AWAY_MS = 180 * 1000, START
 export class Core {
   constructor(opts = {}) {
     this.now = opts.now || (() => Date.now());
+    this.rand = opts.rand || Math.random;   // 半額・骨董屋のおくりもの（試すときに差しかえられる）
     this.setTimeout = opts.setTimeout || ((f, ms) => setTimeout(f, ms));
     this.clearTimeout = opts.clearTimeout || (t => clearTimeout(t));
     this.players = new Map();   // cid → { cid, name, rating, ava, sock, seekAt, game }
@@ -322,7 +323,7 @@ export class Core {
       });
       if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni });
     } else if (m.t === 'buy') {
-      let ok = false, reason = '';
+      let ok = false, reason = '', half = false, paid = 0;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         let price, apply;
@@ -348,10 +349,46 @@ export class Core {
           price = BIG_PRICE; apply = () => { rm.n = BIG_N; };
         }
         else { reason = 'item'; return; }
-        if (r.zeni < price) { reason = 'zeni'; return; }
-        r.zeni -= price; apply(); ok = true;
+        // 32回に1回、店員さんのサービスで半額（部屋の増築・拡張はのぞく）
+        if (price > 0 && !m.roomAdd && m.roomBig == null && this.rand() < 1 / 32) { half = true; price = Math.floor(price / 2); }
+        if (r.zeni < price) { reason = 'zeni'; half = false; return; }
+        r.zeni -= price; apply(); ok = true; paid = price;
       });
-      if (rec) out({ t: 'bought', ok, reason, req: m.req, econ: pubEcon(rec) });
+      if (rec) out({ t: 'bought', ok, reason, half, paid, req: m.req, econ: pubEcon(rec) });
+    } else if (m.t === 'sell') {
+      // 骨董屋：いらない家具・アバターのパーツを、値段の3分の1で買いとる。ときどき玄斎からおくりもの
+      let ok = false, reason = '', got = 0, offer = null;
+      const rec = await this.withAcct(id, async r => {
+        ensureEcon(r);
+        let price = 0;
+        if (m.av && AVP[m.av] > 0) {
+          if (!r.owned.av.includes(m.av)) { reason = 'item'; return; }
+          const [sl, pid] = m.av.split(':');
+          if (r.av && r.av[sl] === pid) { reason = 'wear'; return; }
+          price = AVP[m.av]; r.owned.av = r.owned.av.filter(k => k !== m.av);
+        } else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] > 0) {
+          const have = r.owned.items[m.item] || 0;
+          let placed = 0;
+          for (const rm of [r.room].concat(r.rooms2 || [])) if (rm) for (const it of (rm.items || []).concat(rm.walls || [])) if (it.k === m.item) placed++;
+          if (have - placed < 1) { reason = 'placed'; return; }
+          price = ITEMS[m.item][0];
+          if (have > 1) r.owned.items[m.item] = have - 1; else delete r.owned.items[m.item];
+        } else { reason = 'item'; return; }
+        got = Math.floor(price / 3); r.zeni += got; ok = true;
+        offer = r.offer = antiqueGift(r, this.rand());
+      });
+      if (rec) out({ t: 'sold', ok, reason, got, offer, req: m.req, econ: pubEcon(rec) });
+    } else if (m.t === 'offer') {
+      // 玄斎のおくりものを、もらう（yes）か、ことわる
+      let ok = false;
+      const rec = await this.withAcct(id, async r => {
+        ensureEcon(r);
+        const o = r.offer; r.offer = null;
+        if (!o || !m.yes) return;
+        if (o.kind === 'av' && AVP[o.id] != null && !r.owned.av.includes(o.id)) { r.owned.av.push(o.id); ok = true; }
+        else if (o.kind === 'item' && ITEMS[o.id]) { r.owned.items[o.id] = (r.owned.items[o.id] || 0) + 1; ok = true; }
+      });
+      if (rec) out({ t: 'bought', ok, reason: ok ? '' : 'item', req: m.req, econ: pubEcon(rec) });
     } else if (m.t === 'room') {
       // 模様替えを終えたときに届く部屋の配置。持っていない家具が置かれていないか確かめる
       let ok = false;
@@ -542,7 +579,7 @@ export class Core {
 }
 
 /* ---------- 銭まわりの決まり ---------- */
-const ECON = ['botstart', 'botend', 'claim', 'buy', 'room', 'gifts', 'gifttake', 'rankup'];
+const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'room', 'gifts', 'gifttake', 'rankup'];
 const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000, RANKUP = 1000, DAILY = 100;
 // プレゼントボックス：受け取るまで銭にならない。{ id, kind, amount, label, t }
 function addGift(r, kind, amount, label, t, extra) {
@@ -572,6 +609,13 @@ function ensureEcon(r) {
   // 2026/11/13 に無料→300銭になった4点：その時点で着ていた人には、そのまま持たせる
   if (!r.avG && r.owned && r.av) { r.owned.av = r.owned.av || []; for (const sl of ['head', 'body']) { const k = sl + ':' + r.av[sl]; if (['head:h00', 'head:h04', 'body:b01', 'body:b05'].includes(k) && !r.owned.av.includes(k)) r.owned.av.push(k); } }
   if (r.owned) r.avG = 1;
+  if (r.owned && r.owned.av && !r.avRm1) {
+    let back = 0;
+    r.owned.av = r.owned.av.filter(k => { if (AV_RM[k]) { back += AV_RM[k]; return false; } return true; });
+    if (r.av) r.av = AVATAR_CLEAN(r.av);
+    if (back > 0) addGift(r, 'refund', back, '取りやめた服のおかえし', Date.now());
+    r.avRm1 = 1;
+  }
   if (r.econV === 2 && r.avV !== 3 && r.owned) { avRenew(r); return; }
   // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
   if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; avRenew(r); return; }
@@ -591,6 +635,21 @@ function ensureEcon(r) {
   r.daily = { day: '', bot: 0 }; r.claims = {};
   r.econV = 2; r.welcome = true; r.avV = 3;
 }
+// 骨董屋で売ったときの、玄斎からのおくりもの（x は 0〜1 の乱数）
+//   1/256 持っていない 2000銭以上のアバター / 1/64 1200〜1500銭のアバター / 1/16 600銭の家具 / 1/8 300銭以下の家具
+function antiqueGift(r, x) {
+  const pick = a => a.length ? a[Math.floor(Math.random() * a.length)] : null;
+  const avs = (lo, hi) => Object.entries(AVP).filter(([k, p]) => p >= lo && p <= hi && !r.owned.av.includes(k)).map(([k]) => k);
+  const items = f => Object.entries(ITEMS).filter(([, v]) => f(v[0])).map(([k]) => k);
+  let id = null, kind = 'item';
+  if (x < 1 / 256) { id = pick(avs(2000, 1e9)); kind = 'av'; }
+  else if (x < 1 / 256 + 1 / 64) { id = pick(avs(1200, 1500)); kind = 'av'; }
+  else if (x < 1 / 256 + 1 / 64 + 1 / 16) id = pick(items(p => p === 600));
+  else if (x < 1 / 256 + 1 / 64 + 1 / 16 + 1 / 8) id = pick(items(p => p > 0 && p <= 300));
+  return id ? { kind, id } : null;
+}
+// 足もとのないアバターの服（2026/11/14 取りやめ）。持っていた人には、銭をおかえし
+const AV_RM = { 'body:b02': 1800, 'body:b06': 1800, 'body:b24': 1800, 'body:b25': 1200, 'body:b26': 1200, 'body:b27': 1800, 'body:b29': 1800, 'body:b30': 300, 'body:b31': 300 };
 function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
 // 部屋は最大6つ（はじめの部屋＋5）。1つ増やすのに 10000銭
 const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 20000;

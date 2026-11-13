@@ -8,7 +8,7 @@
   const pt = s => COLS.indexOf(s[0]) + (9 - (+s.slice(1))) * 9;
   const parse = rows => { const b = []; for (const r of rows) for (const ch of r) b.push(ch === 'X' ? 1 : ch === 'O' ? 2 : 0); return b; };
   // 名前 → キャラ（顔・立ち絵）
-  const NAME2KEY = { 小春: 'koharu', 玄斎: 'gensai', ひなた: 'hinata', 静馬: 'shima', 巴: 'tomoe', みけ: 'mike', こむぎ: 'mike', 殿: 'tono' };
+  const NAME2KEY = { 小春: 'koharu', 玄斎: 'gensai', ダーク玄斎: 'dgensai', ひなた: 'hinata', 静馬: 'shima', 巴: 'tomoe', みけ: 'mike', こむぎ: 'mike', 殿: 'tono' };
   const keyOf = who => { for (const n in NAME2KEY) if (who && who.startsWith(n)) return NAME2KEY[n]; return null; };
   const idxOf = key => Math.max(0, A.VARIANTS.findIndex(v => v.key === key));
   const faceOf = who => A.faceUri(idxOf(keyOf(who) || 'koharu'));
@@ -134,6 +134,14 @@
       }
       const n = st.parts.length, op = opened(st.id), done = S.solo.read && S.solo.read[st.id];
       const b = document.createElement('button'); b.className = 'story'; b.type = 'button';
+      if (st.need && P.displayRank() < st.need) {
+        b.disabled = true; b.classList.add('locked');
+        b.innerHTML = '<b></b><small></small><span class="st-state"></span>';
+        b.querySelector('b').textContent = '🔒 ' + st.title;
+        b.querySelector('small').textContent = st.sub;
+        b.querySelector('.st-state').textContent = `${P.RANKS[st.need]}になると読めます`;
+        list.append(b); continue;
+      }
       const pips = n <= 12 ? `<span class="pips">${st.parts.map((_, i) => `<i class="${i <= op ? 'on' : ''}"></i>`).join('')}</span>`
         : `<span class="st-bar"><i style="width:${Math.round(100 * (done ? n : op + 1) / n)}%"></i></span>`;
       b.innerHTML = `<b></b>${pips}<small></small><span class="st-state"></span>`;
@@ -386,7 +394,8 @@
     '小春': { wrong: 'うーん、そこじゃないみたい。', retry: 'おしい！ もう一度考えてみて。', illegal: 'そこには打てないみたい。', kou: 'コウだから、すぐには取り返せないよ。', escape: '白に逃げられちゃいました……。', dead: 'そこだと、白に取られちゃいます。', next: 'いいね、その調子！', cont: '白が逃げました。続けて！' },
     '玄斎': { wrong: '違うな。もう一回だ。', retry: '惜しい。もう一度読め。', illegal: 'そこには打てねえ。', kou: 'コウだ。すぐには取り返せねえ。', escape: '白に逃げられた。やり直しだ。', dead: 'それだと取られちまう。', next: 'そうだ、その調子。', cont: '白が逃げた。続けてアタリだ。' },
     'ひなた': { wrong: 'ぶっぶー！ そこじゃないよ〜。', retry: 'おしい！ もう一回！', illegal: 'そこには打てないみたい！', kou: 'コウだから、すぐ取り返しちゃダメ〜。', escape: 'あー、逃げられちゃった！', dead: 'そこだと取られちゃうよ！', next: 'いいね、いいね！', cont: '白が逃げたよ！ 追いかけて！' },
-    '静馬': { wrong: '残念ですが、違います。', retry: '惜しい。もう一度考えてみましょう。', illegal: 'そこには打てません。', kou: 'コウです。すぐには取り返せません。', escape: '逃げられてしまいました。', dead: 'その手では取られてしまいます。', next: '良い手です。', cont: '白が逃げました。続けてください。' },
+    '静馬': { wrong: '……ちがう。', retry: '惜しい。もう一回、考えてみろ。', illegal: 'そこには打てない。', kou: 'コウだ。すぐには取り返せない。', escape: '逃げられたな。……もう一回だ。', dead: 'それだと取られる。', next: '……いい手だ。', cont: '白が逃げた。続けろ。' },
+    'ダーク玄斎': { wrong: 'ちげえな……。闇が足りねえ。', retry: '惜しいじゃねえか。もう一回、深く読め。', illegal: 'そこには打てねえよ。', kou: 'コウだ。……想いと同じで、すぐには取り返せねえ。', escape: '逃げられたか。……あの子みてえにな。', dead: 'それじゃ取られる。', next: '……悪くねえ。', cont: '逃げたぞ。追え。' },
     '巴': { wrong: '違う。もう一太刀。', retry: '惜しい。構え直せ。', illegal: 'そこには打てぬ。', kou: 'コウだ。焦るな。', escape: '逃げられた。やり直せ。', dead: 'それでは斬られる。', next: '見事。', cont: '白が逃げた。追え。' },
     'みけ': { wrong: '……ちがう。', retry: '……おしい。', illegal: '……うてない。', kou: '……コウ。まって。', escape: '……にげられた。', dead: '……とられる。', next: '……にゃ。', cont: '……つづけて。' },
     'こむぎ': { wrong: 'ちがうワン！', retry: 'おしいワン！ もう一回だワン！', illegal: 'そこには打てないワン！', kou: 'コウだから、すぐはダメだワン！', escape: '逃げられたワン……。', dead: 'そこだと取られちゃうワン！', next: 'その調子だワン！', cont: '白が逃げたワン！ 追いかけるワン！' },

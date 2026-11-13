@@ -149,7 +149,7 @@
         const bought = [];
         const next = () => {
           const sl = unowned()[0];
-          if (!sl) { P.sound('ok'); hinata('buy'); askWear(bought, 'まとめて買いました！'); return; }
+          if (!sl) { hinata('buy'); render(); window.FANFARE.celebrate({ items: bought.map(s => ({ thumb: AV.thumb(look, s), name: entryOf(s)[1] })), then: () => askWear(bought, 'まとめて買いました！') }); return; }
           bought.push(sl);
           const id = look[sl];
           P.buy({ av: sl + ':' + id }, entryOf(sl)[2], res => { if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); render(); return; } next(); });
@@ -167,7 +167,7 @@
     P.confirmBox(`${entry[1]}を ${price} 銭で買いますか？`, () => {
       P.buy({ av: sl + ':' + id }, price, res => {
         if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
-        P.sound('ok'); hinata('buy'); askWear([sl], `${entry[1]}を買いました！`);
+        hinata('buy'); render(); window.FANFARE.celebrate({ items: [{ thumb: AV.thumb(look, sl), name: entry[1] }], then: () => askWear([sl], `${entry[1]}を買いました！`) });
       });
     });
   }

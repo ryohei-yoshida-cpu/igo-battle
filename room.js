@@ -296,10 +296,10 @@
       flush();
       P.buy({ roomAdd: 1, p: from, d }, ROOM_PRICE, res => {
         if (!res.ok) { P.toast(res.reason === 'max' ? '部屋はこれ以上増やせません' : res.reason === 'used' ? 'その向きには、もう部屋があります' : (BUY_NG[res.reason] || '買えませんでした')); return; }
-        P.sound('ok'); addMode = false;
+        addMode = false;
         const n = base().extra.length;
         pickRoom(n, true); renderPanel();
-        P.toast(`部屋${n + 1}ができました！ もようがえしてみましょう`);
+        window.FANFARE.celebrate({ items: [{ thumb: '<span class="ff-emoji">🏠</span>', name: `部屋${n + 1}` }], title: '部屋が増えました！', then: () => P.toast(`部屋${n + 1}ができました！ もようがえしてみましょう`) });
       });
     });
   }
@@ -311,7 +311,8 @@
       flush();
       P.buy({ roomBig: cur }, BIG_PRICE, res => {
         if (!res.ok) { P.toast(BUY_NG[res.reason] || '広くできませんでした'); return; }
-        room().n = BIG_N; P.sound('ok'); viewKey = 'x'; render(); renderPanel(); P.toast('部屋が広くなりました！');
+        room().n = BIG_N; viewKey = 'x'; render(); renderPanel();
+        window.FANFARE.celebrate({ items: [{ thumb: '<span class="ff-emoji">📐</span>', name: '17×17マス' }], title: '部屋が広くなりました！' });
       });
     });
   }
@@ -399,7 +400,7 @@
     return pick.l[1];
   }
   // キャラごとの、一局打つときの強さ（Bot の級）
-  const CHARA_LV = { mike: 1, hinata: 3, shima: 5, tomoe: 7, tono: 8, gensai: 9 };
+  const CHARA_LV = { mike: 1, hinata: 3, shima: 5, tomoe: 7, tono: 8, gensai: 9, dgensai: 13 };
   // 立ち姿の絵（透過画像があるキャラはそれ、ないキャラはカットインの切りぬき）
   const STAND = new Set(['hinata', 'shima', 'tomoe', 'mike', 'tono']);
   const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
@@ -689,14 +690,14 @@
       };
       const done = () => {
         if (!bought.length) { render(); renderPanel(); return; }
-        P.sound('ok'); shima('buy');
-        P.confirmBox(`${bought.length === 1 ? cat(bought[0].k).name : bought.length + ' 点'}を買いました！ そのまま部屋に置きますか？`, () => {
+        shima('buy');
+        window.FANFARE.celebrate({ items: bought.map(it => ({ thumb: thumb(it.k), name: cat(it.k).name })), then: () => P.confirmBox(`${bought.length === 1 ? cat(bought[0].k).name : bought.length + ' 点'}を買いました！ そのまま部屋に置きますか？`, () => {
           for (const it of bought) delete it.trial;
           touch(); flush(); P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
         }, () => {
           for (const it of bought) { const r = room(); r.items = r.items.filter(i => i !== it); r.walls = r.walls.filter(i => i !== it); }
           sel = null; P.toast('買った家具は、倉庫に入れました'); render(); renderPanel();
-        }, { yes: '置く', no: '倉庫へ' });
+        }, { yes: '置く', no: '倉庫へ' }) });
       };
       next();
     });
@@ -857,9 +858,9 @@
       };
       const done = () => {
         if (!got.length) { renderPanel(); return; }
-        P.sound('ok'); shima('buy');
+        shima('buy');
         for (const c of got) { if (c.kind === 'item') delete c.it.trial; if (c.kind === 'floor') tryInt.floor = null; if (c.kind === 'wall') tryInt.wall = null; }
-        P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
+        window.FANFARE.celebrate({ items: got.map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
           const r = room(); touch(); flush();
           snap = Object.assign(snap || {}, { floor: r.floor, wall: r.wall, items: JSON.parse(JSON.stringify(r.items.filter(i => !i.trial))), walls: JSON.parse(JSON.stringify(r.walls.filter(i => !i.trial))), av: r.av, gp: r.gp, key: layoutOf(r) });
           P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
@@ -868,7 +869,7 @@
           restoreSnap(); const r = room(); for (const t of keepTrials) (cat(t.k).kind === 'wall' ? r.walls : r.items).push(t);
           if (tryInt.floor) r.floor = tryInt.floor; if (tryInt.wall) r.wall = tryInt.wall;
           sel = null; P.toast('配置をもとに戻しました。買った家具は倉庫にあります'); render(); renderPanel();
-        }, { yes: 'はい', no: 'いいえ' });
+        }, { yes: 'はい', no: 'いいえ' }) });
       };
       next();
     });
@@ -1049,5 +1050,5 @@
     flush(); P.sound('stone');
     window.FRIEND.inviteTo(to);
   };
-  window.ROOM = { open, openShop, cloaks, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
+  window.ROOM = { open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
 })();

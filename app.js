@@ -56,7 +56,7 @@
   const save = () => { if (syncHook) S._at = Date.now(); saveLocal(); if (syncHook) syncHook(); };
 
   // キャラクターは段級位で順に使えるようになる（三段で全員）
-  const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 12 };
+  const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 12, dgensai: 12 };
   const charaOpen = i => displayRank() >= (UNLOCK[A.VARIANTS[i].key] || 0);
   function displayRank() {
     const r = rankFromRating(S.rating);
@@ -91,6 +91,11 @@
       if (kind === 'tap') { tone(1568, 0.16, 0.05); tone(2349, 0.12, 0.025); return; }
       if (kind === 'bad') { tone(330, 0.12, 0.06, 'triangle', 220); return; }
       if (kind === 'ok') { tone(784, 0.18, 0.07); setTimeout(() => sound('ok2'), 90); return; }
+      if (kind === 'fanfare') { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => sound('n' + f), i * 85)); setTimeout(() => sound('chord'), 360); return; }
+      if (kind[0] === 'n' && +kind.slice(1)) { tone(+kind.slice(1), 0.22, 0.06, 'triangle'); return; }
+      if (kind === 'chord') { tone(1047, 1.1, 0.05, 'triangle'); tone(1319, 1.1, 0.04, 'triangle'); tone(1568, 1.1, 0.035); tone(2093, .8, .02); return; }
+      if (kind === 'coin') { tone(1976, 0.07, 0.04, 'square'); setTimeout(() => sound('coin2'), 70); return; }
+      if (kind === 'coin2') { tone(2637, 0.35, 0.04, 'square'); return; }
       if (kind === 'ok2') { tone(1175, 0.3, 0.07); tone(1568, 0.3, 0.035); return; }
       if (kind === 'taiko') {
         tone(78, 0.55, 0.6, 'sine', 46); noise(0.14, 180, 0.8, 1.2, 2.5);
@@ -337,7 +342,7 @@
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'friends', 'explore', 'diaryHub'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'kotto', 'friends', 'explore', 'diaryHub'];
   // 対局のアイコン：アバターの顔（右下に相棒のキャラ）。Bot はキャラそのもの
   function setPb(el, look, ci) {
     const AVT = window.AVATAR;
@@ -946,6 +951,7 @@
       case 'end': onlineEnd(m); break;
       case 'account': onAccount(m); break;
       case 'zeni': onZeni(m); break;
+      case 'sold': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
@@ -1390,11 +1396,16 @@
       else { S.zeni = (S.zeni || 0) + amount; save(); toast(`＋${amount} 銭`); }
     },
     // 買い物：what は { item } / { floor } / { wall }。cb({ ok, reason })
-    buy(what, price, cb) {
+    buy(what, price, cb0) {
+      // 32回に1回の半額サービス（サーバーが決める）。店員さんのセリフは、次の演出の前に出る
+      let cb = res => { if (res && res.ok && res.half && window.FANFARE) window.FANFARE.noteHalf(what.av ? 'hinata' : 'shima', Math.max(0, price - (res.paid | 0))); cb0(res); };
       if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'buy', req }, what)); return; }
       if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
-      if ((S.zeni || 0) < price) { cb({ ok: false, reason: 'zeni' }); return; }
-      S.zeni -= price;
+      const half = price > 0 && !what.roomAdd && what.roomBig == null && Math.random() < 1 / 32;
+      const pay = half ? Math.floor(price / 2) : price;
+      if ((S.zeni || 0) < pay) { cb({ ok: false, reason: 'zeni' }); return; }
+      S.zeni -= pay;
+      const cb1 = cb; cb = res => cb1(Object.assign(res, { half, paid: pay }));
       const r = S.room;
       if (what.av) { S.avOwned = (S.avOwned || []).concat(what.av); save(); cb({ ok: true }); return; }
       if (what.item) r.ownedItems[what.item] = (r.ownedItems[what.item] || 0) + 1;
@@ -1403,6 +1414,42 @@
       else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p: what.p | 0, d: what.d === 'y' ? 'y' : 'x' }, n: 12 }); }
       else if (what.roomBig != null) { const rm = what.roomBig ? (r.extra || [])[what.roomBig - 1] : r; if (rm) rm.n = 17; }
       save(); cb({ ok: true });
+    },
+    // 骨董屋：売る（what は { item } / { av }）。cb({ ok, reason, got, offer })。offer があれば玄斎からのおくりもの
+    sell(what, cb) {
+      if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'sell', req }, what)); return; }
+      if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
+      const r = S.room; let price = 0;
+      if (what.av) {
+        const p = window.AVATAR.PRICE[what.av], [sl, id] = what.av.split(':');
+        if (!(p > 0) || !(S.avOwned || []).includes(what.av)) { cb({ ok: false, reason: 'item' }); return; }
+        if (S.av && S.av[sl] === id) { cb({ ok: false, reason: 'wear' }); return; }
+        price = p; S.avOwned = S.avOwned.filter(k => k !== what.av);
+      } else if (what.item) {
+        const c = window.ROOMART.BY_ID[what.item], have = r.ownedItems[what.item] || 0;
+        let placed = 0;
+        for (const rm of [r].concat(r.extra || [])) for (const it of (rm.items || []).concat(rm.walls || [])) if (it.k === what.item && !it.trial) placed++;
+        if (!c || !(c.price > 0) || have - placed < 1) { cb({ ok: false, reason: 'placed' }); return; }
+        price = c.price; if (have > 1) r.ownedItems[what.item] = have - 1; else delete r.ownedItems[what.item];
+      } else { cb({ ok: false, reason: 'item' }); return; }
+      const got = Math.floor(price / 3); S.zeni = (S.zeni || 0) + got;
+      // おくりもの（サーバーと同じ確率）
+      const x = Math.random(), pick = a => a.length ? a[Math.floor(Math.random() * a.length)] : null;
+      const avs = (lo, hi) => Object.entries(window.AVATAR.PRICE).filter(([k, p]) => p >= lo && p <= hi && !(S.avOwned || []).includes(k)).map(([k]) => k);
+      const its = f => window.ROOMART.CATALOG.filter(c => f(c.price)).map(c => c.id);
+      let offer = null;
+      if (x < 1 / 256) { const id = pick(avs(2000, 1e9)); if (id) offer = { kind: 'av', id }; }
+      else if (x < 1 / 256 + 1 / 64) { const id = pick(avs(1200, 1500)); if (id) offer = { kind: 'av', id }; }
+      else if (x < 1 / 256 + 1 / 64 + 1 / 16) { const id = pick(its(p => p === 600)); if (id) offer = { kind: 'item', id }; }
+      else if (x < 1 / 256 + 1 / 64 + 1 / 16 + 1 / 8) { const id = pick(its(p => p > 0 && p <= 300)); if (id) offer = { kind: 'item', id }; }
+      S.offer = offer; save(); cb({ ok: true, got, offer });
+    },
+    // 玄斎のおくりものを、もらう（yes=true）か、ことわる
+    offer(yes, cb) {
+      if (econOn()) { const req = ++buyReq; buyCb[req] = cb || (() => {}); netSend({ t: 'offer', req, yes: !!yes }); return; }
+      const o = S.offer; S.offer = null;
+      if (o && yes) { if (o.kind === 'av') S.avOwned = (S.avOwned || []).concat(o.id); else S.room.ownedItems[o.id] = (S.room.ownedItems[o.id] || 0) + 1; }
+      save(); if (cb) cb({ ok: !!(o && yes) });
     },
     // マイルームのつながり（日記・チャット・フレンドなど）。サーバーにつながっていないときは reason: 'offline'
     soc(op, data, cb) {

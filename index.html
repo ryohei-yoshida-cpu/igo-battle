@@ -234,6 +234,27 @@
       <span class="shop2-bubble" id="shopBubbleS"><b>静馬</b><span id="shopTalkS"></span></span>
       <span class="shop2-k"><b>ルームショップ</b><small>家具・床・壁紙</small></span>
     </button>
+    <button class="shop2 kotto" id="shopKotto" type="button">
+      <img src="img/bust_gensai.webp" alt="骨董屋の玄斎">
+      <span class="shop2-bubble" id="shopBubbleK"><b>玄斎</b><span id="shopTalkK"></span></span>
+      <span class="shop2-k"><b>骨董屋</b><small>いらない品を買いとり</small></span>
+    </button>
+  </section>
+
+  <!-- 骨董屋：いらない家具・服を、値段の3分の1で買いとる -->
+  <section id="kotto" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="kottoBack">← ショップ</button>
+      <h2>骨董屋</h2>
+      <span class="zeni-chip" id="kottoZeni"></span>
+    </header>
+    <div class="kt-clerk">
+      <img src="img/bust_gensai.webp" alt="店主の玄斎" id="kottoFace">
+      <p class="kt-say"><b>玄斎</b><span id="kottoTalk"></span></p>
+    </div>
+    <div class="kt-tabs" id="kottoTabs"></div>
+    <div class="kt-grid" id="kottoGrid"></div>
+    <p class="kt-note">買いとりは、品物の値段の3分の1。部屋に置いている家具・着ている服は売れません。</p>
   </section>
 
   <!-- マイルームのえらぶ画面：アバター／マイルーム／キャラクター -->
@@ -771,6 +792,7 @@
 <script src="common/friends.js"></script>
 <script src="diary.js"></script>
 <script src="common/ticker.js"></script>
+<script src="common/fanfare.js"></script>
 <script src="shop.js"></script>
 </body>
 </html>

@@ -13,15 +13,16 @@
     { key: 'shima', name: '静馬', kind: 'koharu', note: '片眼鏡の書生' },
     { key: 'tomoe', name: '巴', kind: 'koharu', note: '女武者' },
     { key: 'mike', name: 'みけ＆こむぎ', kind: 'koharu', note: '猫と柴の門下生' },
-    { key: 'tono', name: '殿', kind: 'gensai', note: '碁好きのお殿様' }
+    { key: 'tono', name: '殿', kind: 'gensai', note: '碁好きのお殿様' },
+    { key: 'dgensai', name: 'ダーク玄斎', kind: 'gensai', note: '闇に落ちた師匠' }
   ];
   const clampI = i => (i >= 0 && i < VARIANTS.length) ? i : 0;
   const charaUri = i => 'img/' + VARIANTS[clampI(i)].key + '.jpg';
   const faceUri = i => 'img/' + VARIANTS[clampI(i)].key + '_face.jpg';
   // Botの強さで対局相手が変わる：10〜9級 みけ＆こむぎ → ひなた → 静馬 → 巴 → 殿 → 1級 玄斎
-  const RIVAL_BY_LEVEL = [5, 5, 2, 2, 3, 3, 4, 4, 6, 1];
+  const RIVAL_BY_LEVEL = [5, 5, 2, 2, 3, 3, 4, 4, 6, 1, 1, 1, 7, 7];
   function rivalOf(me, level) {
-    const r = RIVAL_BY_LEVEL[Math.max(0, Math.min(9, level | 0))];
+    const r = RIVAL_BY_LEVEL[Math.max(0, Math.min(RIVAL_BY_LEVEL.length - 1, level | 0))];
     return r === me ? (me === 0 ? 1 : 0) : r;
   }
   // 先に読みこんでおく（対局中のカットインが一瞬で出るように）

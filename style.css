@@ -1603,3 +1603,73 @@ body.fx-shake #app { animation: fxShake .35s; }
 #myroom .visit { margin-top: 0; min-height: 150px; }
 #myroom .visit-bubble { margin-top: 30px; }
 #myroom .visit-chara { bottom: 0; height: 170px; }
+
+/* ===== お買い物の演出（common/fanfare.js） ===== */
+.ff { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; font-family: var(--font); }
+.ff-buy { background: radial-gradient(circle at 50% 42%, rgba(255, 214, 107, .35), rgba(18, 13, 10, .82) 60%); opacity: 0; transition: opacity .25s; cursor: pointer; }
+.ff-buy.on { opacity: 1; }
+.ff-buy.off { opacity: 0; }
+.ff-cv { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ff-rays { position: absolute; left: 50%; top: 42%; width: 170vmax; height: 170vmax; margin: -85vmax 0 0 -85vmax; pointer-events: none;
+  background: repeating-conic-gradient(rgba(255, 230, 150, .2) 0 7deg, transparent 7deg 18deg);
+  -webkit-mask: radial-gradient(circle, #000 8%, transparent 55%); mask: radial-gradient(circle, #000 8%, transparent 55%);
+  animation: ffSpin 9s linear infinite; }
+@keyframes ffSpin { to { transform: rotate(360deg); } }
+.ff-card { position: relative; text-align: center; padding: 30px 22px 16px; min-width: min(320px, 86vw); max-width: 92vw;
+  background: linear-gradient(180deg, #fff8e4, #f5e2b8); color: #3b2610; border-radius: 18px;
+  border: 3px solid #e8c46e; box-shadow: 0 0 0 4px rgba(224, 80, 62, .9), 0 0 60px rgba(255, 214, 107, .8), 0 18px 40px rgba(0, 0, 0, .5);
+  transform: scale(.3) rotate(-8deg); transition: transform .5s cubic-bezier(.2, 1.6, .4, 1); }
+.ff-buy.on .ff-card { transform: scale(1) rotate(0); }
+.ff-ribbon { position: absolute; left: 50%; top: -20px; transform: translateX(-50%); white-space: nowrap; padding: 6px 26px; font: 700 18px var(--brush);
+  color: #fff; background: linear-gradient(180deg, #ef6a4e, #c23a28); border-radius: 6px; letter-spacing: .2em; box-shadow: 0 4px 10px rgba(0, 0, 0, .35); }
+.ff-title { font-size: 22px; font-weight: 700; margin: 4px 0 12px; animation: ffPulse 1s ease-in-out infinite alternate; text-wrap: balance; }
+@keyframes ffPulse { to { transform: scale(1.06); color: #c23a28; } }
+.ff-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.ff-items figure { margin: 0; width: 84px; opacity: 0; transform: translateY(30px) scale(.5); animation: ffPop .5s cubic-bezier(.2, 1.7, .4, 1) forwards; animation-delay: calc(.25s + var(--i) * .12s); }
+@keyframes ffPop { to { opacity: 1; transform: none; } }
+.ff-thumb { width: 84px; height: 84px; border-radius: 12px; background: #fff; border: 2px solid #e8c46e; display: grid; place-items: center; overflow: hidden;
+  box-shadow: 0 0 18px rgba(255, 214, 107, .9); animation: ffGlow 1.2s ease-in-out infinite alternate; }
+@keyframes ffGlow { to { box-shadow: 0 0 4px rgba(255, 214, 107, .5); } }
+.ff-thumb > * { max-width: 100%; max-height: 100%; }
+.ff-thumb svg, .ff-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.ff-items figcaption { font-size: 11px; margin-top: 4px; line-height: 1.3; }
+.ff-more { align-self: center; font-size: 13px; }
+.ff-tap { font-size: 11px; opacity: .6; margin-top: 12px; }
+
+.ff-clerk { z-index: 61; opacity: 0; transition: opacity .2s; align-items: end; }
+.ff-clerk.on { opacity: 1; }
+.ff-shade { position: absolute; inset: 0; background: rgba(10, 7, 5, .7); }
+.ff-cl { position: relative; width: min(520px, 100vw); display: flex; align-items: flex-end; padding: 0 12px calc(16px + env(safe-area-inset-bottom, 0px)); }
+.ff-bust { width: 46%; max-width: 230px; margin-right: -28px; z-index: 1; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .5)); transform: translateX(-40px); opacity: 0; transition: transform .45s cubic-bezier(.2, 1.4, .4, 1), opacity .3s; }
+.ff-clerk.on .ff-bust { transform: none; opacity: 1; }
+.ff-say { flex: 1; min-width: 0; position: relative; z-index: 2; margin-bottom: 18px; padding: 14px 14px 12px; border-radius: 14px; background: var(--lac-2); border: 1px solid var(--kin); color: var(--text); box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+.ff-tag { display: inline-block; margin: -30px 0 6px; padding: 4px 12px; border-radius: 99px; font-weight: 700; font-size: 13px; color: #3b2610; background: linear-gradient(180deg, #ffe48a, #e8b830); box-shadow: 0 0 16px rgba(255, 214, 107, .9); animation: ffPulse .8s ease-in-out infinite alternate; }
+.ff-who { display: block; color: var(--kin); font-size: 14px; margin-bottom: 4px; }
+.ff-line { margin: 0 0 10px; font-size: 15px; line-height: 1.7; min-height: 3.4em; }
+.ff-gift { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.ff-gift .ff-thumb { width: 64px; height: 64px; }
+.ff-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ===== 骨董屋 ===== */
+#shop .shop2 { min-height: clamp(150px, 25dvh, 280px); }
+.shop2.kotto { background: radial-gradient(ellipse at 25% 30%, #e8dcb8, #8a7448 55%, #2e2414); }
+.shop2.kotto img { object-position: 50% 0; }
+.shop2.kotto .shop2-bubble b { color: #6b5320; }
+.kt-clerk { display: flex; align-items: center; gap: 10px; flex: none; padding: 8px 12px; border-radius: 18px; background: linear-gradient(135deg, rgba(90, 70, 36, .9), rgba(30, 22, 12, .92)); border: 1px solid var(--line); }
+.kt-clerk img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: 50% 8%; border: 2px solid var(--kin); flex: none; cursor: pointer; background: #e8dcb8; }
+.kt-say { margin: 0; flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.6; color: #fff3dc; }
+.kt-say b { display: block; color: #ffd98a; font-size: 12px; }
+.kt-say.pop { animation: frPop .4s ease; }
+.kt-tabs { display: flex; gap: 4px; padding: 4px; flex: none; border-radius: 999px; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); }
+.kt-tabs button { flex: 1; border: 0; border-radius: 999px; padding: 8px 4px; background: none; color: #d9c7a5; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.kt-tabs button[aria-pressed=true] { background: linear-gradient(135deg, #8a6a2a, #e8c46e); color: #2a1a0a; }
+.kt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; flex: none; }
+.kt-card { cursor: pointer; font: inherit; color: var(--text); }
+.kt-card:active { transform: scale(.97); }
+.kt-av { width: 100%; height: 80px; display: grid; place-items: center; }
+.kt-av .av-thumb { width: 100%; height: 100%; object-fit: contain; }
+.kt-price { font-size: 12px; font-weight: 900; color: #ffd98a; }
+.kt-empty { grid-column: 1 / -1; color: var(--muted); font-size: 13px; text-align: center; padding: 20px 8px; }
+.kt-note { flex: none; margin: 0; color: var(--muted); font-size: 11.5px; text-align: center; }
+.ff-emoji { font-size: 48px; line-height: 1; }
+.ff-thumb .rm-swatch { width: 100%; height: 100%; }

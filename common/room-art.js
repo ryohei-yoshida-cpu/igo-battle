@@ -449,7 +449,7 @@
   }
 
   // 遊びに来たキャラ（顔の写真＋着物のからだ）
-  const CHARA_COLORS = { koharu: '#2f4f8a', gensai: '#4a6a8a', hinata: '#e58fb0', shima: '#6b5a4a', tomoe: '#8a2a2a', mike: '#d9a35a', tono: '#5a3a8a' };
+  const CHARA_COLORS = { koharu: '#2f4f8a', gensai: '#4a6a8a', hinata: '#e58fb0', shima: '#6b5a4a', tomoe: '#8a2a2a', mike: '#d9a35a', tono: '#5a3a8a', dgensai: '#2a1a3a' };
   // 遊びに来たキャラ：カットインの絵から切りぬいた立ち姿（img/visit_<key>.webp）。足もとはふわっと消えて、床の影に立つ
   function drawVisitor(v, faceUrl, key) {
     const [sx, sy] = proj(v.x + .5, v.y + .5, 0);

@@ -41,6 +41,7 @@ HAND_Y = float(np.median([r[0] for r in ref])); HAND_W = float(np.median([r[1] f
 print('hand y', HAND_Y, 'hand span', HAND_W)
 meta = {}
 HEADS = {}
+# h09 は place2.py のあと、さらに 0.95倍・左へ約50・上へ約50 ずらしてある（2026/11/14 手直し。作り直すときは注意）
 FIX = {'h09': (1.12, -22), 'h36': (1.06, -30, 16), 'h61': (1.08, -8)}   # 目で見て直したもの（大きさ、上下）
 for kind, srcs in SETS.items():
     i = 0; meta[kind] = []
