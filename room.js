@@ -198,11 +198,11 @@
     const shop = mode === 'shop' && !guest, own = !guest;
     $('#roomGuestBar').hidden = !guest;
     $('#roomShop').hidden = !shop;
-    $('#roomDock').hidden = !own || shop;
+    $('#roomDock').hidden = !own;
     $('#roomLower').hidden = shop || (own && mode === 'view' && !dockTab);
     $('#visitIcons').hidden = !own || mode !== 'view' || !!dockTab;
     if (!own || mode !== 'view' || dockTab) $('#visit').hidden = true;
-    document.querySelectorAll('#roomDock [data-dock]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dock === (mode === 'edit' ? 'edit' : dockTab))));
+    document.querySelectorAll('#roomDock [data-dock]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dock === (mode === 'edit' ? 'edit' : mode === 'shop' ? 'shop' : dockTab))));
     document.querySelectorAll('#roomTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
     $('#rmHouseAll').hidden = allRooms().length < 2;
     $('#roomTools').hidden = !(editing() && sel);
@@ -499,6 +499,7 @@
   $('#rmZoomOut').onclick = () => { setZoom(zoom.z / 1.5); P.sound('tap'); };
 
   function onDown(e) {
+    if (e.isPrimary) { ptrs.clear(); pinch = null; }   // 1本目の指：前の指の記録が残っていたら消す（つまむズームと間違えないように）
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 2) {   // 2本指：つまんでズーム
       if (drag) { Object.assign(drag.it, drag.orig); drag = null; render(); }
@@ -740,11 +741,12 @@
     const mine = A.VARIANTS[P.charaIdx()].key;
     return `<p class="rm-help">5勝すると遊びに来ます（自分のキャラは通算5勝、ほかのキャラはそのキャラに5勝）。「部屋に呼ぶ」で、いまの部屋に1人ずつ置けます。</p><div class="rm-guests">` +
       A.VARIANTS.map((v, i) => {
-        const n = v.key === mine ? (S.wins || 0) : (S.vs[v.key] || 0), ok = n >= 5 && P.charaOpen(i);
+        const n = v.key === mine ? (S.wins || 0) : (S.vs[v.key] || 0), open = P.charaOpen(i), ok = n >= 5 && open;
         const at = ok ? charaWhere(v.key) : -1, here = at === cur;
+        const need = !open ? `${P.RANKS[P.UNLOCK[v.key] || 0]}になると会えます` : `あと ${5 - n} 勝${v.key === mine ? '（通算）' : ''}`;
         const btn = !ok ? '' : here ? `<button type="button" class="btn lac small" data-uncall="${v.key}">帰ってもらう</button>` : `<button type="button" class="btn primary small" data-call="${v.key}">${at >= 0 ? 'この部屋へ呼ぶ' : '部屋に呼ぶ'}</button>`;
         const where = here ? `部屋${cur + 1}にいます` : at >= 0 ? `部屋${at + 1}にいます` : '遊びに来ます';
-        return `<div class="rm-guest ${ok ? 'ok' : ''}"><img src="${A.faceUri(i)}" alt=""><div><b>${v.name}</b><small>${ok ? where : `あと ${5 - n} 勝${v.key === mine ? '（通算）' : ''}`}</small></div>${btn}</div>`;
+        return `<div class="rm-guest ${ok ? 'ok' : ''}"><img src="${A.faceUri(i)}" alt=""><div><b>${v.name}</b><small>${ok ? where : need}</small></div>${btn}</div>`;
       }).join('') + '</div>';
   }
   // 交流：部屋番号・部屋をたずねる・最近の対局相手
@@ -770,7 +772,10 @@
       p.innerHTML = houseHtml() + `<div class="rm-edit-h"><b>倉庫</b><small>タップで部屋に置く・部屋の家具はドラッグで動かす</small><button type="button" class="btn primary small" data-dock="edit">もようがえを終わる</button></div>` +
         (ks.length ? `<div class="rm-grid-list">${ks.map(k => `<button type="button" class="rm-card" data-place="${k}">${thumb(k)}<b>${cat(k).name}</b><small>${invOf(k)}こ</small></button>`).join('')}</div>` : '<p class="rm-help">倉庫は空っぽです。ショップで家具を買いましょう。</p>');
     } else if (dockTab === 'chara') p.innerHTML = charaListHtml();
-    else if (dockTab === 'social') p.innerHTML = socialHtml();
+    else if (dockTab === 'social') {
+      p.innerHTML = socialHtml() + '<div class="rm-soc-card"><small>一言コメント（部屋に来た人から）</small><div id="rmChatBox"></div></div>';
+      if (P.online() && mySoc) SO.render('chat', ctx(), $('#rmChatBox')); else $('#rmChatBox').innerHTML = '<p class="rm-help">サーバーにつながっているときに見られます。</p>';
+    }
     else p.innerHTML = '';
     uiSync();
   }
@@ -893,6 +898,7 @@
 
   function onPanelClick(e) {
     if (guest) { SO.onClick(e, ctx()); return; }
+    if (dockTab === 'social' && e.target.closest('#rmChatBox') && SO.onClick(e, ctx())) return;
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.house) { onHouse(b.dataset.house); return; }
     if (b.dataset.dock) { dock(b.dataset.dock); return; }
@@ -905,6 +911,7 @@
   // 下の帯
   function dock(k) {
     if (guest) return;
+    if (mode === 'shop') { P.sound('tap'); leaveShop(k === 'shop' ? null : () => dock(k)); return; }   // ショップ中に帯を押したら、ショップを出てから
     if (k === 'shop') { if (mode === 'edit') setMode('view'); enterShop(); return; }
     if (k === 'edit') { dockTab = null; setMode(mode === 'edit' ? 'view' : 'edit'); P.sound('tap'); return; }
     if (mode === 'edit') setMode('view');
@@ -1007,6 +1014,7 @@
   s.addEventListener('pointermove', onMove);
   s.addEventListener('pointerup', onUp);
   s.addEventListener('pointercancel', onUp);
+  window.addEventListener('pointerup', e => { if (ptrs.has(e.pointerId) && e.target !== s && !s.contains(e.target)) { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; } });
   $('#roomPanel').addEventListener('click', onPanelClick);
   $('#roomTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.tab) { if (b.dataset.tab !== 'shop') { clearTrials(); render(); } tab = b.dataset.tab; renderPanel(); if (['diary', 'chat', 'social', 'owner'].includes(tab)) loadSocial(guest ? guest.pid : null); } });
   $('#rmRot').onclick = rotateSel;

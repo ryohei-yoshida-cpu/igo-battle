@@ -1519,7 +1519,6 @@ body.fx-shake #app { animation: fxShake .35s; }
 
 /* ===== マイルーム（作りなおし）：上に小さな題名 → 部屋 → キャラと吹き出し → キャラのアイコン → 下の帯 ===== */
 #myroom { gap: 8px; padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-#myroom.rm-shopping { padding-bottom: 0; }
 .room-bar { display: flex; align-items: center; gap: 8px; }
 .room-bar #roomBack { padding: 6px 12px; }
 .room-title { font-size: 13px; font-weight: 900; color: #fff3dc; letter-spacing: .06em; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -1599,3 +1598,8 @@ body.fx-shake #app { animation: fxShake .35s; }
 .rm-edit-h b { white-space: nowrap; }
 .rm-edit-h .btn { flex: none; white-space: nowrap; }
 .room-bar .room-title { font-size: 12px !important; font-weight: 800; color: var(--muted); letter-spacing: .08em; }
+
+/* キャラは部屋にかからず、下に立つ */
+#myroom .visit { margin-top: 0; min-height: 150px; }
+#myroom .visit-bubble { margin-top: 30px; }
+#myroom .visit-chara { bottom: 0; height: 170px; }

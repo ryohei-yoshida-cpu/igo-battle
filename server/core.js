@@ -568,6 +568,7 @@ function avRenew(r) {
 function ensureEcon(r) {
   // テスト用（2026/11/13）：部屋番号 561149 のアカウントに 20000銭を1回だけ（プレゼントボックスへ）
   if (r.owned && String(r.pid || '') === '561149' && !r.testGift1) { r.testGift1 = 1; addGift(r, 'test', 20000, 'テスト用のおくりもの', Date.now()); }
+  if (r.owned && String(r.pid || '') === '561149' && !r.testGift2) { r.testGift2 = 1; addGift(r, 'test', 50000, 'テスト用のおくりもの（2回目）', Date.now()); }
   // 2026/11/13 に無料→300銭になった4点：その時点で着ていた人には、そのまま持たせる
   if (!r.avG && r.owned && r.av) { r.owned.av = r.owned.av || []; for (const sl of ['head', 'body']) { const k = sl + ':' + r.av[sl]; if (['head:h00', 'head:h04', 'body:b01', 'body:b05'].includes(k) && !r.owned.av.includes(k)) r.owned.av.push(k); } }
   if (r.owned) r.avG = 1;
