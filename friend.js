@@ -1,4 +1,4 @@
-/* 九路 Blitz — 対人戦のえらびかた（ランダムマッチ／フレンドマッチ）と、フレンドマッチの部屋
+/* 囲碁BLITZ — 対人戦のえらびかた（ランダムマッチ／フレンドマッチ）と、フレンドマッチの部屋
  *   部屋をつくる：手合い（ハンデ）・黒を持つ人・持ち時間をえらぶ → 4けたの合言葉が出る
  *   部屋に入る　：友だちから聞いた合言葉を入れる → すぐ対局
  */
@@ -156,7 +156,7 @@
     P.sound('ok');
   }
   $('#frCopy').onclick = () => {
-    const code = $('#frCode').textContent, text = `九路 Blitz で一局打とう！ フレンドマッチの合言葉は「${code}」です。`;
+    const code = $('#frCode').textContent, text = `囲碁BLITZ で一局打とう！ フレンドマッチの合言葉は「${code}」です。`;
     const done = () => P.toast('合言葉をコピーしました。友だちに送ってね');
     try { navigator.clipboard.writeText(text).then(done, () => P.toast(`合言葉は ${code} です`)); } catch (e) { P.toast(`合言葉は ${code} です`); }
   };

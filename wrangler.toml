@@ -1,4 +1,4 @@
-# 九路 Blitz — Cloudflare Workers の設定（GitHub Actions が push のたびに自動で公開する）
+# 囲碁BLITZ — Cloudflare Workers の設定（GitHub Actions が push のたびに自動で公開する）
 name = "igo-battle"
 main = "server/worker.js"
 compatibility_date = "2025-01-01"

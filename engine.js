@@ -1,4 +1,4 @@
-/* 九路 Blitz — 囲碁エンジン（ルール判定 + モンテカルロ木探索bot）
+/* 囲碁BLITZ — 囲碁エンジン（ルール判定 + モンテカルロ木探索bot）
  * ブラウザ本体では <script> で読み込み、Web Worker ではそのまま実行される。 */
 (function (root) {
   'use strict';

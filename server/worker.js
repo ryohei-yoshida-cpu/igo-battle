@@ -1,4 +1,4 @@
-/* 九路 Blitz — Cloudflare Workers の入口
+/* 囲碁BLITZ — Cloudflare Workers の入口
  *   /ws      … 対人戦（WebSocket）。ひとつの Durable Object「Lobby」がマッチングと中継をする
  *   それ以外 … アプリのファイル（index.html など）をそのまま配る
  */

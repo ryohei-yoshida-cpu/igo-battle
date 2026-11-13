@@ -1,4 +1,4 @@
-/* 九路 Blitz — ソロモード（脚本を読む・ミッション・レクチャー） */
+/* 囲碁BLITZ — ソロモード（脚本を読む・ミッション・レクチャー） */
 (() => {
   'use strict';
   const P = window.APP, E = P.E, A = P.A, S = P.S;

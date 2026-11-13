@@ -1,4 +1,4 @@
-/* 九路 Blitz — 画面・対局進行・レート管理 */
+/* 囲碁BLITZ — 画面・対局進行・レート管理 */
 (() => {
   'use strict';
   const E9 = window.GoEngine;
@@ -1145,7 +1145,7 @@
   $('#acctShow').onclick = () => { NET.showPass = !NET.showPass; renderAccount(); };
   $('#acctCopy').onclick = () => {
     if (!S.acct) return;
-    const text = `九路 Blitz の引き継ぎ\nID：${fmtCode(S.acct.id)}\nパスワード：${fmtCode(S.acct.pass)}`;
+    const text = `囲碁BLITZ の引き継ぎ\nID：${fmtCode(S.acct.id)}\nパスワード：${fmtCode(S.acct.pass)}`;
     const ok = () => toast('IDとパスワードをコピーしました');
     try { navigator.clipboard.writeText(text).then(ok, () => toast('コピーできませんでした。画面を見てメモしてください')); } catch (e) { toast('コピーできませんでした。画面を見てメモしてください'); }
   };

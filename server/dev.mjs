@@ -61,4 +61,4 @@ server.on('upgrade', (req, socket) => {
   socket.on('close', bye); socket.on('error', bye);
 });
 
-server.listen(PORT, () => console.log(`九路 Blitz dev server: http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`囲碁BLITZ dev server: http://localhost:${PORT}`));

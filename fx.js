@@ -1,4 +1,4 @@
-/* 九路 Blitz — 演出（ハンコの大演出）・プレゼントボックス・BGM
+/* 囲碁BLITZ — 演出（ハンコの大演出）・プレゼントボックス・BGM
  *   FX.stamp({ stamp, title, sub, rewards[], chara, kind }) … 画面中央にハンコがとんできて押される
  *   GIFT.open() … プレゼントボックス（初回プレゼント・昇級のごほうび・ログインボーナス）
  *   BGM.start() / BGM.stop() … BGM（音楽：魔王魂）
