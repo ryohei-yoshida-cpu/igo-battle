@@ -849,11 +849,15 @@
     if (e.av) S.av = e.av;
     if (e.pid) S.pid = e.pid;
     if (layout === false && e.rooms2 && e.rooms2.length > (r.extra = r.extra || []).length) {   // 部屋を買った：新しい部屋だけ足す
-      for (const x of e.rooms2.slice(r.extra.length)) r.extra.push({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [] });
+      for (const x of e.rooms2.slice(r.extra.length)) r.extra.push({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [], at: x.at, n: x.n });
+    }
+    if (layout === false && e.room && r.items) {   // 部屋を広くした：大きさだけ合わせる
+      if (e.room.n) r.n = e.room.n;
+      (e.rooms2 || []).forEach((x, i) => { if (r.extra && r.extra[i] && x.n) r.extra[i].n = x.n; });
     }
     if (layout !== false && e.room) {
-      Object.assign(r, { floor: e.room.floor, wall: e.room.wall, items: e.room.items, walls: e.room.walls, g: e.room.g });
-      r.extra = (e.rooms2 || []).map(x => ({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [], av: x.av, g: x.g }));
+      Object.assign(r, { floor: e.room.floor, wall: e.room.wall, items: e.room.items, walls: e.room.walls, g: e.room.g, gp: e.room.gp, n: e.room.n });
+      r.extra = (e.rooms2 || []).map(x => ({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [], av: x.av, g: x.g, gp: x.gp, at: x.at, n: x.n }));
       r.seq = Math.max(r.seq || 1, ...r.items.concat(r.walls).concat(...r.extra.map(x => x.items.concat(x.walls))).map(i => (i.uid | 0) + 1));
     }
     saveLocal(); renderHome();
@@ -1390,7 +1394,8 @@
       if (what.item) r.ownedItems[what.item] = (r.ownedItems[what.item] || 0) + 1;
       else if (what.floor) r.owned.floors.push(what.floor);
       else if (what.wall) r.owned.walls.push(what.wall);
-      else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [] }); }
+      else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p: what.p | 0, d: what.d === 'y' ? 'y' : 'x' }, n: 12 }); }
+      else if (what.roomBig != null) { const rm = what.roomBig ? (r.extra || [])[what.roomBig - 1] : r; if (rm) rm.n = 17; }
       save(); cb({ ok: true });
     },
     // マイルームのつながり（日記・チャット・フレンドなど）。サーバーにつながっていないときは reason: 'offline'
@@ -1404,7 +1409,7 @@
     saveRoom() {
       saveLocal();
       const r = S.room;
-      const pack = x => ({ floor: x.floor, wall: x.wall, items: (x.items || []).filter(i => !i.trial), walls: (x.walls || []).filter(i => !i.trial), av: x.av, g: x.g });   // 試し置きは送らない
+      const pack = x => ({ floor: x.floor, wall: x.wall, items: (x.items || []).filter(i => !i.trial), walls: (x.walls || []).filter(i => !i.trial), av: x.av, g: x.g, gp: x.gp });   // 試し置きは送らない
       if (econOn()) netSend({ t: 'room', room: pack(r), rooms2: (r.extra || []).map(pack) });
     },
     // マイルームに来たキャラと一局（レート対局）

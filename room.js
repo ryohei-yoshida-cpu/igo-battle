@@ -7,7 +7,7 @@
 (function () {
   const P = window.APP, A = P.A, S = P.S, R = window.ROOMART, LINES = window.ROOM_LINES || {}, AV = window.AVATAR, SO = window.SOCIAL;
   const $ = s => document.querySelector(s);
-  const N = R.N;
+  let N = R.N;   // いま操作している部屋の広さ（12、広くした部屋は17）
 
   /* ---------- データ ---------- */
   // ほかの人の部屋をたずねているときは guest に、その部屋の情報が入る（見るだけ）
@@ -23,12 +23,20 @@
   }
   function allRooms() { if (guest) return guestRooms(); const b = base(); return [b].concat(b.extra); }
   function room() {
-    if (guest) { const list = guestRooms(); if (cur >= list.length) cur = 0; return list[cur]; }
-    const b = base();
-    if (cur > b.extra.length) cur = 0;
-    if (!cur) return b;
-    const x = b.extra[cur - 1]; x.items = x.items || []; x.walls = x.walls || []; return x;
+    let r;
+    if (guest) { const list = guestRooms(); if (cur >= list.length) cur = 0; r = list[cur]; }
+    else {
+      const b = base();
+      if (cur > b.extra.length) cur = 0;
+      if (!cur) r = b; else { r = b.extra[cur - 1]; r.items = r.items || []; r.walls = r.walls || []; }
+    }
+    N = r.n || R.N;
+    return r;
   }
+  // 家の中での部屋の位置（画面のずれ）と、低くする壁（つながっている側）
+  const houseOf = () => { const list = allRooms(); return { list, L: R.layout(list) }; };
+  const offOf = p => [(p.x - p.y) * R.TW / 2, (p.x + p.y) * R.TH / 2];
+  function cutOf(i, list) { if (!i) return {}; const at = list[i].at || R.defAt(i); return at.d === 'y' ? { R: true } : { L: true }; }
   // 持ち物（家具の数・床・壁紙）や番号は、はじめの部屋にまとめて持つ
   function base() {
     if (!S.room) {
@@ -81,6 +89,7 @@
   // 壁の家具の幅と高さ（大きさの倍率つき）
   const wallBox = it => { const c = cat(it.k), s = R.wallScale(it); return { w: Math.max(1, Math.ceil(c.w * s - 1e-9)), v: c.v, h: c.h * s }; };
   function canPlaceWall(it, side, u) {
+    if (cutOf(cur, allRooms())[side]) return false;   // 低い壁（廊下の側）には、かけられない
     const b = wallBox(it);
     if (u < 0 || u + b.w > N || b.v + b.h > R.WH + 1e-9) return false;
     for (const o of room().walls) {
@@ -112,9 +121,39 @@
     }
     return out;
   }
+  // ほかの部屋（見るだけ）：床・壁・家具・呼んだキャラ
+  function drawRoomStatic(rm, i, list, hall) {
+    const n = rm.n || R.N, cut = cutOf(i, list);
+    let s = R.drawWalls(rm.wall || 'plain', n, cut) + R.drawFloor(rm.floor || 'wood', n);
+    if (hall) s += R.drawDoor(hall.d === 'y' ? 'R' : 'L', hall.u0, hall.u1);
+    for (const w of rm.walls || []) if (cat(w.k) && !w.trial) s += R.drawWallItem(w, {});
+    const items = (rm.items || []).filter(it => cat(it.k) && !it.trial);
+    for (const it of items.filter(it => cat(it.k).kind === 'flat')) s += R.drawFloorItem(it);
+    const ents = items.filter(it => cat(it.k).kind !== 'flat').map(it => Object.assign(rectOf(it), { it }));
+    const ck = rm.g && (guest || charaKeys().has(rm.g)) ? rm.g : null;
+    if (ck) { const sp = charaSpot(Object.assign({}, rm, { items }), null); if (sp) ents.push({ x: sp.x, y: sp.y, w: 1, d: 1, ch: ck }); }
+    for (const e of drawOrder(ents)) s += e.it ? R.drawFloorItem(e.it) : drawChara(e.ch, e.x, e.y, false);
+    return s;
+  }
   function render() {
-    const r = room();
-    let s = R.DEFS + R.drawWalls(r.wall) + R.drawFloor(r.floor);
+    const r = room(), H = houseOf(), multi = H.list.length > 1;
+    const hallTo = i => H.L.halls.find(h => h.i === i);
+    const myOff = offOf(H.L.pos[cur]);
+    let back = '', front = '';
+    // 家のほかの部屋と廊下：奥にあるものから順に
+    const parts = H.list.map((rm, i) => ({ i, k: H.L.pos[i].x + H.L.pos[i].y })).concat(H.L.halls.map(h => ({ h, k: h.x0 + h.y0 + .5 }))).sort((a, b) => a.k - b.k);
+    const myK = H.L.pos[cur].x + H.L.pos[cur].y;
+    for (const pt of parts) {
+      let g;
+      if (pt.h) g = `<g class="rm-hallg">${R.drawHall(pt.h.x0, pt.h.y0, pt.h.x1, pt.h.y1)}</g>`;
+      else if (pt.i === cur) continue;
+      else { const o = offOf(H.L.pos[pt.i]), rm = H.list[pt.i], n = rm.n || R.N, top = R.proj(n / 2, n / 2, 0);
+        g = `<g class="rm-other" data-room="${pt.i}" transform="translate(${o[0]} ${o[1]})">${drawRoomStatic(rm, pt.i, H.list, hallTo(pt.i))}<text x="${top[0]}" y="${top[1]}" class="rm-room-label">部屋${pt.i + 1}</text></g>`; }
+      if (pt.k < myK) back += g; else front += g;
+    }
+    const cutMe = cutOf(cur, H.list), hallMe = hallTo(cur);
+    let s = R.DEFS + back + `<g id="rmActive" transform="translate(${myOff[0]} ${myOff[1]})">` + R.drawWalls(r.wall, N, cutMe) + R.drawFloor(r.floor, N);
+    if (hallMe) s += R.drawDoor(hallMe.d === 'y' ? 'R' : 'L', hallMe.u0, hallMe.u1);
     if (mode === 'edit') {   // マス目
       for (let i = 0; i <= N; i++) {
         const a = R.proj(i, 0, 0), b = R.proj(i, N, 0), c = R.proj(0, i, 0), d = R.proj(N, i, 0);
@@ -139,8 +178,11 @@
       else if (e.av) s += drawOwner(e);
       else s += drawChara(e.ch, e.x, e.y, true);
     }
+    if (multi) { const top = R.proj(N / 2, N / 2, 0); s += `<text x="${top[0]}" y="${top[1]}" class="rm-room-label on">部屋${cur + 1}</text>`; }
+    s += '</g>' + front;
     $('#roomSvg').innerHTML = s;
-    strip(); navBtns();
+    houseBar();
+    if (viewKey !== cur + ':' + N + ':' + H.list.length) { viewKey = cur + ':' + N + ':' + H.list.length; setZoom(zoom.z < 1 ? zoom.z : 1, null, null, true); }
     $('#roomZeni').textContent = guest ? `部屋番号 ${guest.pid}` : `${S.zeni.toLocaleString()} 銭`;
     $('#roomTitle').textContent = guest ? `${guest.name}さんの部屋` : 'マイルーム';
     const info = guest || mySoc;
@@ -213,75 +255,78 @@
   }
   function sendHome(key) { for (const rm of allRooms()) if (rm.g === key) { delete rm.g; delete rm.gp; } touch(); flush(); P.sound('tap'); render(); renderPanel(); }
 
-  /* ---------- 廊下でつながった部屋（横にスクロール。タップでその部屋を操作） ---------- */
-  let stripKey = '';
-  function strip() {
-    const list = allRooms(), host = $('#roomStrip'), svgEl = $('#roomSvg');
-    const canAdd = !guest && mode !== 'edit' && list.length < ROOM_MAX;
-    const key = [guest ? 'g' + guest.pid : 'me', list.length, cur, mode, canAdd].join(':');
-    if (key === stripKey && host.contains(svgEl)) return;
-    stripKey = key;
-    svgEl.remove();
-    let h = '';
-    list.forEach((rm, i) => {
-      if (i) h += '<div class="rm-hall" aria-hidden="true"><i></i><span>廊下</span></div>';
-      h += `<div class="rm-cell${i === cur ? ' on' : ''}" data-cell="${i}">${list.length > 1 ? `<b class="rm-cell-name">部屋${i + 1}${i === cur ? '' : ''}</b>` : ''}` +
-        (i === cur ? '' : `<button type="button" class="rm-cell-pick" data-pick="${i}" aria-label="部屋${i + 1}へ">${miniOf(rm, null, rm.g && (guest || charaKeys().has(rm.g)) ? rm.g : null)}<span>タップでこの部屋へ</span></button>`) + '</div>';
-    });
-    if (canAdd) h += `<div class="rm-hall" aria-hidden="true"><i></i><span>廊下</span></div><div class="rm-cell rm-add"><button type="button" id="rmAddRoom"><b>＋ 部屋を増やす</b><small>${ROOM_PRICE.toLocaleString()} 銭・廊下でつながります</small></button></div>`;
-    host.innerHTML = h;
-    host.querySelector(`.rm-cell[data-cell="${cur}"]`).prepend(svgEl);
-    host.classList.toggle('multi', list.length > 1 || canAdd);
-    centerCell(false);   // 作りなおしたら、いまの部屋をまんなかに（もようがえ中も動かない）
-    navBtns();
+  /* ---------- 家：部屋どうしは廊下と扉でつながる。部屋をタップすると、その部屋を操作（まんなかへ） ---------- */
+  let viewKey = '';
+  function pickRoom(i, quiet) {
+    if (i === cur) { focusRoom(); return; }
+    clearTrials(); sel = null; drag = null; addMode = false;
+    cur = i; room();
+    if (!quiet) P.sound('stone');
+    viewKey = 'x'; render(); renderPanel(); showVisit(); focusRoom();
   }
-  // 左右のボタンで、となりの部屋へ（部屋の中を指でなぞっても、横には動かない）
-  function navBtns() {
-    const n = allRooms().length, canAdd = !guest && n < ROOM_MAX, show = mode !== 'edit' && !(sel && sel.trial);
-    const pv = $('#rmPrev'), nx = $('#rmNext');
-    pv.hidden = !show || cur <= 0; pv.textContent = `◀ 部屋${cur}`;
-    nx.hidden = !show || (cur >= n - 1 && !canAdd);
-    nx.textContent = cur < n - 1 ? `部屋${cur + 2} ▶` : '＋部屋 ▶';
+  const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_PRICE = 20000, BIG_N = 17;
+  let addMode = false;
+  // 家のメニュー（家ぜんたい・部屋を増やす・広くする）
+  function houseBar() {
+    const bar = $('#roomHouse'); if (!bar) return;
+    const H = houseOf(), multi = H.list.length > 1, r = room();
+    if (mode === 'edit' || (sel && sel.trial)) { bar.hidden = true; return; }
+    bar.hidden = false;
+    let h = `<span class="rh-name">${multi ? `部屋${cur + 1}` : 'この部屋'}${N >= BIG_N ? '（広い）' : ''}</span>`;
+    if (multi) h += `<button type="button" class="btn lac small" data-house="all">家ぜんたい</button>`;
+    if (!guest) {
+      if (addMode) {
+        const okX = R.canAttach(H.list, cur, 'x', 12), okY = R.canAttach(H.list, cur, 'y', 12);
+        h += `<button type="button" class="btn primary small" data-house="add-y" ${okY ? '' : 'disabled'}>↙ 左下につなぐ</button><button type="button" class="btn primary small" data-house="add-x" ${okX ? '' : 'disabled'}>右下につなぐ ↘</button><button type="button" class="btn lac small" data-house="cancel">やめる</button>`;
+      } else {
+        if (H.list.length < ROOM_MAX) h += `<button type="button" class="btn lac small" data-house="add">＋部屋を増やす</button>`;
+        if (N < BIG_N) h += `<button type="button" class="btn lac small" data-house="big">広くする</button>`;
+      }
+    }
+    bar.innerHTML = h;
   }
-  $('#rmPrev').onclick = () => { if (cur > 0) pickRoom(cur - 1); };
-  $('#rmNext').onclick = () => {
-    if (cur < allRooms().length - 1) { pickRoom(cur + 1); return; }
-    const host = $('#roomStrip'), add = host.querySelector('.rm-add'); if (!add) return;
-    P.sound('tap'); host.scrollTo({ left: add.offsetLeft - (host.clientWidth - add.clientWidth) / 2, behavior: 'smooth' });
-    $('#rmNext').hidden = true; $('#rmPrev').hidden = false; $('#rmPrev').textContent = `◀ 部屋${cur + 1}`; backToCur = true;
-  };
-  let backToCur = false;
-  const prevClick = $('#rmPrev').onclick;
-  $('#rmPrev').onclick = () => { if (backToCur) { backToCur = false; centerCell(true); navBtns(); P.sound('tap'); return; } prevClick(); };
-  function centerCell(smooth) {
-    const host = $('#roomStrip'), cell = host.querySelector('.rm-cell.on'); if (!cell) return;
-    const left = cell.offsetLeft - (host.clientWidth - cell.clientWidth) / 2;
-    host.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
-  }
-  function pickRoom(i) {
-    if (i === cur) return;
-    clearTrials(); sel = null; drag = null;
-    cur = i; setZoom(1);
-    P.sound('stone');
-    stripKey = ''; render(); renderPanel(); centerCell(true); showVisit();
-  }
-  const ROOM_MAX = 6, ROOM_PRICE = 10000;
-  function buyRoom() {
+  function buyRoom(d) {
     if ((S.zeni || 0) < ROOM_PRICE) { P.toast(`部屋を増やすには ${ROOM_PRICE.toLocaleString()} 銭いります`); return; }
-    P.confirmBox(`${ROOM_PRICE.toLocaleString()} 銭で部屋を1つ増やしますか？（廊下でつながります）`, () => {
+    const from = cur;
+    P.confirmBox(`${ROOM_PRICE.toLocaleString()} 銭で、部屋${from + 1}の${d === 'y' ? '左下' : '右下'}に廊下をのばして、部屋を増やしますか？`, () => {
       flush();
-      P.buy({ roomAdd: 1 }, ROOM_PRICE, res => {
-        if (!res.ok) { P.toast(res.reason === 'max' ? '部屋はこれ以上増やせません' : (BUY_NG[res.reason] || '買えませんでした')); return; }
-        P.sound('ok');
+      P.buy({ roomAdd: 1, p: from, d }, ROOM_PRICE, res => {
+        if (!res.ok) { P.toast(res.reason === 'max' ? '部屋はこれ以上増やせません' : res.reason === 'used' ? 'その向きには、もう部屋があります' : (BUY_NG[res.reason] || '買えませんでした')); return; }
+        P.sound('ok'); addMode = false;
         const n = base().extra.length;
-        stripKey = ''; cur = n; sel = null; setZoom(1); render(); renderPanel(); centerCell(true);
+        pickRoom(n, true);
         P.toast(`部屋${n + 1}ができました！ もようがえしてみましょう`);
       });
     });
   }
-  $('#roomStrip').addEventListener('click', e => {
-    const b = e.target.closest('[data-pick]'); if (b) { pickRoom(+b.dataset.pick); return; }
-    if (e.target.closest('#rmAddRoom')) buyRoom();
+  function bigRoom() {
+    const H = houseOf(), test = H.list.map((x, i) => i === cur ? Object.assign({}, x, { n: BIG_N }) : x);
+    if (!houseFits(test)) { P.toast('となりの部屋とぶつかるので、この部屋は広くできません'); return; }
+    if ((S.zeni || 0) < BIG_PRICE) { P.toast(`広くするには ${BIG_PRICE.toLocaleString()} 銭いります`); return; }
+    P.confirmBox(`${BIG_PRICE.toLocaleString()} 銭で、部屋${cur + 1}を広くしますか？（12×12マス → 17×17マス。広さはおよそ2倍）`, () => {
+      flush();
+      P.buy({ roomBig: cur }, BIG_PRICE, res => {
+        if (!res.ok) { P.toast(BUY_NG[res.reason] || '広くできませんでした'); return; }
+        room().n = BIG_N; P.sound('ok'); viewKey = 'x'; render(); P.toast('部屋が広くなりました！');
+      });
+    });
+  }
+  // 家の中で、部屋と廊下が重なっていないか
+  function houseFits(list) {
+    const L = R.layout(list), rs = L.pos.map((p, i) => ({ x0: p.x, y0: p.y, x1: p.x + (list[i].n || R.N), y1: p.y + (list[i].n || R.N) }));
+    const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    for (let a = 0; a < rs.length; a++) for (let b = a + 1; b < rs.length; b++) if (hit(rs[a], rs[b])) return false;
+    for (const h of L.halls) rs.forEach((q, k) => { if (k !== h.i && k !== h.p && hit(h, q)) rs.bad = true; });
+    return !rs.bad;
+  }
+  $('#roomHouse').addEventListener('click', e => {
+    const b = e.target.closest('[data-house]'); if (!b) return;
+    const a = b.dataset.house;
+    if (a === 'all') { P.sound('tap'); showAll(); return; }
+    if (a === 'add') { addMode = true; P.sound('tap'); houseBar(); return; }
+    if (a === 'cancel') { addMode = false; houseBar(); return; }
+    if (a === 'add-x' || a === 'add-y') { buyRoom(a === 'add-y' ? 'y' : 'x'); return; }
+    if (a === 'big') bigRoom();
   });
 
   function avFree(x, y) {
@@ -401,7 +446,9 @@
   const svg = () => $('#roomSvg');
   function svgPoint(e) {
     const s = svg(), pt = s.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
-    const q = pt.matrixTransform(s.getScreenCTM().inverse()); return [q.x, q.y];
+    const q = pt.matrixTransform(s.getScreenCTM().inverse());
+    const o = offOf(R.layout(allRooms()).pos[cur] || { x: 0, y: 0 });
+    return [q.x - o[0], q.y - o[1]];   // いまの部屋の中の座標
   }
   function findItem(e) {
     const g = e.target.closest && e.target.closest('[data-uid]'); if (!g) return null;
@@ -409,18 +456,43 @@
     return r.items.find(i => i.uid === uid) || r.walls.find(i => i.uid === uid) || null;
   }
   /* ---------- ズーム（＋・－ボタン、2本指でつまむ、大きいときはドラッグで見る場所を動かす） ---------- */
-  const zoom = { z: 1, cx: R.W / 2, cy: R.H / 2 }, ptrs = new Map();
+  const ASP = R.W / R.H, zoom = { z: 1, cx: R.W / 2, cy: R.H / 2 }, ptrs = new Map();
   let pan = null, pinch = null;
-  function setZoom(z, cx, cy) {
-    zoom.z = Math.max(1, Math.min(3, z));
-    const vw = R.W / zoom.z, vh = R.H / zoom.z;
-    const x = Math.max(0, Math.min(R.W - vw, (cx != null ? cx : zoom.cx) - vw / 2)), y = Math.max(0, Math.min(R.H - vh, (cy != null ? cy : zoom.cy) - vh / 2));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function activeBox() { const o = offOf(R.layout(allRooms()).pos[cur] || { x: 0, y: 0 }), b = R.roomBox(N); return { x: b.x + o[0], y: b.y + o[1], w: b.w, h: b.h }; }
+  function houseBox() {
+    const list = allRooms(), L = R.layout(list); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    list.forEach((rm, i) => { const o = offOf(L.pos[i]), b = R.roomBox(rm.n || R.N); x0 = Math.min(x0, b.x + o[0]); y0 = Math.min(y0, b.y + o[1]); x1 = Math.max(x1, b.x + o[0] + b.w); y1 = Math.max(y1, b.y + o[1] + b.h); });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  const baseW = () => { const b = activeBox(); return Math.max(b.w, b.h * ASP); };
+  const zMin = () => { const hb = houseBox(); return Math.min(1, baseW() / Math.max(hb.w, hb.h * ASP)); };
+  // z：1 = いまの部屋がちょうど入る大きさ。1より小さいと家ぜんたいが見える。center=true なら、いまの部屋をまんなかに
+  function setZoom(z, cx, cy, center) {
+    if (center) { const ab = activeBox(); cx = ab.x + ab.w / 2; cy = ab.y + ab.h / 2; }
+    const zm = zMin();
+    zoom.z = clamp(z, zm, 3);
+    const vw = baseW() / zoom.z, vh = vw / ASP, hb = houseBox();
+    let x = (cx != null ? cx : zoom.cx) - vw / 2, y = (cy != null ? cy : zoom.cy) - vh / 2;
+    x = vw >= hb.w ? hb.x + (hb.w - vw) / 2 : clamp(x, hb.x, hb.x + hb.w - vw);
+    y = vh >= hb.h ? hb.y + (hb.h - vh) / 2 : clamp(y, hb.y, hb.y + hb.h - vh);
     zoom.cx = x + vw / 2; zoom.cy = y + vh / 2;
     svg().setAttribute('viewBox', `${x.toFixed(1)} ${y.toFixed(1)} ${vw.toFixed(1)} ${vh.toFixed(1)}`);
-    $('#roomStage').classList.toggle('zoomed', zoom.z > 1.01);
-    $('#rmZoomOut').disabled = zoom.z <= 1.01; $('#rmZoomIn').disabled = zoom.z >= 2.99;
+    $('#roomStage').classList.toggle('zoomed', Math.abs(zoom.z - 1) > .01);
+    $('#rmZoomOut').disabled = zoom.z <= zm + .01; $('#rmZoomIn').disabled = zoom.z >= 2.99;
   }
-  const unitsPerPx = () => (R.W / zoom.z) / svg().getBoundingClientRect().width;
+  // なめらかに動かす（部屋をえらんだとき・家ぜんたい）
+  let animT = 0;
+  function animTo(z, cx, cy) {
+    cancelAnimationFrame(animT);
+    const z0 = zoom.z, x0 = zoom.cx, y0 = zoom.cy, t0 = performance.now(), dur = 380;
+    const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); setZoom(z0 + (z - z0) * e, x0 + (cx - x0) * e, y0 + (cy - y0) * e); if (k < 1) animT = requestAnimationFrame(step); };
+    animT = requestAnimationFrame(step);
+  }
+  function focusRoom() { const ab = activeBox(); animTo(1, ab.x + ab.w / 2, ab.y + ab.h / 2); }
+  function showAll() { const hb = houseBox(); animTo(zMin(), hb.x + hb.w / 2, hb.y + hb.h / 2); }
+  const zoomedNow = () => Math.abs(zoom.z - 1) > .01;
+  const unitsPerPx = () => (baseW() / zoom.z) / svg().getBoundingClientRect().width;
   function startPan(e) { pan = { x: e.clientX, y: e.clientY, cx: zoom.cx, cy: zoom.cy }; try { svg().setPointerCapture(e.pointerId); } catch (err) {} }
   $('#rmZoomIn').onclick = () => { setZoom(zoom.z * 1.5); P.sound('tap'); };
   $('#rmZoomOut').onclick = () => { setZoom(zoom.z / 1.5); P.sound('tap'); };
@@ -434,11 +506,13 @@
     }
     const chEl = e.target.closest && e.target.closest('.rm-chara');
     const onThing = findItem(e) || (e.target.closest && e.target.closest('.rm-owner')) || chEl;
-    if (zoom.z > 1.01 && (!onThing || (mode === 'view' && guest))) { if (mode === 'edit' && sel) { sel = null; render(); } startPan(e); return; }
+    const otherRoom = e.target.closest && e.target.closest('[data-room]');
+    if (zoomedNow() && (!onThing || otherRoom || (mode === 'view' && guest))) { if (mode === 'edit' && sel) { sel = null; render(); } tapCand = mode === 'view' || otherRoom ? { x: e.clientX, y: e.clientY, room: otherRoom ? +otherRoom.dataset.room : null } : null; startPan(e); return; }
+    if (otherRoom) { tapCand = { x: e.clientX, y: e.clientY, room: +otherRoom.dataset.room }; return; }
     const tr = mode === 'view' && findItem(e);
     if (mode === 'view' && !(tr && tr.trial)) {
       // 見るとき：指をはなしたときに「タップ」として動かす（横にスクロールしたときは動かさない）
-      tapCand = { x: e.clientX, y: e.clientY, it: findItem(e), ch: chEl ? chEl.dataset.chara : null };
+      tapCand = { x: e.clientX, y: e.clientY, it: findItem(e), ch: chEl ? chEl.dataset.chara : null, room: null };
       return;
     }
     if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
@@ -498,6 +572,7 @@
   // タップしたとき（見るとき）：家具が動く・キャラとおしゃべり・碁盤で対局
   let tapCand = null;
   function onTap(t) {
+    if (t.room != null) { pickRoom(t.room); return; }
     if (t.ch) { const v = guests.find(g => g.key === t.ch) || (guest ? { key: t.ch, idx: A.VARIANTS.findIndex(x => x.key === t.ch), name: (A.VARIANTS.find(x => x.key === t.ch) || {}).name } : null); if (v) { if (guest) { fx(null, t.ch); P.sound('tap'); } else { talk(v); fx(null, t.ch); } } return; }
     const it = t.it;
     if (sel && sel.trial && it !== sel) { sel = null; render(); }
@@ -530,7 +605,7 @@
     setTimeout(() => g.classList.remove('fx-' + kind), 1300);
   }
   function onUp(e) {
-    if (e && e.type === 'pointerup' && tapCand && ptrs.size <= 1 && Math.hypot(e.clientX - tapCand.x, e.clientY - tapCand.y) < 10) { const t = tapCand; tapCand = null; ptrs.delete(e.pointerId); onTap(t); return; }
+    if (e && e.type === 'pointerup' && tapCand && ptrs.size <= 1 && Math.hypot(e.clientX - tapCand.x, e.clientY - tapCand.y) < 10) { const t = tapCand; tapCand = null; pan = null; ptrs.delete(e.pointerId); onTap(t); return; }
     tapCand = null;
     if (e) ptrs.delete(e.pointerId);
     if (ptrs.size < 2) pinch = null;
@@ -774,14 +849,14 @@
   function open(startTab, back) {
     if (typeof startTab !== 'string') startTab = null;
     roomFrom = back || null;
-    guest = null; stripKey = '';
+    guest = null; viewKey = '';
     room(); clearTrials();
     tab = startTab || 'inv'; mode = 'view'; sel = null;
     P.showScreen('myroom');
     setMode('view');
     renderPanel();
     loadSocial(null);
-    setZoom(1);
+    setZoom(1, null, null, true);
     if (tab === 'shop') { shima('hello'); setTimeout(() => $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60 }), 50); }
   }
   // 交流の情報を読みこむ（自分の部屋なら「自分の情報」と「自分の部屋」、ほかの部屋ならその部屋）
@@ -798,7 +873,7 @@
       P.soc('visit', { pid }, res => {
         if (!res.ok) { P.toast(SO.why(res)); if (res.reason === 'blocked') goHome(); return; }
         if (res.mine) { goHome(); return; }
-        guest = res; cur = 0; stripKey = ''; render(); renderPanel();
+        guest = res; cur = 0; viewKey = ''; render(); renderPanel();
       });
     }
   }
@@ -813,18 +888,19 @@
     P.soc('visit', { pid }, res => {
       if (!res.ok) { P.toast(SO.why(res)); return; }
       if (res.mine) { goHome(); return; }
-      guest = res; cur = 0; stripKey = ''; tab = 'diary'; sel = null; mode = 'view'; setZoom(1);
+      guest = res; cur = 0; viewKey = ''; tab = 'diary'; sel = null; mode = 'view'; setZoom(1, null, null, true);
       if (window.TICKER) setTimeout(window.TICKER.draw, 0);
       P.showScreen('myroom'); showVisit();
       render(); renderPanel(); P.sound('stone');
     });
   }
-  function goHome() { guest = null; cur = 0; stripKey = ''; setTimeout(showVisit, 0); if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
+  function goHome() { guest = null; cur = 0; viewKey = ''; setTimeout(showVisit, 0); if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
   // えらぶ画面に出す、小さな自分の部屋。miniOf はほかの人の部屋（フレンド・探訪）も、持ち主のアバターつきで描く
   function mini() { return miniOf(room(), null); }
   function miniOf(rm, look, chara) {
     rm = rm || DEF_ROOM();
-    let s = R.DEFS + R.drawWalls(rm.wall || 'plain') + R.drawFloor(rm.floor || 'wood');
+    const n = rm.n || R.N, bx = R.roomBox(n);
+    let s = R.DEFS + R.drawWalls(rm.wall || 'plain', n) + R.drawFloor(rm.floor || 'wood', n);
     for (const w of rm.walls || []) if (cat(w.k) && !w.trial) s += R.drawWallItem(w, {});
     const items = (rm.items || []).filter(it => cat(it.k) && !it.trial);
     const ents = items.map(it => Object.assign(rectOf(it), { it }));
@@ -840,7 +916,8 @@
       else if (e.ch) s += drawChara(e.ch, e.x, e.y, false);
       else { const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 80, h = w * AV.H / AV.W; s += `<ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h * .955}" width="${w}" height="${h}" viewBox="${AV.VB}">${AV.inner(e.look)}</svg>`; }
     }
-    return `<svg viewBox="0 0 ${R.W} ${R.H}" aria-hidden="true">${s}</svg>`;
+    const vw = Math.max(bx.w, bx.h * R.W / R.H), vh = vw * R.H / R.W;
+    return `<svg viewBox="${(bx.x + bx.w / 2 - vw / 2).toFixed(1)} ${(bx.y + bx.h / 2 - vh / 2).toFixed(1)} ${vw.toFixed(1)} ${vh.toFixed(1)}" aria-hidden="true">${s}</svg>`;
   }
 
   // つなぐ
@@ -867,7 +944,7 @@
   };
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
   $('#openRoom').onclick = open;
-  s.setAttribute('viewBox', `0 0 ${R.W} ${R.H}`);
+  s.setAttribute('viewBox', `0 0 ${R.W} ${R.H}`); s.style.aspectRatio = `${R.W} / ${R.H}`;
   s.addEventListener('wheel', e => { if (!e.ctrlKey && Math.abs(e.deltaY) < 1) return; e.preventDefault(); setZoom(zoom.z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
 
   // サーバーから銭・持ち物・部屋が届いたとき（もようがえ中は配置を上書きしない）

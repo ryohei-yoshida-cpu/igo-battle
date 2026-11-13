@@ -1486,3 +1486,12 @@ body.fx-shake #app { animation: fxShake .35s; }
 .rm-nav { position: absolute; top: 50%; z-index: 3; transform: translateY(-50%); font: inherit; font-size: 12px; font-weight: 700; color: #fff3dc; background: rgba(0, 0, 0, .55); border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; cursor: pointer; }
 .rm-nav.prev { left: 6px; }
 .rm-nav.next { right: 6px; }
+
+/* 家（部屋どうしを廊下と扉でつなぐ） */
+.room-house { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.room-house .rh-name { font-weight: 900; color: #fff3dc; font-size: 13px; margin-right: auto; padding: 0 4px; }
+.room-house .btn[disabled] { opacity: .4; }
+#roomSvg .rm-other { cursor: pointer; }
+#roomSvg .rm-other:hover { filter: brightness(1.06); }
+.rm-room-label { font-size: 11px; font-weight: 900; fill: #fff3dc; paint-order: stroke; stroke: rgba(40, 24, 10, .75); stroke-width: 3px; text-anchor: middle; pointer-events: none; }
+.rm-room-label.on { fill: #ffd98a; }

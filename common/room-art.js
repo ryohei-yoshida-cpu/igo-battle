@@ -277,7 +277,7 @@
   const CLOAK = new Set(['tansu', 'ikou', 'closet', 'rack', 'mirror', 'dresser']);
   for (const c of CATALOG) if (CLOAK.has(c.id)) { c.cloak = true; c.note = c.note || '置くと、お気に入りセットが2つふえる'; }
   // 絵で描いた家具（img/room/<id>.webp、つくものは <id>_on.webp）。[横, 縦] ピクセル
-  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[679,555],"bookshelf":[195,192],"chabudai":[291,172],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"kakejiku":[106,195],"plant":[308,355],"sofa":[589,473],"tv":[432,417],"tv_on":[432,417],"window":[263,175],"zabuton":[253,130]};
+  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[679,555],"bookshelf":[485,567],"chabudai":[556,517],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"goban":[573,410],"kakejiku":[106,195],"plant":[308,355],"sofa":[589,473],"tv":[432,417],"tv_on":[432,417],"window":[263,175],"zabuton":[507,313]};
   for (const c of CATALOG) if (IMG[c.id]) {
     c.img = true;
     if (c.kind === 'wall') { const [iw, ih] = IMG[c.id]; c.h = Math.round(c.w * ih / iw * 100) / 100; }   // 壁の家具は絵の縦横の比にあわせる
@@ -298,9 +298,10 @@
     stripe: { name: 'ストライプ', style: 'yo', price: 400 }
   };
 
-  function drawFloor(type) {
+  function drawFloor(type, n) {
+    n = n || N;
     let s = '';
-    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) {
       let c;
       if (type === 'tatami') c = ((Math.floor(x / 2) + y) % 2 ? '#cfc58a' : '#c6bc7e');
       else if (type === 'tile') c = (x + y) % 2 ? '#c9b48e' : '#8f3a2c';
@@ -308,32 +309,92 @@
       const q = [proj(x, y, 0), proj(x + 1, y, 0), proj(x + 1, y + 1, 0), proj(x, y + 1, 0)];
       s += `<polygon points="${P(q)}" fill="${c}"/>`;
     }
-    if (type === 'tatami') for (let x = 0; x <= N; x += 2) s += `<line x1="${proj(x, 0, 0)[0]}" y1="${proj(x, 0, 0)[1]}" x2="${proj(x, N, 0)[0]}" y2="${proj(x, N, 0)[1]}" stroke="#4a3a20" stroke-width="1.2"/>`;
-    if (type === 'wood') for (let y = 0; y <= N; y++) s += `<line x1="${proj(0, y, 0)[0]}" y1="${proj(0, y, 0)[1]}" x2="${proj(N, y, 0)[0]}" y2="${proj(N, y, 0)[1]}" stroke="#8c6238" stroke-width=".6"/>`;
+    if (type === 'tatami') for (let x = 0; x <= n; x += 2) s += `<line x1="${proj(x, 0, 0)[0]}" y1="${proj(x, 0, 0)[1]}" x2="${proj(x, n, 0)[0]}" y2="${proj(x, n, 0)[1]}" stroke="#4a3a20" stroke-width="1.2"/>`;
+    if (type === 'wood') for (let y = 0; y <= n; y++) s += `<line x1="${proj(0, y, 0)[0]}" y1="${proj(0, y, 0)[1]}" x2="${proj(n, y, 0)[0]}" y2="${proj(n, y, 0)[1]}" stroke="#8c6238" stroke-width=".6"/>`;
     return s;
   }
-  function drawWalls(type) {
-    const L = [proj(0, 0, 0), proj(0, N, 0), proj(0, N, WH), proj(0, 0, WH)];
-    const R = [proj(0, 0, 0), proj(N, 0, 0), proj(N, 0, WH), proj(0, 0, WH)];
+  // 壁。cut.L / cut.R が true の壁は、手前の部屋（廊下の側）が見えるように低くする
+  function drawWalls(type, n, cut) {
+    n = n || N; cut = cut || {};
+    const hL = cut.L ? LOW : WH, hR = cut.R ? LOW : WH;
+    const L = [proj(0, 0, 0), proj(0, n, 0), proj(0, n, hL), proj(0, 0, hL)];
+    const R = [proj(0, 0, 0), proj(n, 0, 0), proj(n, 0, hR), proj(0, 0, hR)];
     const col = { plain: ['#efe9df', '#e2dace'], shikkui: ['#ece2c8', '#e0d4b6'], beni: ['#a8352c', '#922c25'], stripe: ['#dfe7e3', '#d2ddd8'] }[type] || ['#efe9df', '#e2dace'];
     let s = `<polygon points="${P(L)}" fill="${col[0]}"/><polygon points="${P(R)}" fill="${col[1]}"/>`;
-    if (type === 'stripe') for (let u = 0; u < N; u += 1) {
-      s += `<polygon points="${P([proj(0, u + .5, 0), proj(0, u + 1, 0), proj(0, u + 1, WH), proj(0, u + .5, WH)])}" fill="#c9d8d1"/>`;
-      s += `<polygon points="${P([proj(u + .5, 0, 0), proj(u + 1, 0, 0), proj(u + 1, 0, WH), proj(u + .5, 0, WH)])}" fill="#bccdc6"/>`;
+    if (type === 'stripe') for (let u = 0; u < n; u += 1) {
+      s += `<polygon points="${P([proj(0, u + .5, 0), proj(0, u + 1, 0), proj(0, u + 1, hL), proj(0, u + .5, hL)])}" fill="#c9d8d1"/>`;
+      s += `<polygon points="${P([proj(u + .5, 0, 0), proj(u + 1, 0, 0), proj(u + 1, 0, hR), proj(u + .5, 0, hR)])}" fill="#bccdc6"/>`;
     }
-    if (type === 'shikkui') for (const u of [0, 4, 8]) {
-      s += `<polygon points="${P([proj(0, u, 0), proj(0, u + .3, 0), proj(0, u + .3, WH), proj(0, u, WH)])}" fill="#6b4a2b"/>`;
-      s += `<polygon points="${P([proj(u, 0, 0), proj(u + .3, 0, 0), proj(u + .3, 0, WH), proj(u, 0, WH)])}" fill="#5c3e24"/>`;
+    if (type === 'shikkui') for (let u = 0; u < n; u += 4) {
+      s += `<polygon points="${P([proj(0, u, 0), proj(0, u + .3, 0), proj(0, u + .3, hL), proj(0, u, hL)])}" fill="#6b4a2b"/>`;
+      s += `<polygon points="${P([proj(u, 0, 0), proj(u + .3, 0, 0), proj(u + .3, 0, hR), proj(u, 0, hR)])}" fill="#5c3e24"/>`;
     }
-    if (type === 'beni') {
-      s += `<polygon points="${P([proj(0, 0, WH - .6), proj(0, N, WH - .6), proj(0, N, WH - .4), proj(0, 0, WH - .4)])}" fill="#d9a93a"/>`;
-      s += `<polygon points="${P([proj(0, 0, WH - .6), proj(N, 0, WH - .6), proj(N, 0, WH - .4), proj(0, 0, WH - .4)])}" fill="#c99a30"/>`;
+    if (type === 'beni' && !cut.L && !cut.R) {
+      s += `<polygon points="${P([proj(0, 0, WH - .6), proj(0, n, WH - .6), proj(0, n, WH - .4), proj(0, 0, WH - .4)])}" fill="#d9a93a"/>`;
+      s += `<polygon points="${P([proj(0, 0, WH - .6), proj(n, 0, WH - .6), proj(n, 0, WH - .4), proj(0, 0, WH - .4)])}" fill="#c99a30"/>`;
     }
     // 巾木（床ぎわの板）
     const bb = type === 'beni' ? '#3a120e' : '#6b4a2b';
-    s += `<polygon points="${P([proj(0, 0, 0), proj(0, N, 0), proj(0, N, .3), proj(0, 0, .3)])}" fill="${bb}"/>`;
-    s += `<polygon points="${P([proj(0, 0, 0), proj(N, 0, 0), proj(N, 0, .3), proj(0, 0, .3)])}" fill="${shade(bb, -0.2)}"/>`;
+    s += `<polygon points="${P([proj(0, 0, 0), proj(0, n, 0), proj(0, n, .3), proj(0, 0, .3)])}" fill="${bb}"/>`;
+    s += `<polygon points="${P([proj(0, 0, 0), proj(n, 0, 0), proj(n, 0, .3), proj(0, 0, .3)])}" fill="${shade(bb, -0.2)}"/>`;
+    // 低くした壁の上のふち
+    if (cut.L) s += `<polygon points="${P([proj(0, 0, hL), proj(0, n, hL), proj(-.25, n, hL), proj(-.25, 0, hL)])}" fill="#8a6a45"/>`;
+    if (cut.R) s += `<polygon points="${P([proj(0, 0, hR), proj(n, 0, hR), proj(n, -.25, hR), proj(0, -.25, hR)])}" fill="#7a5a3a"/>`;
     return s;
+  }
+  /* ---------- 家（部屋どうしを廊下と扉でつなぐ） ---------- */
+  const LOW = 0.9, HALL = 3, HALLW = 2;
+  // 廊下の床：x0..x1, y0..y1（そのマスの範囲）
+  function drawHall(x0, y0, x1, y1) {
+    let s = '';
+    const along = x1 - x0 > y1 - y0;
+    for (let x = x0; x < x1; x++) for (let y = y0; y < y1; y++) {
+      const q = [proj(x, y, 0), proj(x + 1, y, 0), proj(x + 1, y + 1, 0), proj(x, y + 1, 0)];
+      s += `<polygon points="${P(q)}" fill="${((along ? y : x) % 2) ? '#a8784a' : '#b4845a'}"/>`;
+    }
+    // 両側の巾木
+    if (along) { s += `<polygon points="${P([proj(x0, y0, 0), proj(x1, y0, 0), proj(x1, y0, .5), proj(x0, y0, .5)])}" fill="#e8dfd0"/>`; s += `<polygon points="${P([proj(x0, y1, 0), proj(x1, y1, 0), proj(x1, y1, .25), proj(x0, y1, .25)])}" fill="#6b4a2b"/>`; }
+    else { s += `<polygon points="${P([proj(x0, y0, 0), proj(x0, y1, 0), proj(x0, y1, .5), proj(x0, y0, .5)])}" fill="#efe9df"/>`; s += `<polygon points="${P([proj(x1, y0, 0), proj(x1, y1, 0), proj(x1, y1, .25), proj(x1, y0, .25)])}" fill="#5c3e24"/>`; }
+    return s;
+  }
+  // 扉：side 'L'（x=0 の壁）/ 'R'（y=0 の壁）、u0..u1 が扉の幅。すこし開いた引き戸
+  function drawDoor(side, u0, u1) {
+    const H2 = 3.4, pt = (u, v) => side === 'L' ? proj(0, u, v) : proj(u, 0, v);
+    const quad = (a, b, c, d, f) => `<polygon points="${P([a, b, c, d])}" fill="${f}"/>`;
+    let s = quad(pt(u0, 0), pt(u1, 0), pt(u1, H2), pt(u0, H2), 'rgba(30,18,10,.55)');   // 開いたところの奥（くらい）
+    s += quad(pt(u0 + .9, 0), pt(u1, 0), pt(u1, H2), pt(u0 + .9, H2), '#c99a5e');          // 引き戸（半分ひらく）
+    s += quad(pt(u0 + 1.05, .25), pt(u1 - .15, .25), pt(u1 - .15, H2 - .25), pt(u0 + 1.05, H2 - .25), '#e8cfa0');
+    for (const u of [u0 - .15, u1]) s += quad(pt(u, 0), pt(u + .15, 0), pt(u + .15, H2 + .2), pt(u, H2 + .2), '#5c3a22');   // 柱
+    s += quad(pt(u0 - .15, H2), pt(u1 + .15, H2), pt(u1 + .15, H2 + .3), pt(u0 - .15, H2 + .3), '#5c3a22');                // かもい
+    return s;
+  }
+  // 部屋の絵の大きさ（その部屋の原点からの画面上の箱）
+  function roomBox(n) {
+    n = n || N;
+    const x0 = proj(0, n, 0)[0] - PAD, x1 = proj(n, 0, 0)[0] + PAD, y0 = proj(0, 0, WH)[1] - PAD, y1 = proj(n, n, 0)[1] + PAD + 10;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  // 家の並び：部屋ごとの位置（マス）。list[0] がはじめの部屋、ほかは at: { p: つながる部屋, d: 'x'（右下）| 'y'（左下） }
+  function layout(list) {
+    const pos = [{ x: 0, y: 0 }], halls = [];
+    for (let i = 1; i < list.length; i++) {
+      const at = list[i].at || defAt(i), p = Math.min(at.p | 0, i - 1), pp = pos[p] || pos[0], pn = list[p].n || N, n = list[i].n || N;
+      const c = Math.floor(Math.min(pn, n) / 2) - 1;
+      if (at.d === 'y') { pos.push({ x: pp.x, y: pp.y + pn + HALL }); halls.push({ i, p, d: 'y', x0: pp.x + c, x1: pp.x + c + HALLW, y0: pp.y + pn, y1: pp.y + pn + HALL, u0: c, u1: c + HALLW }); }
+      else { pos.push({ x: pp.x + pn + HALL, y: pp.y }); halls.push({ i, p, d: 'x', x0: pp.x + pn, x1: pp.x + pn + HALL, y0: pp.y + c, y1: pp.y + c + HALLW, u0: c, u1: c + HALLW }); }
+    }
+    return { pos, halls };
+  }
+  const defAt = i => i === 1 ? { p: 0, d: 'x' } : i === 2 ? { p: 0, d: 'y' } : { p: i - 1, d: 'x' };
+  // その向きに部屋を足せるか（ほかの部屋や廊下と重ならないか）
+  function canAttach(list, p, d, n) {
+    if (list.some((r, i) => i && (r.at || defAt(i)).p === p && (r.at || defAt(i)).d === d)) return false;
+    const L = layout(list.concat([{ at: { p, d }, n: n || N }])), k = L.pos.length - 1, me = L.pos[k], mn = n || N;
+    const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    const box = { x0: me.x - 1, y0: me.y - 1, x1: me.x + mn + 1, y1: me.y + mn + 1 };
+    for (let i = 0; i < k; i++) { const q = L.pos[i], qn = list[i].n || N; if (hit(box, { x0: q.x, y0: q.y, x1: q.x + qn, y1: q.y + qn })) return false; }
+    for (const h of L.halls.slice(0, -1)) if (hit(box, h)) return false;
+    return true;
   }
 
   // 床の家具を描く（rot は 0/1）
@@ -405,5 +466,5 @@
     <radialGradient id="rmGlowR"><stop offset="0" stop-color="#ffb05a" stop-opacity=".7"/><stop offset="1" stop-color="#ff8a3a" stop-opacity="0"/></radialGradient>
   </defs>`;
 
-  window.ROOMART = { hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
+  window.ROOMART = { LOW, HALL, HALLW, drawHall, drawDoor, roomBox, layout, canAttach, defAt, hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
 })();
