@@ -3,7 +3,9 @@ from PIL import Image
 from scipy import ndimage as ndi
 OUT = '/home/claude/igo-battle/img/av3/'; TH = '/home/claude/igo-battle/img/av3t/'
 W, H = 460, 650; NECK, FEET = 300, 622
-SETS = {'body': ['body1', 'body2', 'body3', 'body4'], 'head': ['head1', 'head2', 'head3', 'head4'], 'pet': ['pet1', 'pet2', 'pet3', 'pet4'], 'tool': ['tool2', 'tool4']}
+SETS = {'body': ['body1', 'body2', 'body3', 'body4', 'body5'], 'head': ['head1', 'head2', 'head3', 'head4', 'head5', 'head6', 'head7', 'head8'], 'pet': ['pet1', 'pet2', 'pet3', 'pet4'], 'tool': ['tool2', 'tool4']}
+SKIP = {('head8', 0), ('head8', 4)}          # 「ふつうの男の子・女の子」と同じ絵
+RESERVED = {'b32', 'b33', 'h32', 'h33'}      # 最初の装備（basic.py で置く）
 PFX = {'body': 'b', 'head': 'h', 'pet': 'p', 'tool': 't'}
 def hsv(rgb): return cv2.cvtColor(np.ascontiguousarray(rgb[..., ::-1]), cv2.COLOR_BGR2HSV).astype(int)
 def skin(rgb):
@@ -39,11 +41,13 @@ HAND_Y = float(np.median([r[0] for r in ref])); HAND_W = float(np.median([r[1] f
 print('hand y', HAND_Y, 'hand span', HAND_W)
 meta = {}
 HEADS = {}
-FIX = {'h09': (1.12, -22)}   # 目で見て直したもの（大きさ、上下）
+FIX = {'h09': (1.12, -22), 'h36': (1.06, -30, 16), 'h61': (1.08, -8)}   # 目で見て直したもの（大きさ、上下）
 for kind, srcs in SETS.items():
     i = 0; meta[kind] = []
     for src in srcs:
         for k in range(8):
+            if (src, k) in SKIP: continue
+            while f'{PFX[kind]}{i:02d}' in RESERVED: i += 1
             p = np.asarray(Image.open(f'cut/{src}_{k}.png')); name = f'{PFX[kind]}{i:02d}'; i += 1
             if kind == 'body':
                 h = hands(p)
@@ -74,8 +78,8 @@ for kind, srcs in SETS.items():
                     med = float(np.median([q[2] for q in HEADS[src]]))
                     for nm, pp, ss, ccx, chin in HEADS[src]:
                         if abs(ss / med - 1) > .12: print('head scale fix', nm, round(ss / med, 2)); ss = med
-                        f, dy = FIX.get(nm, (1, 0)); ss *= f
-                        put(pp, ss, 200 - ccx * ss, 314 - chin * ss + dy, nm)
+                        f, dy, dx = (FIX.get(nm, (1, 0)) + (0,))[:3]; ss *= f
+                        put(pp, ss, 200 - ccx * ss + dx, 314 - chin * ss + dy, nm)
             elif kind == 'pet':
                 s = 118 / max(p.shape[0], p.shape[1] * .85); put(p, s, 372 - p.shape[1] * s / 2, 250 - p.shape[0] * s / 2, name); note = ''
             else:
