@@ -131,7 +131,7 @@ export class Core {
       case 'fjoin': this.fjoin(pl, m); break;
       case 'fcancel': this.closeRoom(pl); break;
       case 'rematch': this.rematch(pl, m); break;
-      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
+      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; if (m.rating) pl.rating = Math.max(0, Math.min(4000, m.rating | 0)); pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
       case 'cancel': pl.seekAt = 0; this.lobby(); break;
       case 'move': this.move(pl, m); break;
       case 'resign': { const g = this.gameOf(pl, m.g); if (g && !g.over) this.finish(g, 3 - g.colorOf[pl.cid], '中押し'); break; }
@@ -170,6 +170,7 @@ export class Core {
     const info = this.sockInfo.get(sock) || { acct: null };
     this.sockInfo.set(sock, info);
     const out = msg => { try { sock.send(JSON.stringify(msg)); } catch (e) {} };
+    const game = gameOf(m.game);   // どのゲームのアプリか（セーブデータはゲームごと）
     if (m.t === 'register') {
       // 同じIPからのアカウント作成は1時間に5回まで（大量に作られてストレージが増え続けないように）
       this.regLog = this.regLog || new Map();
@@ -179,19 +180,20 @@ export class Core {
       if (this.regLog.size > 10000) this.regLog.delete(this.regLog.keys().next().value);
       let id; do { id = randCode(8); } while (await this.store.get('acct:' + id));
       const pass = randCode(8);
-      const rec = { h: await sha(id + ':' + pass), data: null, at: 0, created: this.now() };
-      ensureEcon(rec); delete rec.welcome; dailyGift(rec, this.now());
+      const rec = { h: await sha(id + ':' + pass), at: 0, created: this.now() };
+      ensureEcon(rec); delete rec.welcome; dailyGift(rec, this.now()); gamePack(rec, game, this.now());
       await this.store.put('acct:' + id, rec);
-      this.bindAcct(sock, info, id);
+      info.game = game; this.bindAcct(sock, info, id);
       out({ t: 'account', id, pass, data: null, at: 0, fresh: true, econ: Object.assign(pubEcon(rec), { welcome: true }) });
     } else if (m.t === 'login') {
       const id = normCode(m.id), pass = normCode(m.pass);
       const rec = id && await this.store.get('acct:' + id);
       if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
-      this.bindAcct(sock, info, id);
+      info.game = game; this.bindAcct(sock, info, id);
       let welcome = false;
-      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } return true; });
-      out({ t: 'account', id, data: rec.data, at: rec.at || 0, restore: !!m.restore, econ: Object.assign(pubEcon(rec2 || rec), { welcome }) });
+      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } return true; });
+      const gd = await this.gameData(id, rec2 || rec, game);
+      out({ t: 'account', id, data: gd.data, at: gd.at, name: (rec2 || rec).name || '', restore: !!m.restore, econ: Object.assign(pubEcon(rec2 || rec), { welcome }) });
     } else if (m.t === 'sync') {
       if (!info.acct || !m.data || typeof m.data !== 'object') return;
       // 保存は1アカウント5秒に1回まで（書きこみ回数＝料金なので）
@@ -201,14 +203,29 @@ export class Core {
       const at = +m.at || now;
       // 銭と部屋はサーバーが正なので、アプリから送られてきても使わない
       const data = Object.assign({}, m.data); delete data.zeni; delete data.room;
-      const ok = await this.withAcct(info.acct, async rec => {
-        if (at < (rec.at || 0)) return false;   // 古いデータで上書きしない
-        rec.data = data; rec.at = at; rec.name = cleanName(data.name); return true;
+      // セーブデータは「gd:<ID>:<ゲーム>」に（ゲームごと・1つの保存場所が大きくなりすぎないように）
+      const key = 'gd:' + info.acct + ':' + game;
+      let ok = false;
+      const rec = await this.withAcct(info.acct, async r => {
+        const cur = await this.gameData(info.acct, r, game);
+        if (at < (cur.at || 0)) return false;   // 古いデータで上書きしない
+        await this.store.put(key, { data, at });
+        if (game === 'go' && r.data !== undefined) { delete r.data; delete r.at; }   // 前の保存場所（囲碁だけだったころ）は片づける
+        r.name = cleanName(data.name);
+        r.stats = r.stats || {}; const st = cleanStats(m.stats); if (st) r.stats[game] = st;
+        ok = true;
       });
-      out({ t: 'synced', at, stale: ok === false });
+      out({ t: 'synced', at, stale: !rec || !ok });
     }
   }
 
+  // ゲームのセーブデータ（前の形：acct の data は囲碁のもの）
+  async gameData(id, r, game) {
+    const gd = await this.store.get('gd:' + id + ':' + game);
+    if (gd) return gd;
+    if (game === 'go' && r && r.data) return { data: r.data, at: r.at || 0 };
+    return { data: null, at: 0 };
+  }
   bindAcct(sock, info, id) {
     info.acct = id;
     const cid = this.socks.get(sock), pl = cid && this.players.get(cid);
@@ -302,22 +319,32 @@ export class Core {
       const rec = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); });
       if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni });
     } else if (m.t === 'gifttake') {
-      // 受け取る：id を指定（'all' なら全部）
-      let got = 0;
+      // 受け取る：id を指定（'all' なら全部）。勾玉・アバター・家具が入っていることもある
+      let got = 0, things = false;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         const keep = [];
-        for (const g of r.gifts || []) { if (g.kind !== 'freq' && (m.id === 'all' || g.id === (m.id | 0))) got += g.amount; else keep.push(g); }   // フレンド申請は、許可・ことわるで消える
+        for (const g of r.gifts || []) {
+          if (g.kind !== 'freq' && (m.id === 'all' || g.id === (m.id | 0))) {   // フレンド申請は、許可・ことわるで消える
+            got += g.amount;
+            if (g.tama || g.av || g.items) things = true;
+            if (g.tama) addTama(r, g.game || 'go', g.tama);
+            for (const k of g.av || []) if (AVP[k] != null && !r.owned.av.includes(k)) r.owned.av.push(k);
+            for (const k of g.items || []) if (ITEMS[k]) r.owned.items[k] = (r.owned.items[k] || 0) + 1;
+          } else keep.push(g);
+        }
         r.gifts = keep; r.zeni += got;
       });
-      if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni, got });
+      if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni, got, things, econ: things ? pubEcon(rec) : undefined });
     } else if (m.t === 'rankup') {
       // 昇級・昇段のごほうび 1000銭（段級位ごとに1回だけ。プレゼントボックスへ）
-      const rank = m.rank | 0, name = String(m.name || '').slice(0, 6);
+      // key：どのゲーム・盤か（囲碁9路は前からの 'rank'、13路は 'rank_go13' のように別に数える）
+      const rank = m.rank | 0, name = String(m.name || '').slice(0, 10);
+      const key = /^[a-z0-9]{2,10}$/.test(m.key || '') && m.key !== 'go9' ? 'rank_' + m.key : 'rank';
       if (rank < 1 || rank > 30) return;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
-        const list = r.claims.rank = r.claims.rank || [];
+        const list = r.claims[key] = r.claims[key] || [];
         if (list.includes(rank)) return false;
         list.push(rank); addGift(r, 'rank', RANKUP, `${name}昇格のごほうび`, this.now());
       });
@@ -327,6 +354,13 @@ export class Core {
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         let price, apply;
+        if (m.av && TAMA[m.av]) {
+          // 勾玉で買う（勾玉限定のアイテム）。半額サービスはなし
+          if (r.owned.av.includes(m.av)) { reason = 'have'; return; }
+          const g = info.game || 'go', t = TAMA[m.av];
+          if (tamaOf(r, g) < t) { reason = 'tama'; return; }
+          addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
+        }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
         else if (m.item && ITEMS[m.item]) { price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
@@ -378,6 +412,26 @@ export class Core {
         offer = r.offer = antiqueGift(r, this.rand());
       });
       if (rec) out({ t: 'sold', ok, reason, got, offer, req: m.req, econ: pubEcon(rec) });
+    } else if (m.t === 'tama') {
+      // 勾玉：銭と交換（勾玉→銭の一方通行）・キャラクター開放。勾玉はアプリ（ゲーム）ごと
+      const g = info.game || 'go';
+      let ok = false, reason = '';
+      const rec = await this.withAcct(id, async r => {
+        ensureEcon(r);
+        if (m.op === 'swap') {
+          const n = Math.floor(+m.n || 0);
+          if (n < 1 || n > 100000) { reason = 'n'; return false; }
+          if (tamaOf(r, g) < n) { reason = 'tama'; return false; }
+          addTama(r, g, -n); r.zeni += n * TAMA_ZENI; ok = true;
+        } else if (m.op === 'chara') {
+          const key = String(m.key || ''); if (!/^[a-z]{2,10}$/.test(key)) { reason = 'key'; return false; }
+          r.charas = r.charas || {}; const list = r.charas[g] = r.charas[g] || [];
+          if (list.includes(key)) { reason = 'have'; return false; }
+          if (tamaOf(r, g) < TAMA_CHARA) { reason = 'tama'; return false; }
+          addTama(r, g, -TAMA_CHARA); list.push(key); ok = true;
+        } else return false;
+      });
+      out({ t: 'bought', ok, reason, req: m.req, econ: rec ? pubEcon(rec) : undefined });
     } else if (m.t === 'offer') {
       // 玄斎のおくりものを、もらう（yes）か、ことわる
       let ok = false;
@@ -579,7 +633,7 @@ export class Core {
 }
 
 /* ---------- 銭まわりの決まり ---------- */
-const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'room', 'gifts', 'gifttake', 'rankup'];
+const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'tama', 'room', 'gifts', 'gifttake', 'rankup'];
 const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000, RANKUP = 1000, DAILY = 100;
 // プレゼントボックス：受け取るまで銭にならない。{ id, kind, amount, label, t }
 function addGift(r, kind, amount, label, t, extra) {
@@ -605,6 +659,7 @@ function avRenew(r) {
 function ensureEcon(r) {
   // テスト用（2026/11/13）：部屋番号 561149 のアカウントに 20000銭を1回だけ（プレゼントボックスへ）
   if (r.owned && String(r.pid || '') === '561149' && !r.testGift1) { r.testGift1 = 1; addGift(r, 'test', 20000, 'テスト用のおくりもの', Date.now()); }
+  if (r.owned && String(r.pid || '') === '561149' && !r.testGift3) { r.testGift3 = 1; addGift(r, 'test', 0, 'テスト用の勾玉 1000こ', Date.now(), { tama: 1000, game: 'go' }); }
   if (r.owned && String(r.pid || '') === '561149' && !r.testGift2) { r.testGift2 = 1; addGift(r, 'test', 50000, 'テスト用のおくりもの（2回目）', Date.now()); }
   // 2026/11/13 に無料→300銭になった4点：その時点で着ていた人には、そのまま持たせる
   if (!r.avG && r.owned && r.av) { r.owned.av = r.owned.av || []; for (const sl of ['head', 'body']) { const k = sl + ':' + r.av[sl]; if (['head:h00', 'head:h04', 'body:b01', 'body:b05'].includes(k) && !r.owned.av.includes(k)) r.owned.av.push(k); } }
@@ -650,7 +705,32 @@ function antiqueGift(r, x) {
 }
 // 足もとのないアバターの服（2026/11/14 取りやめ）。持っていた人には、銭をおかえし
 const AV_RM = { 'body:b02': 1800, 'body:b06': 1800, 'body:b24': 1800, 'body:b25': 1200, 'body:b26': 1200, 'body:b27': 1800, 'body:b29': 1800, 'body:b30': 300, 'body:b31': 300 };
-function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
+function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {} }; }
+/* ---------- 勾玉（課金石）：アプリ（ゲーム）ごとに持つ。お金で買った分は、そのアプリの中だけで使う（Google Play のきまり） ---------- */
+const TAMA = globalThis.AVATAR.TAMA || {}, TAMA_ZENI = 10, TAMA_CHARA = 300;
+const tamaOf = (r, g) => (r.tama && r.tama[g]) | 0;
+function addTama(r, g, n) { r.tama = r.tama || {}; r.tama[g] = Math.max(0, tamaOf(r, g) + n); }
+const gameOf = g => /^[a-z0-9]{2,8}$/.test(g || '') ? g : 'go';
+// 戦績のまとめ（全ゲーム共通で、プロフィールに出す）。{ go9: { rating, games, wins, draws, streak, rank, rn } … }
+function cleanStats(s) {
+  if (!s || typeof s !== 'object') return null;
+  const out = {}; let n = 0;
+  const num = v => Math.max(0, Math.min(1e6, v | 0));
+  for (const [k, v] of Object.entries(s)) {
+    if (!/^[a-z0-9]{2,10}$/.test(k) || !v || typeof v !== 'object' || ++n > 6) continue;
+    out[k] = { rating: num(v.rating), games: num(v.games), wins: num(v.wins), draws: num(v.draws), streak: num(v.streak), rank: num(v.rank), rn: String(v.rn || '').slice(0, 6) };
+  }
+  return out;
+}
+// はじめてそのゲームのアプリに入ったら、そのゲームの記念品（ほかのゲームでも使える）をプレゼントボックスへ
+const GAME_PACK = {
+  go: { label: '囲碁BLITZ 記念品（碁打ちのアバターと碁盤）', av: ['head:h40', 'body:b13', 'tool:t13', 'bg:bg08'], items: ['goban', 'goke', 'igostatue', 'gobanrug'] }
+};
+function gamePack(r, game, now) {
+  const pk = GAME_PACK[game]; if (!pk || !r.owned) return;
+  r.packs = r.packs || {}; if (r.packs[game]) return;
+  r.packs[game] = 1; addGift(r, 'pack', 0, pk.label, now, { av: pk.av, items: pk.items });
+}
 // 部屋は最大6つ（はじめの部屋＋5）。1つ増やすのに 10000銭
 const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 5000;
 const defAt = i => i === 1 ? { p: 0, d: 'x' } : i === 2 ? { p: 0, d: 'y' } : { p: i - 1, d: 'x' };   // 位置の記録がない部屋（はじめのころに買った部屋）

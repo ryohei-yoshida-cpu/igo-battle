@@ -64,23 +64,25 @@
     if (P.online()) P.giftReq({ t: 'gifts' }, m => setGifts(m.gifts));
     else if (LOCAL()) localDaily();
   }
-  const ICON = { welcome: '🎁', daily: '📅', rank: '🏮', freq: '🤝', fzeni: '💌' };
+  const ICON = { welcome: '🎁', daily: '📅', rank: '🏮', freq: '🤝', fzeni: '💌', pack: '🎎' };
+  // 中身の表示：銭・勾玉・アイテム
+  const what = g => [g.amount ? `${g.amount.toLocaleString()}銭` : '', g.tama ? `勾玉${g.tama}` : '', (g.av || []).length + (g.items || []).length ? `アイテム${(g.av || []).length + (g.items || []).length}点` : ''].filter(Boolean).join('＋') || '—';
   function draw() {
     const list = $('#giftList');
     list.innerHTML = gifts.length ? gifts.slice().reverse().map(g => g.kind === 'freq'
       ? `<li class="gf-freq"><span class="gf-ic">${ICON.freq}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}・部屋番号 ${esc(g.pid)}</small></span><span class="gf-btns"><button type="button" class="btn primary small" data-fok="${esc(g.pid)}">許可</button><button type="button" class="btn lac small" data-fng="${esc(g.pid)}">ことわる</button></span></li>`
-      : `<li><span class="gf-ic">${ICON[g.kind] || '🎁'}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}</small></span><span class="gf-z">${g.amount.toLocaleString()}銭</span><button type="button" class="btn primary small" data-id="${g.id}">受け取る</button></li>`).join('')
+      : `<li><span class="gf-ic">${ICON[g.kind] || '🎁'}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}</small></span><span class="gf-z">${what(g)}</span><button type="button" class="btn primary small" data-id="${g.id}">受け取る</button></li>`).join('')
       : '<p class="gf-empty">いまはプレゼントがありません。<br>毎日ログインすると100銭、昇級すると1000銭が届きます。</p>';
     $('#giftAll').hidden = gifts.filter(g => g.kind !== 'freq').length < 2;
   }
   function take(id) {
-    const done = got => {
-      if (!got) return;
-      P.sound('ok'); P.toast(`${got.toLocaleString()}銭を受け取りました！`);
+    const done = (got, things) => {
+      if (!got && !things) return;
+      P.sound('ok'); P.toast(things ? '受け取りました！ アイテムはクローク・倉庫に、勾玉は骨董屋で使えます' : `${got.toLocaleString()}銭を受け取りました！`);
       const r = $('#giftBox .gf-card').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + 80, 'win');
       P.renderHome();
     };
-    if (P.online()) { P.giftReq({ t: 'gifttake', id }, m => { setGifts(m.gifts); done(m.got); }); return; }
+    if (P.online()) { P.giftReq({ t: 'gifttake', id }, m => { setGifts(m.gifts); done(m.got, m.things); }); return; }
     if (!LOCAL()) { P.toast('サーバーにつながっていません'); return; }
     let got = 0; S.gifts = (S.gifts || []).filter(g => { if (id === 'all' || g.id === id) { got += g.amount; return false; } return true; });
     S.zeni = (S.zeni || 0) + got; P.saveLocal(); setGifts(S.gifts); done(got);

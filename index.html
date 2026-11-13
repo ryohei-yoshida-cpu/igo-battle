@@ -443,6 +443,21 @@
       <h2>戦績と棋譜</h2>
       <span></span>
     </header>
+    <div class="rec-tabs" role="tablist" id="recTabs"></div>
+    <div class="rec-other" id="recOther" hidden>
+      <div class="rank-card">
+        <small id="roName"></small>
+        <div class="rank-big" id="roRank"></div>
+        <div class="hero-rate"><small>レート</small><b id="roRate"></b></div>
+      </div>
+      <div class="stats">
+        <div><small>対局</small><b id="roGames">0</b></div>
+        <div><small>勝率</small><b id="roWin">—</b></div>
+        <div><small>連勝</small><b id="roStreak">0</b></div>
+      </div>
+      <p class="note">くわしい棋譜は、そのゲームのアプリで見られます。</p>
+    </div>
+    <div id="recMine">
     <div class="rank-card">
       <small>いまの段級位</small>
       <div class="rank-big" id="recRank"></div>
@@ -459,6 +474,7 @@
     </div>
     <h3 class="sec-h">最近の対局<small>タップで検討</small></h3>
     <ol class="history" id="history"></ol>
+    </div>
   </section>
 
   <!-- ソロモード -->
@@ -709,6 +725,7 @@
       <div class="field"><span>対局</span>
         <label class="toggle"><input type="checkbox" id="optConfirm"><i></i>着手は2回タップで確定</label>
         <label class="toggle"><input type="checkbox" id="optFx"><i></i>技のカットイン</label>
+        <label class="toggle"><input type="checkbox" id="optShopFx"><i></i>お店に入るときの演出</label>
         <label class="sel-row">一言コメント・お知らせの表示
           <select id="optTicker">
             <option value="all">すべての画面（対局中も）</option>

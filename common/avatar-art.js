@@ -52,10 +52,23 @@
     bg: [['none', 'なし', 0]].concat(['白いスタジオ', '草原', '桜並木', '南の海', '雪の森', 'お城', '魔法の門', '夜の街', '神社', 'ネオン街', 'カフェ', '教室', '子ども部屋', '図書館', 'ステージ', '夏祭り', 'ハロウィン', '海の底', '宇宙', '雲の上のお城']
       .map((name, i) => ['bg' + String(i).padStart(2, '0'), name, [1200, 1200, 1200, 1200, 1200, 1800, 2400, 1800, 1200, 1800, 1200, 1200, 1200, 1200, 1800, 1800, 1800, 2400, 2400, 2400][i]]))
   };
+  // 台詞（せりふ）：対局のはじめ・終わり・勝ち・負けで、アバターがしゃべる。[id, セリフ, 銭]。銭が -1 なら勾玉限定（TAMA の数）
+  const LINES = [
+    ['l01', 'よろしくお願いします！', 300], ['l02', 'ありがとうございました', 300], ['l03', 'やったね！', 300], ['l04', '頑張るぞ！', 300],
+    ['l05', 'もうだめだぁ', 300], ['l06', 'フレンド登録待ってるぜ！', 600], ['l07', '部屋に遊びに来てね♪', 600], ['l09', 'いい勝負だった！', 300],
+    ['l10', '次は負けないぞ！', 300], ['l11', 'お手やわらかに…', 300], ['l12', 'ふっ、計算どおり。', 600], ['l13', 'えへへ、勝っちゃった♪', 600],
+    ['l14', 'くやしい〜！ もう一局！', 600], ['l15', '楽しかった！ またね！', 300], ['l16', '本気でいくよ！', 600], ['l21', 'まいりました…', 300],
+    ['l08', '静馬様ラブ♡', -1], ['l17', 'ひなたちゃん推し！', -1], ['l18', '小春ちゃんに届け、この一手！', -1],
+    ['l19', '闇の碁を見せてやる…', -1], ['l20', '殿のおなーりー！', -1], ['l22', 'ここが天元突破だ！', -1]
+  ];
+  const TAMA = { 'line:l08': 50, 'line:l17': 50, 'line:l18': 50, 'line:l19': 80, 'line:l20': 80, 'line:l22': 80 };
+  const LINE_SLOTS = [['s', '対局のはじめ'], ['w', '勝ったとき'], ['l', '負けたとき'], ['e', '対局のおわり']];
   const SLOTS = [['head', '頭'], ['body', '身体'], ['pet', 'ペット'], ['tool', '道具'], ['bg', '背景']];
   const TABS = SLOTS;
   const PRICE = {}, COLOR = {};
   for (const [slot, list] of Object.entries(CATALOG)) for (const [id, , price] of list) PRICE[slot + ':' + id] = price;
+  for (const [id, , price] of LINES) PRICE['line:' + id] = price;
+  const LINE_TEXT = {}; for (const [id, t] of LINES) LINE_TEXT[id] = t;
   const PRESETS = {
     girl: { head: 'h33', body: 'b33', pet: 'none', tool: 'none', bg: 'none' },
     boy: { head: 'h32', body: 'b32', pet: 'none', tool: 'none', bg: 'none' }
@@ -70,7 +83,10 @@
     }
     const l = Object.assign({}, DEFAULT, look);
     for (const [slot] of SLOTS) if (PRICE[slot + ':' + l[slot]] == null) l[slot] = DEFAULT[slot];
-    return { head: l.head, body: l.body, pet: l.pet, tool: l.tool, bg: l.bg };
+    const out = { head: l.head, body: l.body, pet: l.pet, tool: l.tool, bg: l.bg };
+    // 台詞：{ s: はじめ, w: 勝ち, l: 負け, e: おわり }
+    if (look.ln && typeof look.ln === 'object') { const ln = {}; for (const [k] of LINE_SLOTS) if (LINE_TEXT[look.ln[k]]) ln[k] = look.ln[k]; if (Object.keys(ln).length) out.ln = ln; }
+    return out;
   }
   const isSheet = () => false;
   const img = f => `<image href="${base}${f}.webp" x="0" y="0" width="${W}" height="${H}"/>`;
@@ -93,5 +109,5 @@
     }
     return `<svg viewBox="${CROP[tab] || VB}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
   }
-  root.AVATAR = { isSheet, W, H, VB, CATALOG, SLOTS, TABS, PRICE, COLOR, PRESETS, DEFAULT, clean, inner, svg, thumb };
+  root.AVATAR = { isSheet, W, H, VB, CATALOG, SLOTS, TABS, PRICE, COLOR, PRESETS, DEFAULT, clean, inner, svg, thumb, LINES, LINE_TEXT, LINE_SLOTS, TAMA };
 })(typeof window !== 'undefined' ? window : globalThis);

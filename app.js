@@ -46,6 +46,9 @@
   // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
   if (S.zeni == null) { S.zeni = 0; S.gifts = [{ id: 1, kind: 'welcome', amount: 3000, label: 'はじめてのプレゼント', t: Date.now() }]; }   // はじめの3000銭はプレゼントボックスへ
   S.vs = S.vs || {};
+  // 13路の戦績・段級位は9路と別（レート・連勝・昇段も別に数える）
+  const fresh13 = () => ({ rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, rankGift: [] });
+  S.r13 = Object.assign(fresh13(), S.r13);
   // 旧バージョン（コード描画のキャラ：0〜3小春、4〜5玄斎）からの引っ越し
   if (!S.avaV2) { if (S.avatar.type === 'preset') S.avatar.id = (S.avatar.id | 0) >= 4 ? 1 : 0; S.avaV2 = 1; }
   if (S.avatar.type !== 'preset') S.avatar = { type: 'preset', id: 0 };   // 写真アバターは廃止
@@ -57,11 +60,19 @@
 
   // キャラクターは段級位で順に使えるようになる（三段で全員）
   const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 12, dgensai: 12 };
-  const charaOpen = i => displayRank() >= (UNLOCK[A.VARIANTS[i].key] || 0);
-  function displayRank() {
-    const r = rankFromRating(S.rating);
+  // キャラは 9路・13路の高いほうの段級位で開く。勾玉で先に開くこともできる（S.charaBuy）
+  const charaOpen = i => Math.max(displayRank(9), displayRank(13)) >= (UNLOCK[A.VARIANTS[i].key] || 0) || (S.charaBuy || []).includes(A.VARIANTS[i].key);
+  const GAME = 'go';   // このアプリのゲーム（セーブデータ・勾玉はゲームごと）
+  const RS = size => size === 13 ? S.r13 : S;   // 盤の大きさごとの戦績（9路は前からの S そのもの）
+  function displayRank(size) {
+    const st = RS(size), r = rankFromRating(st.rating);
     if (r < DAN_FROM) return r;
-    return Math.max(DAN_FROM - 1, Math.min(r, S.earnedDan));
+    return Math.max(DAN_FROM - 1, Math.min(r, st.earnedDan));
+  }
+  // サーバーに送る戦績のまとめ（全ゲーム共通のプロフィール・戦績タブ用）
+  function statsOut() {
+    const one = sz => { const st = RS(sz), dr = displayRank(sz); return { rating: st.rating, games: st.games, wins: st.wins, draws: st.draws || 0, streak: st.streak, rank: dr, rn: RANKS[dr] }; };
+    return { go9: one(9), go13: one(13) };
   }
 
   /* ---------- 効果音 ---------- */
@@ -305,31 +316,58 @@
     $('#homeName').textContent = S.name;
     const dr = displayRank();
     $('#homeRank').textContent = `${RANKS[dr]}・${S.rating}`;
+    renderRecord();
+  }
+  /* ---------- 戦績（タブ：囲碁9路・囲碁13路・ほかのゲーム） ---------- */
+  const GAME_NAMES = { go: '囲碁', shogi: '将棋', othello: 'オセロ', mahjong: '麻雀', backgammon: 'バックギャモン', daifugo: '大富豪', chess: 'チェス' };
+  let recTab = 'go9';
+  function recTabs() {
+    const tabs = [['go9', '囲碁', '9路'], ['go13', '囲碁', '13路']];
+    for (const [g, sub] of Object.entries(S.statsAll || {})) {
+      if (g === GAME || !sub) continue;
+      for (const [k, v] of Object.entries(sub)) if (v && v.games > 0) tabs.push([g + ':' + k, GAME_NAMES[g] || g, Object.keys(sub).length > 1 ? k.replace(/^[a-z]+/, '') : '']);
+    }
+    return tabs;
+  }
+  function renderRecord() {
+    const tabs = recTabs();
+    if (!tabs.some(t => t[0] === recTab)) recTab = 'go9';
+    $('#recTabs').innerHTML = tabs.map(([k, g, sub]) => `<button type="button" role="tab" data-rt="${k}" aria-selected="${k === recTab}">${g}${sub ? `<small>${sub}</small>` : ''}</button>`).join('');
+    const other = recTab.includes(':');
+    $('#recMine').hidden = other; $('#recOther').hidden = !other;
+    if (other) {
+      const [g, k] = recTab.split(':'), v = (S.statsAll[g] || {})[k] || {};
+      $('#roName').textContent = GAME_NAMES[g] || g; $('#roRank').textContent = v.rn || '—'; $('#roRate').textContent = v.rating || '—';
+      $('#roGames').textContent = v.games | 0; $('#roWin').textContent = v.games ? Math.round(v.wins / v.games * 100) + '%' : '—'; $('#roStreak').textContent = v.streak | 0;
+      return;
+    }
+    const size = recTab === 'go13' ? 13 : 9, T = RS(size), dr = displayRank(size);
     $('#recRank').textContent = RANKS[dr];
-    $('#homeRate').textContent = S.rating;
-    const rr = rankFromRating(S.rating);
+    $('#homeRate').textContent = T.rating;
+    const rr = rankFromRating(T.rating);
     let next = '';
     if (rr >= TH.length - 1 && dr === rr) { $('#rankBar').style.width = '100%'; next = '最高段位です'; }
-    else if (dr < rr) { $('#rankBar').style.width = '100%'; next = `昇段まであと ${Math.max(0, DAN_STREAK - S.streak)} 連勝（${RANKS[rr]}のレートに到達済み）`; }
+    else if (dr < rr) { $('#rankBar').style.width = '100%'; next = `昇段まであと ${Math.max(0, DAN_STREAK - T.streak)} 連勝（${RANKS[rr]}のレートに到達済み）`; }
     else {
       const lo = TH[rr], hi = TH[rr + 1];
-      $('#rankBar').style.width = Math.max(0, Math.min(100, (S.rating - lo) / (hi - lo) * 100)) + '%';
-      next = `${RANKS[rr + 1]}まで あと ${hi - S.rating}` + (rr + 1 >= DAN_FROM ? `（${DAN_STREAK}連勝も必要）` : '');
-      if (S.rating < TH[0]) next = `10級の基準 ${TH[0]} を下回っています`;
+      $('#rankBar').style.width = Math.max(0, Math.min(100, (T.rating - lo) / (hi - lo) * 100)) + '%';
+      next = `${RANKS[rr + 1]}まで あと ${hi - T.rating}` + (rr + 1 >= DAN_FROM ? `（${DAN_STREAK}連勝も必要）` : '');
+      if (T.rating < TH[0]) next = `10級の基準 ${TH[0]} を下回っています`;
     }
     $('#rankNext').textContent = next;
-    $('#stGames').textContent = S.games;
-    $('#stWin').textContent = S.games ? Math.round(S.wins / S.games * 100) + '%' : '—';
-    $('#stStreak').textContent = S.streak;
-    $('#stBlack').textContent = `${S.bw.bw}-${S.bw.bl}`;
-    $('#stWhite').textContent = `${S.bw.ww}-${S.bw.wl}`;
+    $('#stGames').textContent = T.games;
+    $('#stWin').textContent = T.games ? Math.round(T.wins / T.games * 100) + '%' : '—';
+    $('#stStreak').textContent = T.streak;
+    $('#stBlack').textContent = `${T.bw.bw}-${T.bw.bl}`;
+    $('#stWhite').textContent = `${T.bw.ww}-${T.bw.wl}`;
     const ol = $('#history'); ol.innerHTML = '';
-    if (!S.history.length) {
+    const hist = S.history.filter(h => (h.size === 13 ? 13 : 9) === size);
+    if (!hist.length) {
       const li = document.createElement('li'); li.className = 'empty';
-      li.textContent = 'まだ対局がありません。対人戦で一局打ってみましょう。';
+      li.textContent = `まだ${size}路の対局がありません。対人戦で一局打ってみましょう。`;
       ol.append(li);
     }
-    for (const h of S.history.slice(0, 15)) {
+    for (const h of hist.slice(0, 15)) {
       const li = document.createElement('li');
       const hk = h.draw ? ['d', '持'] : h.win ? ['w', '勝'] : ['l', '負'];
       if (h.rec) { li.className = 'rec'; li.title = 'タップで検討'; li.onclick = () => openReview(h.rec, h.size || 9); }
@@ -340,6 +378,7 @@
       ol.append(li);
     }
   }
+  $('#recTabs').addEventListener('click', e => { const b = e.target.closest('[data-rt]'); if (!b) return; recTab = b.dataset.rt; sound('tap'); renderRecord(); });
 
   /* ---------- 画面の切り替え ---------- */
   const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'kotto', 'friends', 'explore', 'diaryHub'];
@@ -381,9 +420,14 @@
     if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo }); }
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined, size: BN })); } catch (e) {} }
     showScreen('game'); setMode('play');
-    setPb($('#meAvatar'), S.av || (window.AVATAR && window.AVATAR.PRESETS.girl), charaIdx()); $('#meName').textContent = S.name; $('#meRank').textContent = `${RANKS[displayRank()]} ${S.rating}`;
+    setPb($('#meAvatar'), S.av || (window.AVATAR && window.AVATAR.PRESETS.girl), charaIdx()); $('#meName').textContent = S.name; $('#meRank').textContent = `${BN === 13 ? '13路 ' : ''}${RANKS[displayRank(BN)]} ${RS(BN).rating}`;
     if (bot.human) { setPb($('#opAvatar'), bot.av, bot.ava); $('#opName').textContent = bot.name; $('#opRank').textContent = `${RANKS[rankFromRating(bot.rating)]} ${bot.rating}・${G.friend ? 'フレンド' : 'オンライン'}`; }
     else { setPb($('#opAvatar'), null, oppChara(bot)); $('#opName').textContent = `${A.VARIANTS[oppChara(bot)].name}（${bot.name}）`; $('#opRank').textContent = `${RANKS[bot.level]} ${bot.rating}`; }
+    // 対局のはじめの台詞（自分・相手）
+    setTimeout(() => {
+      sayAt($('#meAvatar'), lnText(S.av, 's'), 'up');
+      if (bot.human && bot.av) sayAt($('#opAvatar'), lnText(bot.av, 's'), 'down');
+    }, 1000);
     $('#meStone').className = 'mini-stone ' + (myColor === 1 ? 'b' : 'w');
     $('#opStone').className = 'mini-stone ' + (myColor === 1 ? 'w' : 'b');
     $('#passBtn').disabled = false; $('#resignBtn').disabled = false; $('#resignBtn').textContent = '投了';
@@ -566,27 +610,29 @@
 
   // Bot との対局：自分よりレートの低い Bot に勝っても、レートは上がらない（負ければ下がる）
   function applyRating(score, opRating, color, opName, reason, rec, size, vsBot) {
+    size = size === 13 ? 13 : (size || BN) === 13 ? 13 : 9;
+    const T = RS(size);   // 9路と13路は別に数える
     const win = score === 1, draw = score === 0.5;
-    const old = S.rating, oldRank = displayRank();
-    let d = eloDelta(S.rating, opRating, score, S.games), capped = false;
-    if (vsBot && d > 0 && opRating < S.rating) { d = 0; capped = true; }
-    S.rating = Math.max(800, S.rating + d);
-    S.games++;
-    if (win) { S.wins++; S.streak++; } else if (draw) S.draws = (S.draws || 0) + 1; else S.streak = 0;
-    if (!draw) { if (color === 1) win ? S.bw.bw++ : S.bw.bl++; else win ? S.bw.ww++ : S.bw.wl++; }
-    const rr = rankFromRating(S.rating);
-    if (rr >= DAN_FROM && S.streak >= DAN_STREAK && rr > S.earnedDan) S.earnedDan = rr;
+    const old = T.rating, oldRank = displayRank(size);
+    let d = eloDelta(T.rating, opRating, score, T.games), capped = false;
+    if (vsBot && d > 0 && opRating < T.rating) { d = 0; capped = true; }
+    T.rating = Math.max(800, T.rating + d);
+    T.games++;
+    if (win) { T.wins++; T.streak++; } else if (draw) T.draws = (T.draws || 0) + 1; else T.streak = 0;
+    if (!draw) { if (color === 1) win ? T.bw.bw++ : T.bw.bl++; else win ? T.bw.ww++ : T.bw.wl++; }
+    const rr = rankFromRating(T.rating);
+    if (rr >= DAN_FROM && T.streak >= DAN_STREAK && rr > T.earnedDan) T.earnedDan = rr;
     S.history.unshift({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: d, size: size || BN, t: Date.now(), rec: rec || null });
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
-    const nr = displayRank();
+    const nr = displayRank(size), rname = (size === 13 ? '13路' : '') + RANKS[nr];
     if (nr > oldRank) {
-      if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: RANKS[nr] });
-      if (econOn()) { APP_SOC('rank', { rank: RANKS[nr] }); netSend({ t: 'rankup', rank: nr, name: RANKS[nr] }); }   // ごほうび1000銭はプレゼントボックスへ
-      else { S.rankGift = S.rankGift || []; if (!S.rankGift.includes(nr) && window.GIFT) { S.rankGift.push(nr); window.GIFT.add('rank', 1000, `${RANKS[nr]}昇格のごほうび`); } }
+      if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: rname });
+      if (econOn()) { APP_SOC('rank', { rank: rname }); netSend({ t: 'rankup', rank: nr, name: rname, key: 'go' + size }); }   // ごほうび1000銭はプレゼントボックスへ（9路・13路それぞれ）
+      else { T.rankGift = T.rankGift || []; if (!T.rankGift.includes(nr) && window.GIFT) { T.rankGift.push(nr); window.GIFT.add('rank', 1000, `${rname}昇格のごほうび`); } }
     }
-    return { old, d, oldRank, newRank: nr, capped };
+    return { old, d, oldRank, newRank: nr, capped, size };
   }
 
   // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
@@ -666,6 +712,20 @@
     const ag = $('#resAgain'); ag.classList.remove('stamped'); ag.style.visibility = 'hidden';
     resT.push(setTimeout(() => { ag.style.visibility = ''; void ag.offsetWidth; ag.classList.add('stamped'); setTimeout(() => sound('stone'), 330); }, gain ? 2300 : 1300));
   }
+  /* ---------- 台詞（アバターの吹き出し）：対局のはじめ・勝ち・負け・おわり ---------- */
+  const lnText = (look, k) => { const id = look && look.ln && look.ln[k]; return id && window.AVATAR ? window.AVATAR.LINE_TEXT[id] : ''; };
+  function sayAt(el, text, dir, ms) {
+    if (!el || !text) return;
+    const old = el.querySelector(':scope > .say-bubble'); if (old) old.remove();
+    const b = document.createElement('div'); b.className = 'say-bubble ' + (dir || 'up'); b.textContent = text;
+    el.append(b); setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 400); }, ms || 3200);
+  }
+  // 勝ち・負けの台詞 → おわりの台詞 の順に
+  function sayEnd(el, look, win, dir) {
+    const a = lnText(look, win > 0 ? 'w' : win < 0 ? 'l' : ''), e = lnText(look, 'e');
+    if (a) { sayAt(el, a, dir, 2600); if (e) setTimeout(() => sayAt(el, e, dir, 3000), 2900); }
+    else if (e) sayAt(el, e, dir, 3200);
+  }
   function showResult(win, label, scoreText, r) {
     const k = $('#resKanji');
     k.textContent = win > 0 ? '勝' : win === 0 ? '持' : '負';
@@ -679,6 +739,11 @@
     $('#resClose').onclick = leaveGame;
     $('#resScore').textContent = scoreText;
     if (win > 0) { const kr = k.getBoundingClientRect(); setTimeout(() => A.burst(kr.left + kr.width / 2, kr.top + kr.height / 2, 'win'), 250); sound('ok'); }
+    // 台詞：自分（キャラの上）と、相手（人のとき）
+    setTimeout(() => {
+      sayEnd($('#resChara').parentNode, S.av, win, 'up');
+      if (G && G.bot && G.bot.human && G.bot.av) sayEnd($('#resOppFig'), G.bot.av, -win, 'up');
+    }, 900);
     const pr = $('#resPromo');
     $('#resRate').hidden = !r || !!r.friend;
     $('#resAgain').textContent = 'もう一局';
@@ -714,10 +779,10 @@
       return;
     }
     $('#resHome').onclick = leaveGame;
-    $('#resOld').textContent = r.old; $('#resNew').textContent = S.rating;
+    $('#resOld').textContent = r.old; $('#resNew').textContent = RS(r.size).rating;
     const de = $('#resDelta'); de.textContent = (r.d >= 0 ? '+' : '') + r.d; de.className = r.d >= 0 ? 'up' : 'down';
     if (r.newRank > r.oldRank) {
-      pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`;
+      pr.hidden = false; pr.textContent = `${r.size === 13 ? '13路 ' : ''}${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`;
       // 盛大に：ハンコがとんできて「〇級昇格」。ごほうびと、使えるようになったキャラ
       const nu = A.VARIANTS.map((v, i) => i).filter(i => UNLOCK[A.VARIANTS[i].key] > r.oldRank && UNLOCK[A.VARIANTS[i].key] <= r.newRank);
       const rw = ['ごほうび 1000銭（プレゼントボックスに届きました）'].concat(nu.map(i => `「${A.VARIANTS[i].name}」をキャラクターに選べるようになりました！`));
@@ -776,7 +841,7 @@
       NET.ok = true; NET.retry = 0;
       netAuth();
       netHello();
-      if (M && !M.found && !M.friend) netSend({ t: 'seek', size: M.size });
+      if (M && !M.found && !M.friend) netSend({ t: 'seek', size: M.size, rating: RS(M.size).rating });
       if (M && M.friend && !M.found && M.redo) M.redo();   // フレンドマッチ：つながってから部屋をつくる／入る
       clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 40000);   // つながっているかの確認（40秒ごと）
     };
@@ -797,7 +862,7 @@
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost', 'gifts', 'loginDay', 'rankGift'];   // 銭と部屋はサーバーが別に管理する
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost', 'gifts', 'loginDay', 'rankGift', 'tama', 'charaBuy', 'statsAll', 'offer'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -815,7 +880,7 @@
     const data = syncData(), js = JSON.stringify(data);
     if (js === lastSent) return;
     lastSent = js;
-    netSend({ t: 'sync', data, at: S._at || Date.now() });
+    netSend({ t: 'sync', game: GAME, data, stats: statsOut(), at: S._at || Date.now() });
   }
   syncHook = () => { if (!syncT) syncT = setTimeout(netSync, 10000); };
   // アプリを裏に回したら：未送信の保存をすぐ送る。2分たっても裏のまま（対局・マッチング中以外）なら接続を休む
@@ -833,15 +898,16 @@
   });
   function netAuth() {
     NET.authed = false;
-    if (S.acct && S.acct.id) netSend({ t: 'login', id: S.acct.id, pass: S.acct.pass });
-    else netSend({ t: 'register' });
+    if (S.acct && S.acct.id) netSend({ t: 'login', game: GAME, id: S.acct.id, pass: S.acct.pass });
+    else netSend({ t: 'register', game: GAME });
   }
   function applyServerData(d, at) {
-    const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room, av: S.av, avOwned: S.avOwned, pid: S.pid };
+    const keep = { acct: S.acct, cid: S.cid, zeni: S.zeni, room: S.room, av: S.av, avOwned: S.avOwned, pid: S.pid, tama: S.tama, charaBuy: S.charaBuy, statsAll: S.statsAll };
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, fresh(), d || {}, keep, { _at: at || Date.now() });
     S.settings = Object.assign({ confirm: true, fx: true, sound: true, bgm: true, board: 'kaya', tickerMode: 'all' }, S.settings);
     S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
+    S.r13 = Object.assign(fresh13(), S.r13);
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     document.body.classList.toggle('washi', S.settings.board === 'washi');
     renderHome();
@@ -858,6 +924,9 @@
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
     if (e.av) S.av = e.av;
     if (e.pid) S.pid = e.pid;
+    if (e.tama) S.tama = e.tama[GAME] | 0;          // 勾玉（このアプリのぶん）
+    if (e.charas) S.charaBuy = (e.charas[GAME] || []).slice();
+    if (e.stats) S.statsAll = e.stats;               // 全ゲームの戦績のまとめ（戦績のタブ）
     if (layout === false && e.rooms2 && e.rooms2.length > (r.extra = r.extra || []).length) {   // 部屋を買った：新しい部屋だけ足す
       for (const x of e.rooms2.slice(r.extra.length)) r.extra.push({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [], at: x.at, n: x.n });
     }
@@ -890,6 +959,7 @@
     else if (m.restore) {                                                                   // 別の端末から引き継いだ
       S.acct = { id: m.id, pass: NET.pendingPass }; NET.pendingPass = null;
       if (m.data) { applyServerData(m.data, m.at); toast('データを引き継ぎました'); }
+      else if (m.name) { S.name = m.name; save(); netSync(); toast('この端末で、このIDの囲碁のデータを始めます'); }
       else { save(); netSync(); toast('このIDにはまだデータがないので、この端末のデータを保存しました'); }
     } else if (m.data && (m.at || 0) > (S._at || 0)) applyServerData(m.data, m.at);       // サーバーのほうが新しい
     else if ((S._at || 0) > (m.at || 0) || !m.data) netSync();                              // この端末のほうが新しい
@@ -900,7 +970,7 @@
   function onAuthFail(m) {
     if (m.restore) { NET.pendingPass = null; toast('IDかパスワードがちがいます'); return; }
     // 保存していたIDが使えない（サーバー側で消えたなど）→ 新しく作り直す
-    S.acct = null; netSend({ t: 'register' });
+    S.acct = null; netSend({ t: 'register', game: GAME });
   }
   function renderAccount() {
     const has = S.acct && S.acct.id;
@@ -954,7 +1024,7 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
-      case 'gifts': if (giftCb[m.req]) { giftCb[m.req](m); delete giftCb[m.req]; } else if (window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
+      case 'gifts': if (m.econ) applyEcon(m.econ, false); if (giftCb[m.req]) { giftCb[m.req](m); delete giftCb[m.req]; } else if (window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
       case 'soc':
         if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
         if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
@@ -1034,7 +1104,7 @@
   function startMatch(size) {
     stopMatch();
     size = size === 13 ? 13 : 9;
-    const myRank = rankFromRating(S.rating);
+    const myRank = rankFromRating(RS(size).rating);
     M = { t0: Date.now(), fixed: S.botLevel !== 'auto' && S.botLevel !== 'up', myRank, found: false, timer: 0, size };
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
@@ -1043,7 +1113,7 @@
     $('#optNoBot').checked = !!S.noBot;
     $('#mtNoBotNote').hidden = !S.noBot;
     $('#mtTitle').textContent = `対戦相手を探しています（${size}路）`;
-    if (NET_URL) { if (NET.ok) { netHello(); netSend({ t: 'seek', size }); } else netConnect(); }
+    if (NET_URL) { if (NET.ok) { netHello(); netSend({ t: 'seek', size, rating: RS(size).rating }); } else netConnect(); }
     M.timer = setInterval(matchTick, 250);
     matchTick();
   }
@@ -1088,7 +1158,8 @@
   // 「自分と同じ以上の強さ」：レートが自分以上の Bot のうち、弱いほうから2つ（いなければ いちばん強い Bot）
   function upLevels() {
     const out = [];
-    for (let i = 0; i <= BOT_MAX && out.length < 2; i++) if (botRating(i) >= S.rating) out.push(i);
+    const my = RS(M && M.size).rating;
+    for (let i = 0; i <= BOT_MAX && out.length < 2; i++) if (botRating(i) >= my) out.push(i);
     return out.length ? out : [BOT_MAX];
   }
   function matchFound() {
@@ -1167,7 +1238,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all';
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all';
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1186,7 +1257,7 @@
     if (S.acct && id === S.acct.id) { toast('それはこの端末のIDです'); return; }
     confirmBox('この端末のデータ（レート・戦績・進み具合）を、引き継ぐデータで置きかえますか？', () => {
       NET.pendingPass = pass;
-      netSend({ t: 'login', id, pass, restore: true });
+      netSend({ t: 'login', game: GAME, id, pass, restore: true });
     });
   };
   $('#openChara').onclick = () => { renderSettings(); showScreen('chara'); };
@@ -1203,11 +1274,11 @@
   $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
-  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optSound', 'sound'], ['#optBgm', 'bgm']]) {
+  for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optShopFx', 'shopFx'], ['#optSound', 'sound'], ['#optBgm', 'bgm']]) {
     $(id).addEventListener('change', e => { S.settings[key] = e.target.checked; save(); });
   }
   $('#resetRate').onclick = () => confirmBox('レートを1050（10級）に戻し、成績と履歴を消します。元に戻せません。', () => {
-    Object.assign(S, { rating: START_RATE, games: 0, wins: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [] });
+    Object.assign(S, { rating: START_RATE, games: 0, wins: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [], r13: fresh13() });
     save(); renderHome(); $('#settings').hidden = true; toast('レートをリセットしました');
   });
 
@@ -1353,7 +1424,7 @@
         if (now && now.g === act.g && !(G && G.online && G.online.g === act.g)) { localStorage.removeItem(KEY + '.active'); toast('前回の対局は終了していました'); }
       }, 12000);
     } else if (act) {
-      const r = applyRating(0, act.op, act.color, act.name, '切断負け');
+      const r = applyRating(0, act.op, act.color, act.name, '切断負け', null, act.size);
       setTimeout(() => toast(`前回の対局は途中で終了したため切断負けになりました（${r.d}）`, 4500), 400);
     }
   } catch (e) {}
@@ -1414,6 +1485,12 @@
       let cb = res => { if (res && res.ok && res.half && window.FANFARE) window.FANFARE.noteHalf(what.av ? 'hinata' : 'shima', Math.max(0, price - (res.paid | 0))); cb0(res); };
       if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'buy', req }, what)); return; }
       if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
+      const tm = what.av && window.AVATAR.TAMA[what.av];
+      if (tm) {   // 勾玉限定
+        if ((S.avOwned || []).includes(what.av)) { cb({ ok: false, reason: 'have' }); return; }
+        if ((S.tama | 0) < tm) { cb({ ok: false, reason: 'tama' }); return; }
+        S.tama -= tm; S.avOwned = (S.avOwned || []).concat(what.av); save(); cb({ ok: true }); return;
+      }
       const half = price > 0 && !what.roomAdd && what.roomBig == null && Math.random() < 1 / 32;
       const pay = half ? Math.floor(price / 2) : price;
       if ((S.zeni || 0) < pay) { cb({ ok: false, reason: 'zeni' }); return; }
@@ -1427,6 +1504,16 @@
       else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p: what.p | 0, d: what.d === 'y' ? 'y' : 'x' }, n: 12 }); }
       else if (what.roomBig != null) { const rm = what.roomBig ? (r.extra || [])[what.roomBig - 1] : r; if (rm) rm.n = 17; }
       save(); cb({ ok: true });
+    },
+    // 勾玉：op 'swap'（n こを銭に）／ 'chara'（key のキャラを開放）。cb({ ok, reason })
+    TAMA_ZENI: 10, TAMA_CHARA: 300,
+    tama(op, data, cb) {
+      if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'tama', req, op }, data)); return; }
+      if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
+      const have = S.tama | 0;
+      if (op === 'swap') { const n = Math.floor(data.n || 0); if (n < 1 || have < n) { cb({ ok: false, reason: 'tama' }); return; } S.tama = have - n; S.zeni = (S.zeni || 0) + n * 10; }
+      else if (op === 'chara') { S.charaBuy = S.charaBuy || []; if (S.charaBuy.includes(data.key)) { cb({ ok: false, reason: 'have' }); return; } if (have < 300) { cb({ ok: false, reason: 'tama' }); return; } S.tama = have - 300; S.charaBuy.push(data.key); }
+      save(); renderHome(); cb({ ok: true });
     },
     // 骨董屋：売る（what は { item } / { av }）。cb({ ok, reason, got, offer })。offer があれば玄斎からのおくりもの
     sell(what, cb) {

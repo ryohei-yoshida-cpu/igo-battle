@@ -57,6 +57,8 @@ function cleanKifu(k) {
   return { size, rec, op: cleanName(k.op).slice(0, 16), res: ['win', 'loss', 'draw'].includes(k.res) ? k.res : '', color: k.color === 2 ? 2 : 1 };
 }
 
+// アカウントの名前（全ゲーム共通。前の形は data.name）
+const acctName = a => { const n = a && (a.name || (a.data && a.data.name)); return n ? cleanName(n) : ''; };
 export class Social {
   constructor(core) { this.core = core; this.active = []; this.posts = new Map(); }
   get store() { return this.core.store; }
@@ -175,6 +177,7 @@ export class Social {
         const look = AV.clean(m.look);
         const owned = new Set((r.owned && r.owned.av) || []);
         for (const [slot] of AV.SLOTS) if (AV.PRICE[slot + ':' + look[slot]] > 0 && !owned.has(slot + ':' + look[slot])) return false;
+        for (const v of Object.values(look.ln || {})) if (AV.PRICE['line:' + v] !== 0 && !owned.has('line:' + v)) return false;   // 台詞も持っているものだけ
         r.av = look; ok = true;
       });
       if (ok) for (const p of this.core.players.values()) if (p.acct === id) p.av = rec.av;
@@ -197,7 +200,7 @@ export class Social {
         const s = fixSoc(await this.store.get('soc:' + oid));
         if (s.rpub === false || has(s.blocks, me)) continue;
         const a = await this.store.get('acct:' + oid); if (!a) continue;
-        rooms.push({ pid: x.pid, t: x.t, name: (a.data && cleanName(a.data.name)) || 'プレイヤー', av: a.av || null, room: a.room || null, hito: s.hito, visits: s.visits.total });
+        rooms.push({ pid: x.pid, t: x.t, name: acctName(a) || 'プレイヤー', av: a.av || null, room: a.room || null, hito: s.hito, visits: s.visits.total });
       }
       out({ ok: true, rooms });
       return;
@@ -212,7 +215,7 @@ export class Social {
         const d = s.diary.find(d => d.id === x.did); if (!d || d.pub !== 'all') continue;
         const body = await this.store.get(`dia:${x.oid}:${x.did}`); if (!body) continue;
         const a = await this.store.get('acct:' + x.oid);
-        items.push({ pid: x.pid, name: (a && a.data && cleanName(a.data.name)) || 'プレイヤー', av: (a && a.av) || null, id: body.id, t: body.t, title: body.title, text: body.text, kifu: body.kifu, nc: (body.c || []).length });
+        items.push({ pid: x.pid, name: acctName(a) || 'プレイヤー', av: (a && a.av) || null, id: body.id, t: body.t, title: body.title, text: body.text, kifu: body.kifu, nc: (body.c || []).length });
       }
       out({ ok: true, items });
       return;
@@ -224,7 +227,7 @@ export class Social {
         const a = await this.store.get('acct:' + oid), fs = fixSoc(await this.store.get('soc:' + oid));
         const last = fs.diary.find(d => canSee(d, false, true));
         const mine = s.chat.find(c => c.pid === f.pid), theirs = fs.chat.find(c => c.pid === me);
-        list.push({ pid: f.pid, name: (a && a.data && cleanName(a.data.name)) || f.name, av: (a && a.av) || null, room: (a && a.room) || null, hito: fs.hito,
+        list.push({ pid: f.pid, name: acctName(a) || f.name, av: (a && a.av) || null, room: (a && a.room) || null, hito: fs.hito,
           diary: last ? { id: last.id, t: last.t, title: last.title } : null,
           from: mine ? { text: mine.text, t: mine.t } : null, to: theirs ? { text: theirs.text, t: theirs.t } : null });
       }
@@ -295,11 +298,14 @@ export class Social {
     // 相手の戦績（対局のあとで）：名前・アバター・レート・対局数・勝率・フレンドかどうか
     if (op === 'prof') {
       const acct = await this.store.get('acct:' + oid), s = fixSoc(await this.store.get('soc:' + oid));
+      // 戦績は全ゲームぶん（stats：{ go: { go9: {…}, go13: {…} }, shogi: {…} }）。囲碁9路は前の形（data）からも読む
       let d = acct && acct.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
       d = d || {};
+      const stats = (acct && acct.stats) || {};
+      const g9 = (stats.go && stats.go.go9) || d;
       const num = v => Math.max(0, v | 0);
-      out({ ok: true, pid, name: (acct && cleanName(d.name)) || this.nameOf(oid), av: (acct && acct.av) || null, hito: s.hito,
-        rating: num(d.rating), games: num(d.games), wins: num(d.wins), draws: num(d.draws), streak: num(d.streak),
+      out({ ok: true, pid, name: acctName(acct) || this.nameOf(oid), av: (acct && acct.av) || null, hito: s.hito,
+        rating: num(g9.rating), games: num(g9.games), wins: num(g9.wins), draws: num(g9.draws), streak: num(g9.streak), stats,
         friend: has(s.friends, me), asked: has(s.freq, me), mine: pid === me });
       return;
     }
@@ -319,7 +325,7 @@ export class Social {
         }) || s;
       }
       this.touchActive(pid);
-      const ownerName = (acct.data && cleanName(acct.data.name)) || 'プレイヤー';
+      const ownerName = acctName(acct) || 'プレイヤー';
       out({
         ok: true, pid, name: ownerName, av: acct.av || null, room: acct.room || null, rooms2: acct.rooms2 || [], hito: s.hito,
         diary: s.diary.filter(d => canSee(d, pid === me, has(s.friends, me))).map(head), chat: s.chat, visits: { total: s.visits.total, today: s.visits.day === day ? s.visits.today : 0 },
@@ -339,7 +345,7 @@ export class Social {
       const s = await this.readSoc(oid), friend = has(s.friends, me);
       if (pid !== me && has(s.blocks, me)) { out({ ok: false, reason: 'blocked' }); return; }
       const a = pid === me ? null : await this.store.get('acct:' + oid);
-      const name = pid === me ? myName : (a && a.data && cleanName(a.data.name)) || 'プレイヤー';
+      const name = pid === me ? myName : acctName(a) || 'プレイヤー';
       if (op === 'dlist') { out({ ok: true, pid, name, mine: pid === me, diary: s.diary.filter(d => canSee(d, pid === me, friend)).map(head), wrote: pid === me && s.diaryDay === this.day() }); return; }
       const d = s.diary.find(d => d.id === (m.did | 0));
       if (!d || !canSee(d, pid === me, friend)) { out({ ok: false, reason: 'gone' }); return; }

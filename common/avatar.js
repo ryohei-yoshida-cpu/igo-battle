@@ -70,9 +70,9 @@
     $('#avClerkB').hidden = !shop; $('#avClerkImg').hidden = !shop;
     $('#avBig').innerHTML = AV.svg(look, 'av-svg', true);
     $('#avZeni').textContent = zeniText();
-    $('#avTabs').innerHTML = AV.TABS.map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
-    let h = '';
-    for (const [sl, title, only] of sections(slot)) {
+    $('#avTabs').innerHTML = AV.TABS.concat([['line', '台詞']]).map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
+    let h = slot === 'line' ? linesHtml() : '';
+    for (const [sl, title, only] of slot === 'line' ? [] : sections(slot)) {
       if (title) h += `<div class="av-sec">${title}</div>`;
       const list = AV.CATALOG[sl].filter(([id]) => (!only || only(id)) && (mode === 'shop' || owned(sl, id)));
       if (!list.length) { if (mode === 'closet' && title) h = h.replace(/<div class="av-sec">[^<]*<\/div>$/, ''); continue; }
@@ -83,7 +83,7 @@
           `<small class="price">${price ? price.toLocaleString() + ' 銭' : '無料'}</small>${have ? `<i class="av-own">${wearing ? '着ている' : '持っている'}</i>` : ''}</button>`;
       }).join('');
     }
-    if (mode === 'closet') h += `<button type="button" class="av-goshop" data-goshop="1">ほかの${SLOT_NAME[slot] || ''}は、服ショップで買えます →</button>`;
+    if (mode === 'closet') h += `<button type="button" class="av-goshop" data-goshop="1">ほかの${SLOT_NAME[slot] || '台詞'}は、服ショップで買えます →</button>`;
     $('#avGrid2').innerHTML = h;
     const need = mode === 'shop' ? unowned() : [];
     renderTry(need);
@@ -95,6 +95,71 @@
     $('#avSave').textContent = need.length ? `試着中を買う（${need.reduce((a, sl) => a + entryOf(sl)[2], 0).toLocaleString()} 銭）` : 'この姿にする';
     $('#avNote').textContent = need.length ? '「試着」中です。銭で買うと、この姿にできます。' : changed() ? '' : 'いまの姿です。';
   }
+  /* ---------- 台詞（せりふ）：対局のはじめ・勝ち・負け・おわりに、吹き出しで言う ---------- */
+  const lineOwned = id => AV.PRICE['line:' + id] === 0 || (S.avOwned || []).includes('line:' + id);
+  const linePrice = id => { const t = AV.TAMA['line:' + id]; return t ? `勾玉 ${t}` : `${AV.PRICE['line:' + id].toLocaleString()} 銭`; };
+  let lineJust = null, lineTry = null;   // 買ったばかりの台詞（どこで使うか聞く）・試し聞き中
+  function linesHtml() {
+    const ln = look.ln || {};
+    let h = '';
+    if (mode === 'closet' || lineJust) {
+      // 4つの場面に、持っている台詞をセット
+      const mine = AV.LINES.filter(([id]) => lineOwned(id));
+      h += `<div class="ln-slots">${lineJust ? `<b class="ln-ask">「${esc(AV.LINE_TEXT[lineJust])}」をどこで言う？</b>` : '<b class="ln-ask">対局で言う台詞をセット</b>'}` +
+        AV.LINE_SLOTS.map(([k, n]) => lineJust
+          ? `<button type="button" class="btn lac small" data-lnset="${k}">${n}${ln[k] ? `<small>今：${esc(AV.LINE_TEXT[ln[k]])}</small>` : ''}</button>`
+          : `<label class="ln-row"><span>${n}</span><select data-lnsel="${k}"><option value="">（なし）</option>${mine.map(([id, t]) => `<option value="${id}" ${ln[k] === id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`).join('') +
+        (lineJust ? '<button type="button" class="sc-x" data-lnlater="1">あとで（クロークでセット）</button>' : '') + '</div>';
+      if (mode === 'closet') return h;
+    }
+    h += `<p class="ln-lead">台詞は、対局のはじめ・勝ったとき・負けたとき・対局のおわりに、アバターの吹き出しで出ます。相手にも見えます。</p>`;
+    h += AV.LINES.map(([id, t]) => {
+      const have = lineOwned(id), used = Object.values(ln).includes(id), tm = AV.TAMA['line:' + id];
+      return `<button type="button" class="av-item ln-item ${lineTry === id ? 'on' : ''} ${tm ? 'tama' : ''}" data-line="${id}"><div class="ln-thumb">${esc(t)}</div>` +
+        `<small class="price">${tm ? '<i class="tm">勾玉限定</i>' : ''}${linePrice(id)}</small>${have ? `<i class="av-own">${used ? 'セット中' : '持っている'}</i>` : ''}</button>`;
+    }).join('');
+    return h;
+  }
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function sayPreview(id) {
+    const old = $('#avBigSay'); if (old) old.remove();
+    if (!id) return;
+    const b = document.createElement('div'); b.id = 'avBigSay'; b.className = 'say-bubble'; b.textContent = AV.LINE_TEXT[id];
+    $('#avBig').append(b); setTimeout(() => b.remove(), 2600);
+  }
+  function buyLine(id) {
+    const tm = AV.TAMA['line:' + id], price = AV.PRICE['line:' + id];
+    if (tm ? (S.tama | 0) < tm : (S.zeni || 0) < price) { hinata('poor'); P.toast(tm ? `勾玉が足りません（勾玉 ${tm}）。勾玉は骨董屋で手に入ります` : `銭が足りません（${price} 銭）`); return; }
+    P.confirmBox(`台詞「${AV.LINE_TEXT[id]}」を ${linePrice(id)} で買いますか？`, () => {
+      P.buy({ av: 'line:' + id }, tm ? 0 : price, res => {
+        if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
+        hinata('buy'); lineJust = id; render();
+        window.FANFARE.celebrate({ items: [{ thumb: `<div class="ln-thumb">${esc(AV.LINE_TEXT[id])}</div>`, name: '台詞' }] });
+      });
+    });
+  }
+  $('#avGrid2').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.line) {
+      const id = b.dataset.line, again = lineTry === id;
+      lineTry = id; P.sound('tap'); render(); sayPreview(id);
+      if (mode !== 'shop') return;
+      if (lineOwned(id)) { hinata('have'); return; }
+      if (again) buyLine(id); else hinata('pick');
+      return;
+    }
+    if (b.dataset.lnset) {   // 買ったばかりの台詞を、その場面にセット（すぐ保存）
+      const l = AV.clean(Object.assign({}, myLook(), { ln: Object.assign({}, myLook().ln, { [b.dataset.lnset]: lineJust }) }));
+      lineJust = null; look.ln = l.ln; wear(l); return;
+    }
+    if (b.dataset.lnlater) { lineJust = null; P.toast('台詞はクロークの「台詞」でセットできます'); render(); }
+  });
+  $('#avGrid2').addEventListener('change', e => {
+    const s = e.target.closest('[data-lnsel]'); if (!s) return;
+    const ln = Object.assign({}, look.ln); if (s.value) ln[s.dataset.lnsel] = s.value; else delete ln[s.dataset.lnsel];
+    look.ln = ln; sayPreview(s.value); render();
+  });
+
   /* ---------- お気に入りセット（クロークだけ）：2つまで。部屋にクロークを1つ置くごとに2つふえる（12まで） ---------- */
   const setSlots = () => Math.min(12, 2 + 2 * (window.ROOM && window.ROOM.cloaks ? window.ROOM.cloaks() : 0));
   function renderSets() {
@@ -189,7 +254,7 @@
     P.soc('avatar', { look: l }, res => { if (res.ok) done(); else P.toast('保存できませんでした'); });
   }
   $('#avGrid2').addEventListener('click', e => {
-    const b = e.target.closest('.av-item'); if (!b) return;
+    const b = e.target.closest('.av-item'); if (!b || b.dataset.line) return;
     const sl = b.dataset.sl, id = b.dataset.id, entry = AV.CATALOG[sl].find(x => x[0] === id);
     const again = look[sl] === id;
     look[sl] = id; P.sound('tap'); render();
