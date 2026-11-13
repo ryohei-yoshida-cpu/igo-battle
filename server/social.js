@@ -293,7 +293,7 @@ export class Social {
       this.touchActive(pid);
       const ownerName = (acct.data && cleanName(acct.data.name)) || 'プレイヤー';
       out({
-        ok: true, pid, name: ownerName, av: acct.av || null, room: acct.room || null, hito: s.hito,
+        ok: true, pid, name: ownerName, av: acct.av || null, room: acct.room || null, rooms2: acct.rooms2 || [], hito: s.hito,
         diary: s.diary.filter(d => canSee(d, pid === me, has(s.friends, me))).map(head), chat: s.chat, visits: { total: s.visits.total, today: s.visits.day === day ? s.visits.today : 0 },
         cset: s.cset, friend: has(s.friends, me), asked: has(s.freq, me), canWrite: canWrite(s, pid), mine: pid === me
       });

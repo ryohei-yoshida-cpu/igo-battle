@@ -314,6 +314,7 @@ export class Core {
         else if (m.item && ITEMS[m.item]) { price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }
+        else if (m.roomAdd) { r.rooms2 = Array.isArray(r.rooms2) ? r.rooms2 : []; if (r.rooms2.length >= ROOM_MAX - 1) { reason = 'max'; return; } price = ROOM_PRICE; apply = () => r.rooms2.push({ floor: 'wood', wall: 'plain', items: [], walls: [] }); }
         else { reason = 'item'; return; }
         if (r.zeni < price) { reason = 'zeni'; return; }
         r.zeni -= price; apply(); ok = true;
@@ -324,9 +325,18 @@ export class Core {
       let ok = false;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
-        const room = cleanRoom(m.room, r.owned);
+        // 部屋が2つ以上あるときは、全部の部屋をまとめて数える（持っている数より多く置いていないか）
+        const cnt = {}, extra = Array.isArray(r.rooms2) ? r.rooms2 : [];
+        const room = cleanRoom(m.room, r.owned, cnt);
         if (!room) return;
-        r.room = room; ok = true;
+        let rooms2 = extra;
+        if (Array.isArray(m.rooms2)) {
+          if (m.rooms2.length !== extra.length) return;
+          rooms2 = m.rooms2.map(x => cleanRoom(x, r.owned, cnt));
+          if (rooms2.some(x => !x)) return;
+        } else for (const x of extra) for (const it of (x.items || []).concat(x.walls || [])) cnt[it.k] = (cnt[it.k] || 0) + 1;
+        for (const [k, n] of Object.entries(cnt)) if (n > (r.owned.items[k] || 0)) return;
+        r.room = room; r.rooms2 = rooms2; ok = true;
       });
       if (ok) this.social.roomChanged(id).catch(() => {});
       if (rec) out({ t: 'roomsaved', ok, econ: ok ? undefined : pubEcon(rec) });
@@ -544,9 +554,11 @@ function ensureEcon(r) {
   r.daily = { day: '', bot: 0 }; r.claims = {};
   r.econV = 2; r.welcome = true; r.avV = 3;
 }
-function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
+function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
+// 部屋は最大6つ（はじめの部屋＋5）。1つ増やすのに 10000銭
+const ROOM_MAX = 6, ROOM_PRICE = 10000;
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの
-function cleanRoom(room, owned) {
+function cleanRoom(room, owned, total) {
   if (!room || typeof room !== 'object') return null;
   const cnt = {}, items = [], walls = [];
   const num = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
@@ -560,10 +572,11 @@ function cleanRoom(room, owned) {
     cnt[it.k] = (cnt[it.k] || 0) + 1;
     walls.push({ uid: it.uid | 0, k: it.k, side: it.side, u: it.u, on: !!it.on, s: [0.5, 1.5, 2].includes(it.s) ? it.s : 1 });
   }
-  for (const [k, n] of Object.entries(cnt)) if (n > (owned.items[k] || 0)) return null;
+  for (const [k, n] of Object.entries(cnt)) { if (n > (owned.items[k] || 0)) return null; if (total) total[k] = (total[k] || 0) + n; }
   const floor = owned.floors.includes(room.floor) ? room.floor : 'wood', wall = owned.walls.includes(room.wall) ? room.wall : 'plain';
   const av = room.av && num(room.av.x, 0, 11) && num(room.av.y, 0, 11) ? { x: room.av.x, y: room.av.y } : undefined;   // 部屋の持ち主（アバター）の立ち位置
-  return { floor, wall, items, walls, av };
+  const g = typeof room.g === 'string' && /^[a-z]{2,10}$/.test(room.g) ? room.g : undefined;   // この部屋に呼んだキャラ（1部屋に1人）
+  return { floor, wall, items, walls, av, g };
 }
 
 /* ---------- 使いすぎ対策の数字 ---------- */

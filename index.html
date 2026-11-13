@@ -332,6 +332,7 @@
         <p class="av-note" id="avNote"></p>
       </div>
     </div>
+    <div class="av-sets" id="avSets" hidden></div>
     <nav class="rm-tabs av-tabs" id="avTabs"></nav>
     <div class="av-grid" id="avGrid2"></div>
   </section>
@@ -346,7 +347,7 @@
     <div class="room-stage" id="roomStage">
       <div class="room-hito" id="roomHito" hidden></div>
       <div class="room-visits" id="roomVisits"></div>
-      <svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg>
+      <div class="room-strip" id="roomStrip"><div class="rm-cell on" data-cell="0"><svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg></div></div>
       <div class="room-zoom" id="roomZoom"><button type="button" id="rmZoomIn" aria-label="大きく見る">＋</button><button type="button" id="rmZoomOut" aria-label="小さく見る">－</button></div>
       <div class="room-tools" id="roomTools" hidden>
         <span id="rmName"></span>
@@ -687,6 +688,7 @@
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
         <label class="toggle"><input type="checkbox" id="optBgm"><i></i>BGM</label>
         <p class="credit">音楽：魔王魂（<a href="https://maou.audio/" target="_blank" rel="noopener">maou.audio</a>）</p>
+        <p class="credit">囲碁AI（初段より上のBot・検討・整地）：<a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener">KataGo</a> のニューラルネット（g170, CC0）</p>
       </div>
 
       <div class="field"><span>アカウント（データの保存と引き継ぎ）</span>

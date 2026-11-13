@@ -537,21 +537,117 @@
     return Array.from(own, v => v / n);
   }
 
-  return { N, NN, NB, DG, group, play, think, analyze, ownership, FB, ponderStart, ponderStop, budget, resetTree: () => { tree = null; pondering = false; } };
+  return { N, NN, NB, DG, group, play, think, analyze, ownership, FB, ponderStart, ponderStop, budget, resetTree: () => { tree = null; pondering = false; }, endgame: (board, c) => endgameMoves(FB.fromArray(board, -1), c) };
   }
   const E9 = make(9), E13 = make(13);
   root.GoEngine = E9;
   root.GoEngines = { 9: E9, 13: E13 };
 
-  if (typeof window === 'undefined' && typeof self !== 'undefined') {
+  /* =========================================================
+   * 囲碁AI（ニューラルネット、ai/nn.js・ai/kata.js）。9路だけ。読みこめていなければ、上のモンテカルロ探索を使う
+   * ========================================================= */
+  // 1級までは上のモンテカルロ探索（強さを細かく調整してある）。初段から上はAIで打つ
+  //   v … 読む局面の数（1 = 直感だけ）、T … 直感の手をどれくらい散らすか、loss … 最善からどれだけ勝率が下がる手まで選ぶか
+  //   bot同士の対局で、AIの直感だけ（初段）でも、モンテカルロの1級に勝ち越すことを確かめてある
+  const NNLV = { 10: { v: 1, T: 1.0 }, 11: { v: 1, T: 0.4 }, 12: { v: 16, loss: 0 }, 13: { v: 48, loss: 0 } };
+  const NN_FROM = 10;   // 初段から上はAIで打つ
+  const nnOn = d => (d.size || 9) === 9 && root.KataAI && root.KataAI.ready() && d.level >= NN_FROM;
+  function nnThink(d) {
+    const K = root.KataAI, L = Math.max(NN_FROM, Math.min(13, d.level)), cfg = NNLV[L], c = d.toPlay;
+    const st = K.stateFrom(d.board, c, d.ko, d.rec);
+    const ms = Math.max(300, Math.min(4500, (d.timeLeft || 3e5) / 14));
+    const rt = K.search(st, d.komi, cfg.v, ms);
+    const kids = rt.kids.filter(k => k.n).sort((a, z) => z.n - a.n);
+    const best = kids[0] || rt.kids[0];
+    if (!best) return { move: -1 };
+    const wr = cfg.v > 1 && best.n ? best.w / best.n : rt.v, margin = rt.lead;
+    let settled = true;
+    for (let p = 0; p < 81; p++) if (d.board[p] === 0 && Math.abs(rt.own[p]) < 0.8) settled = false;
+    const ahead = margin >= 0;
+    const out = { winrate: wr, margin, playouts: rt.n, nn: true };
+    // 投了：はっきり負けている
+    if (!d.noResign && d.moveNum >= 16 && (wr < 0.04 || (margin < -15 && wr < 0.15))) return Object.assign(out, { resign: true });
+    if (!d.noResign && d.oppPassed && !ahead && wr < 0.25) return Object.assign(out, { resign: true });
+    const eg = E9.endgame(d.board, c), must = eg.saves.length + eg.kos.length + eg.dames.length > 0;
+    const prior = m => (rt.kids.find(k => k.mv === m) || { prior: 0 }).prior;
+    const pick = list => list.slice().sort((a, z) => prior(z) - prior(a))[0];
+    if (d.oppPassed && (ahead || settled)) {
+      if (eg.saves.length) return Object.assign(out, { move: pick(eg.saves) });
+      if (eg.kos.length) return Object.assign(out, { move: pick(eg.kos) });
+      if (eg.dames.length) return Object.assign(out, { move: pick(eg.dames) });
+      return Object.assign(out, { move: -1 });
+    }
+    if (!must && d.moveNum >= 30 && settled && ahead) return Object.assign(out, { move: -1 });
+    // 手をえらぶ（パスはえらばない）
+    const moves = rt.kids.filter(k => k.mv >= 0);
+    if (!moves.length) return Object.assign(out, { move: -1 });
+    let choice = moves[0];
+    if (cfg.v <= 1) {
+      // 直感の手を、温度 T で散らしてえらぶ（ありえない手は出ないように、上位の手だけ）
+      const top = moves.filter(k => k.prior >= moves[0].prior * 0.02).slice(0, 12);
+      const w = top.map(k => Math.pow(k.prior, 1 / cfg.T));
+      let r = Math.random() * w.reduce((a, z) => a + z, 0);
+      for (let i = 0; i < top.length; i++) { r -= w[i]; if (r <= 0) { choice = top[i]; break; } }
+    } else {
+      const vis = kids.filter(k => k.mv >= 0);
+      choice = vis[0] || moves[0];
+      if (cfg.loss > 0 && vis.length > 1 && wr > 0.03 && wr < 0.97) {
+        const minN = Math.max(2, vis[0].n * 0.1), bq = vis[0].w / vis[0].n;
+        const ok = vis.filter(k => k.n >= minN && k.w / k.n >= bq - cfg.loss);
+        let r = Math.random() * ok.reduce((a, k) => a + k.n, 0);
+        for (const k of ok) { r -= k.n; if (r <= 0) { choice = k; break; } }
+      }
+    }
+    return Object.assign(out, { move: choice.mv });
+  }
+  // 相手の手番中の先読み（AI）
+  let nnP = null;
+  function nnPonderStart(d) {
+    const K = root.KataAI, L = Math.max(NN_FROM, Math.min(13, d.level));
+    if (NNLV[L].v <= 1) return;
+    nnP = { st: K.stateFrom(d.board, d.toPlay, d.ko, d.rec), komi: d.komi, cap: NNLV[L].v * 2 };
+    setTimeout(nnPonderStep, 0);
+  }
+  function nnPonderStep() {
+    if (!nnP) return;
+    if (root.KataAI.stepPonder(nnP.st, nnP.komi, nnP.cap, 40)) { nnP = null; return; }
+    setTimeout(nnPonderStep, 0);
+  }
+  // 検討：AIの候補手（上位3つ）
+  function nnAnalyze(d) {
+    const K = root.KataAI, st = K.stateFrom(d.board, d.toPlay, d.ko, d.rec);
+    K.reset();
+    const rt = K.search(st, d.komi, 200, Math.min(d.ms || 4500, 4500));
+    const sorted = rt.kids.filter(k => k.n).sort((a, z) => z.n - a.n).slice(0, 3);
+    return { cands: sorted.map(k => ({ move: k.mv, wr: k.w / k.n, visits: k.n })), playouts: rt.n, nn: true };
+  }
+  // 整地：死に石の判定（AIの「どちらの地になりそうか」を、黒番・白番の両方から見て平均）
+  function nnOwnership(board) {
+    const K = root.KataAI, own = new Array(81).fill(0);
+    for (const c of [1, 2]) { const e = K.evaluate({ b: board, ko: -1, pla: c, hist: [], prev: [board, board], passes: 0 }, 7); for (let p = 0; p < 81; p++) own[p] += (c === 1 ? e.own[p] : -e.own[p]) / 2; }
+    return own;
+  }
+  // 重みの読みこみ（ワーカーの中で、はじめに1回）
+  function nnLoad() {
+    if (typeof importScripts !== 'function' || typeof fetch !== 'function') return;
+    try { importScripts('ai/nn.js', 'ai/kata.js'); } catch (e) { return; }
+    Promise.all([fetch('ai/b6c96.json').then(r => r.json()), fetch('ai/b6c96.bin').then(r => r.arrayBuffer())])
+      .then(([meta, buf]) => { root.KataAI.init(meta, new Uint16Array(buf), E9); })
+      .catch(() => {});
+  }
+  root.GoNN = { think: nnThink, analyze: nnAnalyze, ownership: nnOwnership, on: nnOn, NNLV };
+
+  if (typeof window === 'undefined' && typeof self !== 'undefined' && typeof importScripts === 'function') {
+    nnLoad();
     self.onmessage = e => {
       const d = e.data;
       const { think, ponderStart, ponderStop, analyze, ownership } = d.size === 13 ? E13 : E9;
-      if (d.type === 'stop') { E9.ponderStop(); E13.ponderStop(); E9.resetTree(); E13.resetTree(); return; }
-      if (d.type === 'think') { ponderStop(); self.postMessage(Object.assign({ id: d.id }, think(d))); }
-      else if (d.type === 'ponder') ponderStart(d);
-      else if (d.type === 'analyze') { ponderStop(); self.postMessage(Object.assign({ id: d.id }, analyze(d))); }
-      else if (d.type === 'score') ponderStop(), self.postMessage({ id: d.id, own: ownership(d.board, d.n || 800) });
+      const nn = nnOn(d);
+      if (d.type === 'stop') { nnP = null; E9.ponderStop(); E13.ponderStop(); E9.resetTree(); E13.resetTree(); if (root.KataAI && root.KataAI.ready()) root.KataAI.reset(); return; }
+      if (d.type === 'think') { ponderStop(); nnP = null; self.postMessage(Object.assign({ id: d.id }, nn ? nnThink(d) : think(d))); }
+      else if (d.type === 'ponder') { if (nn) nnPonderStart(d); else ponderStart(d); }
+      else if (d.type === 'analyze') { ponderStop(); nnP = null; self.postMessage(Object.assign({ id: d.id }, (d.size || 9) === 9 && root.KataAI && root.KataAI.ready() ? nnAnalyze(d) : analyze(d))); }
+      else if (d.type === 'score') { ponderStop(); nnP = null; self.postMessage({ id: d.id, own: (d.size || 9) === 9 && root.KataAI && root.KataAI.ready() ? nnOwnership(d.board) : ownership(d.board, d.n || 800) }); }
     };
   }
 })(typeof self !== 'undefined' ? self : this);

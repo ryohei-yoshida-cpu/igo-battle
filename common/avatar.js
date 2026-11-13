@@ -87,6 +87,7 @@
     $('#avGrid2').innerHTML = h;
     const need = mode === 'shop' ? unowned() : [];
     renderTry(need);
+    renderSets();
     $('#avLead').textContent = shop ? 'タップで試着。もう一度タップするか、試着中リストから買えます。' : '持っている服で着がえます。えらんだら「この姿にする」。';
     $('.av-presets').hidden = shop; $('#avSave').hidden = shop; $('#avNote').hidden = shop;
     if (shop) return;
@@ -94,6 +95,37 @@
     $('#avSave').textContent = need.length ? `試着中を買う（${need.reduce((a, sl) => a + entryOf(sl)[2], 0).toLocaleString()} 銭）` : 'この姿にする';
     $('#avNote').textContent = need.length ? '「試着」中です。銭で買うと、この姿にできます。' : changed() ? '' : 'いまの姿です。';
   }
+  /* ---------- お気に入りセット（クロークだけ）：2つまで。部屋にクロークを1つ置くごとに2つふえる（12まで） ---------- */
+  const setSlots = () => Math.min(12, 2 + 2 * (window.ROOM && window.ROOM.cloaks ? window.ROOM.cloaks() : 0));
+  function renderSets() {
+    const box = $('#avSets');
+    box.hidden = mode !== 'closet'; if (box.hidden) return;
+    const sets = S.avSets = Array.isArray(S.avSets) ? S.avSets : [], n = setSlots();
+    let h = `<div class="av-sets-h"><b>お気に入りセット</b><small>${n}つまで登録できます</small></div><div class="av-sets-list">`;
+    for (let i = 0; i < n; i++) {
+      const st = sets[i];
+      h += st ? `<div class="av-set"><button type="button" class="av-set-fig" data-setuse="${i}" aria-label="セット${i + 1}を着てみる">${AV.svg(AV.clean(st), 'av-set-svg')}</button><span>セット${i + 1}</span><button type="button" class="sc-x" data-setsave="${i}">上書き</button></div>`
+        : `<div class="av-set empty"><button type="button" class="av-set-fig" data-setsave="${i}"><b>＋</b><small>いまの姿を登録</small></button><span>セット${i + 1}</span></div>`;
+    }
+    h += `<button type="button" class="av-set more" data-setmore="1"><b>クロークを増やす</b><small>部屋にクロークを置くと、セットが2つふえます</small></button></div>`;
+    box.innerHTML = h;
+  }
+  $('#avSets').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const sets = S.avSets = Array.isArray(S.avSets) ? S.avSets : [];
+    if (b.dataset.setuse) { look = Object.assign({}, AV.clean(sets[+b.dataset.setuse])); P.sound('tap'); render(); P.toast('セットを着てみました。「この姿にする」で決定'); return; }
+    if (b.dataset.setsave) {
+      const i = +b.dataset.setsave, l = AV.clean(look);
+      if (unowned().length) { P.toast('まだ買っていない服があるので、登録できません'); return; }
+      const save = () => { sets[i] = l; P.save(); P.sound('ok'); P.toast(`セット${i + 1}に登録しました`); renderSets(); };
+      if (sets[i]) P.confirmBox(`セット${i + 1}を、いまの姿で上書きしますか？`, save); else save();
+      return;
+    }
+    if (b.dataset.setmore) {
+      const go = () => { P.sound('stone'); if (window.ROOM) window.ROOM.openShop('cloak', 'closet'); };
+      if (changed()) P.confirmBox('着がえを保存せずに、ルームショップ（クローク）へ行きますか？', go); else go();
+    }
+  });
   // 試着中リスト（まだ買っていないパーツ）：1つずつ買う・まとめて買う、合計の銭
   const SLOT_NAME = Object.fromEntries(AV.SLOTS);
   const entryOf = sl => AV.CATALOG[sl].find(x => x[0] === look[sl]);

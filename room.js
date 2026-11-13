@@ -13,8 +13,24 @@
   // ほかの人の部屋をたずねているときは guest に、その部屋の情報が入る（見るだけ）
   let guest = null, mySoc = null, meInfo = { pid: S.pid || null, foot: [], friends: [], freq: [], blocks: [], cset: 'all' };
   const DEF_ROOM = () => ({ floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [] });
+  // 部屋はいくつも持てる（廊下でつながる）。cur は、いま操作している部屋の番号（0 = はじめの部屋）
+  let cur = 0;
+  function guestRooms() {
+    const g = guest.room || (guest.room = DEF_ROOM());
+    const list = [g].concat(Array.isArray(guest.rooms2) ? guest.rooms2 : []);
+    for (const x of list) { x.items = x.items || []; x.walls = x.walls || []; }
+    return list;
+  }
+  function allRooms() { if (guest) return guestRooms(); const b = base(); return [b].concat(b.extra); }
   function room() {
-    if (guest) { const g = guest.room || (guest.room = DEF_ROOM()); g.items = g.items || []; g.walls = g.walls || []; return g; }
+    if (guest) { const list = guestRooms(); if (cur >= list.length) cur = 0; return list[cur]; }
+    const b = base();
+    if (cur > b.extra.length) cur = 0;
+    if (!cur) return b;
+    const x = b.extra[cur - 1]; x.items = x.items || []; x.walls = x.walls || []; return x;
+  }
+  // 持ち物（家具の数・床・壁紙）や番号は、はじめの部屋にまとめて持つ
+  function base() {
     if (!S.room) {
       S.room = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [], inv: {}, owned: { floors: ['wood'], walls: ['plain'] }, seq: 2, seen: [] };
       touch();
@@ -29,6 +45,7 @@
     }
     delete r.inv;
     r.seq = r.seq || 2;
+    r.extra = Array.isArray(r.extra) ? r.extra : [];
     if (r.sizeV !== 2) { r.sizeV = 2; refit(r); }
     return r;
   }
@@ -40,8 +57,8 @@
     dirty = true;
   }
   // 倉庫にある数＝持っている数－置いている数
-  function invOf(k) { const r = room(); return (r.ownedItems[k] || 0) - r.items.concat(r.walls).filter(i => i.k === k && !i.trial).length; }
-  function invKeys() { return Object.keys(room().ownedItems).filter(k => invOf(k) > 0); }
+  function invOf(k) { let n = base().ownedItems[k] || 0; for (const r of allRooms()) n -= r.items.concat(r.walls).filter(i => i.k === k && !i.trial).length; return n; }
+  function invKeys() { return Object.keys(base().ownedItems).filter(k => invOf(k) > 0); }
   let dirty = false;   // 配置を変えたが、まだサーバーに送っていない
   function flush() { if (dirty) { dirty = false; P.saveRoom(); } }
   const touch = () => { dirty = true; P.saveLocal(); };
@@ -113,16 +130,17 @@
       const q = [R.proj(sel.x, sel.y, 0), R.proj(sel.x + f.w, sel.y, 0), R.proj(sel.x + f.w, sel.y + f.d, 0), R.proj(sel.x, sel.y + f.d, 0)];
       s += `<polygon points="${q.map(p => p.join(',')).join(' ')}" class="rm-foot ${ok ? 'ok' : 'ng'}"/>`;
     }
-    const owner = ownerSpot();
+    const owner = ownerSpot(), ch = charaSpot(r, owner);
     const ents = solids.map(it => Object.assign(rectOf(it), { it }))
-      .concat(mode === 'view' && !guest ? visitors.map(v => ({ x: v.x, y: v.y, w: 1, d: 1, v })) : [])
-      .concat(owner ? [{ x: owner.x, y: owner.y, w: 1, d: 1, av: true }] : []);
+      .concat(owner ? [{ x: owner.x, y: owner.y, w: 1, d: 1, av: true }] : [])
+      .concat(ch ? [{ x: ch.x, y: ch.y, w: 1, d: 1, ch: ch.key }] : []);
     for (const e of drawOrder(ents)) {
       if (e.it) s += `<g data-uid="${e.it.uid}" class="${sel === e.it ? 'rm-sel' : ''}${e.it.trial ? ' rm-trial' : ''}">${R.drawFloorItem(e.it)}</g>`;
       else if (e.av) s += drawOwner(e);
-      else s += R.drawVisitor(e.v, A.faceUri(e.v.idx), e.v.key);
+      else s += drawChara(e.ch, e.x, e.y, true);
     }
     $('#roomSvg').innerHTML = s;
+    strip();
     $('#roomZeni').textContent = guest ? `部屋番号 ${guest.pid}` : `${S.zeni.toLocaleString()} 銭`;
     $('#roomTitle').textContent = guest ? `${guest.name}さんの部屋` : 'マイルーム';
     const info = guest || mySoc;
@@ -163,6 +181,90 @@
     return `<g class="rm-owner${mode === 'edit' ? ' movable' : ''}${on ? ' rm-sel' : ''}"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h * .955}" width="${w}" height="${h}" viewBox="${AV.VB}" pointer-events="none">${AV.inner(look || AV.PRESETS.girl)}</svg>` +
       `<rect class="rm-owner-hit" x="${sx - 13}" y="${sy - h * 0.55}" width="26" height="${h * 0.55 + 4}" rx="8" fill="transparent"/></g>`;
   }
+
+  /* ---------- 部屋に呼んだキャラ（1部屋に1人） ---------- */
+  const charaKeys = () => guest ? null : new Set(unlocked().map(u => u.v.key));
+  function charaSpot(rm, owner) {
+    const key = rm.g; if (!key) return null;
+    if (!guest && !charaKeys().has(key)) return null;
+    const busy = new Set();
+    for (const it of rm.items) if (cat(it.k) && cat(it.k).kind !== 'flat') { const f = rectOf(it); for (let x = f.x; x < f.x + f.w; x++) for (let y = f.y; y < f.y + f.d; y++) busy.add(x + ',' + y); }
+    if (owner) busy.add(owner.x + ',' + owner.y);
+    const gp = rm.gp;
+    if (gp && Number.isInteger(gp.x) && Number.isInteger(gp.y) && !busy.has(gp.x + ',' + gp.y)) return { key, x: gp.x, y: gp.y };
+    for (const [x, y] of [[6, 8], [8, 6], [5, 9], [9, 5], [7, 7], [4, 8], [8, 4], [10, 7]]) if (!busy.has(x + ',' + y)) return { key, x, y };
+    for (let x = N - 1; x >= 0; x--) for (let y = N - 1; y >= 0; y--) if (!busy.has(x + ',' + y)) return { key, x, y };
+    return null;
+  }
+  // キャラの立ち姿（透過画像）。足もとに影
+  function drawChara(key, gx, gy, live) {
+    const [sx, sy] = R.proj(gx + .5, gy + .5, 0), w = 60, h = 112, on = live && drag && drag.gp;
+    return `<g class="rm-chara${live && mode === 'edit' ? ' movable' : ''}${on ? ' rm-sel' : ''}" data-chara="${key}"><ellipse cx="${sx}" cy="${sy}" rx="15" ry="5" fill="rgba(0,0,0,.25)"/>` +
+      `<image href="${standSrc(key)}" x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" preserveAspectRatio="xMidYMax meet" pointer-events="none"/>` +
+      `<rect class="rm-owner-hit" x="${sx - 14}" y="${sy - h * 0.6}" width="28" height="${h * 0.6 + 4}" rx="8" fill="transparent"/></g>`;
+  }
+  function charaWhere(key) { const list = allRooms(); for (let i = 0; i < list.length; i++) if (list[i].g === key) return i; return -1; }
+  function callChara(key) {
+    for (const rm of allRooms()) if (rm.g === key) { delete rm.g; delete rm.gp; }
+    const r = room(); r.g = key; delete r.gp;
+    touch(); flush(); P.sound('ok');
+    const v = guests.find(g => g.key === key); if (v) { curGuest = v; showVisit(); }
+    render(); renderPanel();
+  }
+  function sendHome(key) { for (const rm of allRooms()) if (rm.g === key) { delete rm.g; delete rm.gp; } touch(); flush(); P.sound('tap'); render(); renderPanel(); }
+
+  /* ---------- 廊下でつながった部屋（横にスクロール。タップでその部屋を操作） ---------- */
+  let stripKey = '';
+  function strip() {
+    const list = allRooms(), host = $('#roomStrip'), svgEl = $('#roomSvg');
+    const canAdd = !guest && mode !== 'edit' && list.length < ROOM_MAX;
+    const key = [guest ? 'g' + guest.pid : 'me', list.length, cur, mode, canAdd].join(':');
+    if (key === stripKey && host.contains(svgEl)) return;
+    const changed = !stripKey.startsWith((guest ? 'g' + guest.pid : 'me') + ':' + list.length + ':' + cur + ':');
+    stripKey = key;
+    svgEl.remove();
+    let h = '';
+    list.forEach((rm, i) => {
+      if (i) h += '<div class="rm-hall" aria-hidden="true"><i></i><span>廊下</span></div>';
+      h += `<div class="rm-cell${i === cur ? ' on' : ''}" data-cell="${i}">${list.length > 1 ? `<b class="rm-cell-name">部屋${i + 1}${i === cur ? '' : ''}</b>` : ''}` +
+        (i === cur ? '' : `<button type="button" class="rm-cell-pick" data-pick="${i}" aria-label="部屋${i + 1}へ">${miniOf(rm, null, rm.g && (guest || charaKeys().has(rm.g)) ? rm.g : null)}<span>タップでこの部屋へ</span></button>`) + '</div>';
+    });
+    if (canAdd) h += `<div class="rm-hall" aria-hidden="true"><i></i><span>廊下</span></div><div class="rm-cell rm-add"><button type="button" id="rmAddRoom"><b>＋ 部屋を増やす</b><small>${ROOM_PRICE.toLocaleString()} 銭・廊下でつながります</small></button></div>`;
+    host.innerHTML = h;
+    host.querySelector(`.rm-cell[data-cell="${cur}"]`).prepend(svgEl);
+    host.classList.toggle('multi', list.length > 1 || canAdd);
+    if (changed) centerCell(false);
+  }
+  function centerCell(smooth) {
+    const host = $('#roomStrip'), cell = host.querySelector('.rm-cell.on'); if (!cell) return;
+    const left = cell.offsetLeft - (host.clientWidth - cell.clientWidth) / 2;
+    host.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
+  }
+  function pickRoom(i) {
+    if (i === cur) return;
+    clearTrials(); sel = null; drag = null;
+    cur = i; setZoom(1);
+    P.sound('stone');
+    stripKey = ''; render(); renderPanel(); centerCell(true); showVisit();
+  }
+  const ROOM_MAX = 6, ROOM_PRICE = 10000;
+  function buyRoom() {
+    if ((S.zeni || 0) < ROOM_PRICE) { P.toast(`部屋を増やすには ${ROOM_PRICE.toLocaleString()} 銭いります`); return; }
+    P.confirmBox(`${ROOM_PRICE.toLocaleString()} 銭で部屋を1つ増やしますか？（廊下でつながります）`, () => {
+      flush();
+      P.buy({ roomAdd: 1 }, ROOM_PRICE, res => {
+        if (!res.ok) { P.toast(res.reason === 'max' ? '部屋はこれ以上増やせません' : (BUY_NG[res.reason] || '買えませんでした')); return; }
+        P.sound('ok');
+        const n = base().extra.length;
+        stripKey = ''; cur = n; sel = null; setZoom(1); render(); renderPanel(); centerCell(true);
+        P.toast(`部屋${n + 1}ができました！ もようがえしてみましょう`);
+      });
+    });
+  }
+  $('#roomStrip').addEventListener('click', e => {
+    const b = e.target.closest('[data-pick]'); if (b) { pickRoom(+b.dataset.pick); return; }
+    if (e.target.closest('#rmAddRoom')) buyRoom();
+  });
 
   function avFree(x, y) {
     for (const it of room().items) if (cat(it.k).kind !== 'flat') { const f = rectOf(it); if (x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.d) return false; }
@@ -218,7 +320,7 @@
       if (a === 'wall') return f.wall === b;
       return false;
     };
-    const seen = room().seen;
+    const seen = base().seen;
     let cands = list.map((l, i) => ({ l, i, id: key + ':' + i })).filter(c => ok(c.l[0]));
     const fresh = cands.filter(c => !seen.includes(c.id));
     if (fresh.length) cands = fresh;
@@ -238,6 +340,7 @@
   const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
   function showVisit() {
     const box = $('#visit');
+    if (!guest) { const k = room().g, v = k && guests.find(g => g.key === k); if (v) curGuest = v; }
     if (guest || mode === 'edit' || !curGuest) { box.hidden = true; return; }
     box.hidden = false;
     talk(curGuest, true);
@@ -311,19 +414,23 @@
       const [a, b] = [...ptrs.values()];
       pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: zoom.z }; pan = null; return;
     }
-    const vg = null;
-    const onThing = findItem(e) || (e.target.closest && e.target.closest('.rm-owner'));
+    const chEl = e.target.closest && e.target.closest('.rm-chara');
+    const onThing = findItem(e) || (e.target.closest && e.target.closest('.rm-owner')) || chEl;
     if (zoom.z > 1.01 && (!onThing || (mode === 'view' && guest))) { if (mode === 'edit' && sel) { sel = null; render(); } startPan(e); return; }
-    if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
     const tr = mode === 'view' && findItem(e);
     if (mode === 'view' && !(tr && tr.trial)) {
-      if (sel && sel.trial) { sel = null; render(); }
-      if (vg) { const v = visitors.find(x => x.key === vg.dataset.key); if (v) talk(v); return; }
-      const it = findItem(e); if (!it) return;
-      const c = cat(it.k);
-      if (c.light) { it.on = !it.on; touch(); P.sound('tap'); render(); return; }
-      if (it.k === 'goban') { P.confirmBox('対人戦で一局打ちますか？', () => { flush(); P.startMatch(); }); return; }
+      // 見るとき：指をはなしたときに「タップ」として動かす（横にスクロールしたときは動かさない）
+      tapCand = { x: e.clientX, y: e.clientY, it: findItem(e), ch: chEl ? chEl.dataset.chara : null };
       return;
+    }
+    if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
+    // 部屋に呼んだキャラも、もようがえで動かせる
+    if (chEl && mode === 'edit') {
+      const r = room(), sp = charaSpot(r, ownerSpot()); if (!sp) return;
+      r.gp = { x: sp.x, y: sp.y };
+      const [sx, sy] = svgPoint(e), g = R.toGrid(sx, sy);
+      sel = null; drag = { av: true, gp: true, it: r.gp, off: [g.x - sp.x, g.y - sp.y], orig: { x: sp.x, y: sp.y }, ok: true };
+      svg().setPointerCapture(e.pointerId); e.preventDefault(); render(); return;
     }
     // 自分のアバターも、もようがえで動かせる
     if (e.target.closest && e.target.closest('.rm-owner')) {
@@ -370,7 +477,43 @@
       if (x !== it.x || y !== it.y) { it.x = x; it.y = y; drag.ok = canPlace(it, x, y, it.rot); render(); }
     }
   }
+  // タップしたとき（見るとき）：家具が動く・キャラとおしゃべり・碁盤で対局
+  let tapCand = null;
+  function onTap(t) {
+    if (t.ch) { const v = guests.find(g => g.key === t.ch) || (guest ? { key: t.ch, idx: A.VARIANTS.findIndex(x => x.key === t.ch), name: (A.VARIANTS.find(x => x.key === t.ch) || {}).name } : null); if (v) { if (guest) { fx(null, t.ch); P.sound('tap'); } else { talk(v); fx(null, t.ch); } } return; }
+    const it = t.it;
+    if (sel && sel.trial && it !== sel) { sel = null; render(); }
+    if (!it) return;
+    const c = cat(it.k);
+    if (!guest && (c.light || c.toggle)) { it.on = !it.on; touch(); P.sound('tap'); render(); fx(it); return; }
+    if (!guest && it.k === 'goban') { P.confirmBox('対人戦で一局打ちますか？', () => { flush(); P.startMatch(); }); return; }
+    P.sound('tap'); fx(it);
+  }
+  // 家具の動き：テレビ・明かりはつく／消える、掛け軸はおばけ、植物はゆれる、動物ははねる、ほかはぴょこっ
+  const FX_SWAY = new Set(['plant', 'bonsai', 'matsu', 'bamboo', 'cactus', 'kadomatsu', 'xmastree', 'bangasa', 'hammock', 'kabin', 'rack']);
+  const FX_JUMP = new Set(['maneki', 'zhaocai', 'cat', 'dog', 'penguin', 'panda', 'teddy', 'daruma', 'tanuki', 'kokeshi', 'robot', 'alien', 'ghost', 'snowman', 'kanfu', 'dino', 'shishi', 'dragon']);
+  const FX_SPIN = new Set(['globe', 'mirrorball', 'ufo', 'clock', 'bigstone_b', 'bigstone_w', 'coins']);
+  function fx(it, chKey) {
+    const host = svg();
+    const g = chKey ? host.querySelector(`.rm-chara[data-chara="${chKey}"]`) : host.querySelector(`[data-uid="${it.uid}"]`);
+    if (!g) return;
+    const kind = chKey ? 'jump' : it.k === 'kakejiku' ? 'ghost' : FX_SWAY.has(it.k) ? 'sway' : FX_JUMP.has(it.k) ? 'jump' : FX_SPIN.has(it.k) ? 'spin' : (cat(it.k).light || cat(it.k).toggle) ? 'flash' : 'bob';
+    if (kind === 'ghost') {
+      // 掛け軸のうしろから、おばけがのぞいて引っこむ
+      const r = g.getBBox(), gh = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const cx = r.x + r.width / 2, cy = r.y + r.height * .35;
+      gh.setAttribute('class', 'rm-ghostpop'); gh.setAttribute('pointer-events', 'none');
+      gh.innerHTML = `<g style="--gx:${(it.side === 'L' ? -1 : 1) * 16}px"><path d="M${cx - 9} ${cy + 10}v-10a9 9 0 0 1 18 0v10l-3-3-3 3-3-3-3 3-3-3z" fill="#f5f7ff" stroke="#9aa3c4" stroke-width=".8"/><circle cx="${cx - 3}" cy="${cy}" r="1.4" fill="#222"/><circle cx="${cx + 3}" cy="${cy}" r="1.4" fill="#222"/><ellipse cx="${cx}" cy="${cy + 4}" rx="1.6" ry="2" fill="#222"/></g>`;
+      g.before(gh);
+      setTimeout(() => gh.remove(), 1700);
+      return;
+    }
+    g.classList.remove('fx-sway', 'fx-jump', 'fx-spin', 'fx-flash', 'fx-bob'); void g.getBBox(); g.classList.add('fx-' + kind);
+    setTimeout(() => g.classList.remove('fx-' + kind), 1300);
+  }
   function onUp(e) {
+    if (e && e.type === 'pointerup' && tapCand && ptrs.size <= 1 && Math.hypot(e.clientX - tapCand.x, e.clientY - tapCand.y) < 10) { const t = tapCand; tapCand = null; ptrs.delete(e.pointerId); onTap(t); return; }
+    tapCand = null;
     if (e) ptrs.delete(e.pointerId);
     if (ptrs.size < 2) pinch = null;
     if (pan) { pan = null; return; }
@@ -414,7 +557,7 @@
   function placeFromInv(k) {
     const r = room(), c = cat(k);
     if (invOf(k) <= 0) return;
-    const it = { uid: r.seq++, k, rot: 0 };
+    const it = { uid: base().seq++, k, rot: 0 };
     if (c.kind === 'wall') { const sp = freeWallSpot(it); if (!sp) { P.toast('壁に空きがありません'); return; } Object.assign(it, sp); r.walls.push(it); }
     else { const sp = freeSpot(it); if (!sp) { P.toast('床に空きがありません'); return; } Object.assign(it, sp); r.items.push(it); }
     mode = 'edit'; sel = it; touch(); setMode('edit'); renderPanel(); render();
@@ -424,7 +567,7 @@
   /* ---------- 試し置き（ルームショップ）：買う前に部屋に置いてみる。買ったら「そのまま置く？」 ---------- */
   const trials = () => room().items.concat(room().walls).filter(i => i.trial);
   function addTrial(k) {
-    const r = room(), c = cat(k), it = { uid: r.seq++, k, rot: 0, trial: true };
+    const r = room(), c = cat(k), it = { uid: base().seq++, k, rot: 0, trial: true };
     if (c.kind === 'wall') { const sp = freeWallSpot(it); if (!sp) { P.toast('壁に空きがありません'); return; } Object.assign(it, sp); r.walls.push(it); }
     else { const sp = freeSpot(it); if (!sp) { P.toast('床に空きがありません'); return; } Object.assign(it, sp); r.items.push(it); }
     sel = it; P.sound('stone'); render(); renderPanel();
@@ -515,22 +658,22 @@
       let h = `<div class="rm-shop-top"><div class="rm-clerk"><img src="img/stand_shima.webp" alt="店主の静馬" data-shima="1"><p id="rmClerk"><b>静馬</b><span>${esc(clerkLine)}</span></p></div>`;
       if (tl.length) h += `<div class="rm-try"><b class="av-try-h">試し置き</b><ul>${tl.map(it => `<li><span>${cat(it.k).name}</span><em>${cat(it.k).price.toLocaleString()}</em><button type="button" class="btn primary small" data-tbuy="${it.uid}" ${cat(it.k).price > (S.zeni || 0) ? 'disabled' : ''}>買う</button><button type="button" class="sc-x" data-tundo="${it.uid}" aria-label="試し置きをやめる">×</button></li>`).join('')}</ul>
         <div class="av-try-sum"><span>合計</span><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b>${tl.length > 1 ? `<button type="button" class="btn primary small" data-tall="1" ${short ? 'disabled' : ''}>まとめて買う</button>` : ''}</div></div>`;
-      h += '</div><p class="rm-help">家具をタップすると、部屋に「試し置き」できます。部屋の中でドラッグして動かせます。</p><div class="rm-grid-list">';
+      h += `</div><p class="rm-help">${shopKind === 'cloak' ? 'クロークは服をしまう家具です。部屋に1つ置くごとに、アバターの「お気に入りセット」が2つふえます。' : '家具をタップすると、部屋に「試し置き」できます。部屋の中でドラッグして動かせます。'}</p><div class="rm-grid-list">`;
       if (shopKind === 'interior') {
         for (const [kind, table] of [['floors', R.FLOORS], ['walls', R.WALLS]]) for (const [id, it] of Object.entries(table)) {
-          const own = r.owned[kind].includes(id), using = (kind === 'floors' ? r.floor : r.wall) === id;
+          const own = base().owned[kind].includes(id), using = (kind === 'floors' ? r.floor : r.wall) === id;
           h += `<div class="rm-card"><div class="rm-swatch ${kind === 'floors' ? 'f-' : 'w-'}${id}"></div><b>${it.name}</b><small>${kind === 'floors' ? '床' : '壁紙'}</small>
             <button class="btn ${own ? 'lac' : 'primary'} small" data-int="${kind}:${id}" ${using ? 'disabled' : ''}>${using ? '使用中' : own ? '使う' : `${it.price} 銭で買う`}</button></div>`;
         }
       } else {
         for (const c of R.CATALOG) {
           if (c.price <= 0) continue;
-          if ((c.kind === 'wall') !== (shopKind === 'wall')) continue;
-          const have = r.ownedItems[c.id] || 0, trying = tl.filter(it => it.k === c.id).length;
+          if ((c.cloak ? 'cloak' : c.kind === 'wall' ? 'wall' : 'floor') !== shopKind) continue;
+          const have = base().ownedItems[c.id] || 0, trying = tl.filter(it => it.k === c.id).length;
           h += `<button type="button" class="rm-card rm-buycard${trying ? ' on' : ''}" data-try="${c.id}">${thumb(c.id)}<b>${c.name}</b><small>${c.light ? '電気・' : ''}${have ? `${have}こ持ってる` : ''}${trying ? '・試し置き中' : ''}</small><span class="rm-price">${c.price.toLocaleString()} 銭</span></button>`;
         }
       }
-      h += `</div><div class="rm-shop-nav rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
+      h += `</div><div class="rm-shop-nav rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['cloak', 'クローク'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
       p.innerHTML = h;
     } else if (tab === 'inv') {
       const ks = invKeys();
@@ -539,10 +682,13 @@
       p.innerHTML += '<button type="button" class="btn primary rm-goshop" data-goshop="1">ショップに買いに行く</button>';
     } else {
       const mine = A.VARIANTS[P.charaIdx()].key;
-      p.innerHTML = `<p class="rm-help">5勝すると遊びに来ます。自分のキャラは通算5勝、ほかのキャラはそのキャラに5勝（対局相手のキャラはBotの強さで変わります）。遊びに来たキャラをタップするとおしゃべり、「一局打つ」で対局できます。</p><div class="rm-guests">` +
+      p.innerHTML = `<p class="rm-help">5勝すると遊びに来ます。自分のキャラは通算5勝、ほかのキャラはそのキャラに5勝（対局相手のキャラはBotの強さで変わります）。遊びに来たキャラは「部屋に呼ぶ」で、いま見ている部屋に1人ずつ置けます。部屋の中のキャラをタップするとおしゃべり、もようがえで立つ場所を動かせます。</p><div class="rm-guests">` +
         A.VARIANTS.map((v, i) => {
-          const n = v.key === mine ? (S.wins || 0) : (S.vs[v.key] || 0), ok = n >= 5;
-          return `<div class="rm-guest ${ok ? 'ok' : ''}"><img src="${A.faceUri(i)}" alt=""><div><b>${v.name}</b><small>${ok ? '遊びに来ます' : `あと ${5 - n} 勝${v.key === mine ? '（通算）' : ''}`}</small></div></div>`;
+          const n = v.key === mine ? (S.wins || 0) : (S.vs[v.key] || 0), ok = n >= 5 && P.charaOpen(i);
+          const at = ok ? charaWhere(v.key) : -1, here = at === cur;
+          const btn = !ok ? '' : here ? `<button type="button" class="btn lac small" data-uncall="${v.key}">帰ってもらう</button>` : `<button type="button" class="btn primary small" data-call="${v.key}">${at >= 0 ? 'この部屋へ呼ぶ' : '部屋に呼ぶ'}</button>`;
+          const where = here ? `部屋${cur + 1}にいます` : at >= 0 ? `部屋${at + 1}にいます` : '遊びに来ます';
+          return `<div class="rm-guest ${ok ? 'ok' : ''}"><img src="${A.faceUri(i)}" alt=""><div><b>${v.name}</b><small>${ok ? where : `あと ${5 - n} 勝${v.key === mine ? '（通算）' : ''}`}</small></div>${btn}</div>`;
         }).join('') + '</div>';
     }
   }
@@ -573,11 +719,13 @@
       return;
     }
     if (b.dataset.place) { placeFromInv(b.dataset.place); return; }
+    if (b.dataset.call) { callChara(b.dataset.call); return; }
+    if (b.dataset.uncall) { sendHome(b.dataset.uncall); return; }
     if (b.dataset.goshop) { setMode('view'); tab = 'shop'; renderPanel(); shima('hello'); P.sound('stone'); return; }
     if (b.dataset.int) {
       const [kind, id] = b.dataset.int.split(':'), table = kind === 'floors' ? R.FLOORS : R.WALLS, it = table[id];
       const use = () => { if (kind === 'floors') r.floor = id; else r.wall = id; dirty = true; flush(); renderPanel(); render(); };
-      if (r.owned[kind].includes(id)) { use(); return; }
+      if (base().owned[kind].includes(id)) { use(); return; }
       if (S.zeni < it.price) { shima('poor'); P.toast('銭が足りません'); return; }
       shima('pick');
       P.confirmBox(`${it.name}を ${it.price} 銭で買いますか？`, () => {
@@ -601,10 +749,13 @@
   }
 
   let roomFrom = null;   // 'shop'：ショップから来た（もどるでショップへ）
+  // 置いているクロークの数（全部の部屋。試し置きは数えない）
+  function cloaks() { if (!S.room) return 0; let n = 0; for (const r of [S.room].concat(S.room.extra || [])) for (const it of r.items || []) if (!it.trial && cat(it.k) && cat(it.k).cloak) n++; return n; }
+  function openShop(kind, back) { open('shop', back); if (kind) { shopKind = kind; renderPanel(); } }
   function open(startTab, back) {
     if (typeof startTab !== 'string') startTab = null;
     roomFrom = back || null;
-    guest = null;
+    guest = null; stripKey = '';
     room(); clearTrials();
     tab = startTab || 'inv'; mode = 'view'; sel = null;
     P.showScreen('myroom');
@@ -628,7 +779,7 @@
       P.soc('visit', { pid }, res => {
         if (!res.ok) { P.toast(SO.why(res)); if (res.reason === 'blocked') goHome(); return; }
         if (res.mine) { goHome(); return; }
-        guest = res; render(); renderPanel();
+        guest = res; cur = 0; stripKey = ''; render(); renderPanel();
       });
     }
   }
@@ -643,16 +794,16 @@
     P.soc('visit', { pid }, res => {
       if (!res.ok) { P.toast(SO.why(res)); return; }
       if (res.mine) { goHome(); return; }
-      guest = res; tab = 'diary'; sel = null; mode = 'view'; setZoom(1);
+      guest = res; cur = 0; stripKey = ''; tab = 'diary'; sel = null; mode = 'view'; setZoom(1);
       if (window.TICKER) setTimeout(window.TICKER.draw, 0);
       P.showScreen('myroom'); showVisit();
       render(); renderPanel(); P.sound('stone');
     });
   }
-  function goHome() { guest = null; setTimeout(showVisit, 0); if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
+  function goHome() { guest = null; cur = 0; stripKey = ''; setTimeout(showVisit, 0); if (window.TICKER) setTimeout(window.TICKER.draw, 0); tab = 'social'; setMode('view'); renderPanel(); loadSocial(null); }
   // えらぶ画面に出す、小さな自分の部屋。miniOf はほかの人の部屋（フレンド・探訪）も、持ち主のアバターつきで描く
   function mini() { return miniOf(room(), null); }
-  function miniOf(rm, look) {
+  function miniOf(rm, look, chara) {
     rm = rm || DEF_ROOM();
     let s = R.DEFS + R.drawWalls(rm.wall || 'plain') + R.drawFloor(rm.floor || 'wood');
     for (const w of rm.walls || []) if (cat(w.k) && !w.trial) s += R.drawWallItem(w, {});
@@ -664,8 +815,10 @@
       const a = rm.av && !busy.has(rm.av.x + ',' + rm.av.y) ? rm.av : [[3, 9], [9, 3], [2, 8], [8, 2], [9, 9]].map(([x, y]) => ({ x, y })).find(p => !busy.has(p.x + ',' + p.y));
       if (a) ents.push({ x: a.x, y: a.y, w: 1, d: 1, look });
     }
+    if (chara) { const sp = charaSpot(Object.assign({}, rm, { items }), null); if (sp) ents.push({ x: sp.x, y: sp.y, w: 1, d: 1, ch: chara }); }
     for (const e of drawOrder(ents)) {
       if (e.it) s += R.drawFloorItem(e.it);
+      else if (e.ch) s += drawChara(e.ch, e.x, e.y, false);
       else { const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 80, h = w * AV.H / AV.W; s += `<ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h * .955}" width="${w}" height="${h}" viewBox="${AV.VB}">${AV.inner(e.look)}</svg>`; }
     }
     return `<svg viewBox="0 0 ${R.W} ${R.H}" aria-hidden="true">${s}</svg>`;
@@ -690,6 +843,7 @@
     clearTrials();
     if (mode === 'edit') setMode('view'); flush();
     if (roomFrom === 'shop' && window.SHOP) { roomFrom = null; window.SHOP.open(); return; }
+    if (roomFrom === 'closet' && window.AVATAR_UI) { roomFrom = null; window.AVATAR_UI.open('closet'); return; }
     if (window.AVATAR_UI) window.AVATAR_UI.openHub(); else { P.renderHome(); P.showScreen('home'); }
   };
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
@@ -713,5 +867,5 @@
     flush(); P.sound('stone');
     window.FRIEND.inviteTo(to);
   };
-  window.ROOM = { open, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
+  window.ROOM = { open, openShop, cloaks, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
 })();

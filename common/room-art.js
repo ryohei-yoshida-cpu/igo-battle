@@ -145,6 +145,21 @@
         const b = m.box(0, .15, 0, 2, .85, 2.2, '#8a5a32');
         for (let i = 0; i < 4; i++) { m.rect(b, 'F', .1, .15 + i * .5, 1.9, .55 + i * .5, '#a06b3d'); m.rect(b, 'F', .9, .3 + i * .5, 1.1, .38 + i * .5, '#2a2a2a'); }
       } },
+    { id: 'ikou', name: '衣桁（着物かけ）', style: 'wa', kind: 'floor', w: 2, d: 1, price: 300,
+      draw(m) {
+        m.box(.05, .35, 0, .15, .3, .12, DARKWOOD); m.box(1.8, .35, 0, .15, .3, .12, DARKWOOD);
+        m.box(.08, .45, 0, .08, .08, 2.2, DARKWOOD); m.box(1.84, .45, 0, .08, .08, 2.2, DARKWOOD);
+        m.box(-.05, .45, 2.1, 2.1, .08, .08, DARKWOOD); m.box(.08, .45, 1.2, 1.84, .06, .06, DARKWOOD);
+        const k = m.box(.25, .5, .5, 1.5, .04, 1.6, '#c94f6d', { front: '#d8607e' });
+        m.rect(k, 'F', .1, .3, 1.4, .45, GOLD); m.circleOn(k, 'F', .45, 1.0, .12, '#f3d36a'); m.circleOn(k, 'F', 1.05, .7, .1, '#ffffff');
+      } },
+    { id: 'closet', name: 'クローゼット', style: 'yo', kind: 'floor', w: 2, d: 1, price: 600,
+      draw(m) {
+        const b = m.box(0, .1, 0, 2, .9, 3.0, '#e9dfcf');
+        m.rect(b, 'F', .06, .1, .97, 2.9, '#f3ebdd'); m.rect(b, 'F', 1.03, .1, 1.94, 2.9, '#f3ebdd');
+        m.rect(b, 'F', .86, 1.3, .92, 1.8, '#b08a52'); m.rect(b, 'F', 1.08, 1.3, 1.14, 1.8, '#b08a52');
+        m.box(-.05, .05, 3.0, 2.1, 1.0, .12, '#d6c9b3');
+      } },
     { id: 'hibachi', name: '火鉢', style: 'wa', kind: 'floor', w: 1, d: 1, price: 200,
       draw(m) { m.cyl(.5, .5, 0, .38, .6, '#3b4f6b'); m.disc(.5, .5, .6, .3, '#b9b2a6'); m.ball(.45, .5, .62, .07, '#e2462a'); m.ball(.58, .45, .62, .06, '#f06a2a'); } },
     { id: 'maneki', name: '招き猫', style: 'wa', kind: 'floor', w: 1, d: 1, price: 180,
@@ -159,11 +174,16 @@
         m.box(.35, .45, 0, 2.3, 1.4, .7, '#5d7fbc');
         m.box(.5, .2, .7, .9, .3, .55, '#e9d79b'); m.box(1.6, .2, .7, .9, .3, .55, '#e9d79b');
       } },
-    { id: 'tv', name: 'テレビ', style: 'yo', kind: 'floor', w: 2, d: 1, price: 800,
-      draw(m) {
+    { id: 'tv', name: 'テレビ', style: 'yo', kind: 'floor', w: 2, d: 1, price: 800, toggle: true, note: 'タップでつく・消える',
+      draw(m, o) {
         m.box(0, .2, 0, 2, .7, .5, '#3a3a40');
         const s = m.box(.1, .4, .5, 1.8, .15, 1.15, '#1c1c22');
-        m.rect(s, 'F', .08, .08, 1.72, 1.07, '#2c4a7a'); m.rect(s, 'F', .2, .55, 1.0, .95, '#3f6aa5');
+        if (o.on) {   // つけると、碁の番組
+          m.rect(s, 'F', .08, .08, 1.72, 1.07, '#d9b26b');
+          for (let i = 0; i < 4; i++) { m.rect(s, 'F', .25 + i * .4, .15, .27 + i * .4, 1.0, '#6b4a2b'); m.rect(s, 'F', .15, .2 + i * .25, 1.65, .22 + i * .25, '#6b4a2b'); }
+          m.circleOn(s, 'F', .65, .47, .09, '#151515'); m.circleOn(s, 'F', 1.05, .72, .09, '#f7f3ea'); m.circleOn(s, 'F', 1.05, .47, .09, '#151515');
+          m.glow(1, .5, 1.1, 40);
+        } else { m.rect(s, 'F', .08, .08, 1.72, 1.07, '#15161c'); m.rect(s, 'F', .2, .6, .8, .95, '#23252e'); }
       } },
     { id: 'lowtable', name: 'ローテーブル', style: 'yo', kind: 'floor', w: 2, d: 1, price: 200,
       draw(m) { for (const [x, y] of [[.1, .15], [1.75, .15], [.1, .7], [1.75, .7]]) m.box(x, y, 0, .15, .15, .4, DARKWOOD); m.box(0, .1, .4, 2, .8, .1, '#c08a55'); m.cyl(1.4, .5, .5, .12, .15, '#e7e1d6'); } },
@@ -253,6 +273,9 @@
   const tier = p => p === 0 ? 0 : p <= 150 ? 100 : p <= 350 ? 200 : p <= 700 ? 300 : 400;
   const TIER_PRICE = { 100: 100, 200: 400, 300: 600, 400: 800 };
   for (const c of CATALOG) if (c.price > 0) c.price = TIER_PRICE[[100, 200, 300, 400].includes(c.price) ? c.price : tier(c.price)];
+  // クローク（服をしまう家具）：置くと、アバターのお気に入りセットを増やせる
+  const CLOAK = new Set(['tansu', 'ikou', 'closet', 'rack', 'mirror', 'dresser']);
+  for (const c of CATALOG) if (CLOAK.has(c.id)) { c.cloak = true; c.note = c.note || '置くと、お気に入りセットが2つふえる'; }
   const BY_ID = {}; CATALOG.forEach(c => BY_ID[c.id] = c);
 
   /* 床と壁紙 */

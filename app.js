@@ -13,7 +13,7 @@
   const RANKS = ['10級', '9級', '8級', '7級', '6級', '5級', '4級', '3級', '2級', '1級', '初段', '二段', '三段', '四段'];
   const TH = [1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1500, 1600, 1700, 1800, 1900, 2000];
   const DAN_FROM = 10;      // 初段の index
-  const BOT_MAX = 9;        // Botは1級まで
+  const BOT_MAX = 13;       // Botは四段まで（初段から上は囲碁AI）
   const DAN_STREAK = 4;     // 昇段に必要な連勝数
   const START_RATE = 1050;
   const rankFromRating = r => { let i = 0; for (let k = 0; k < TH.length; k++) if (r >= TH[k]) i = k; return i; };
@@ -139,7 +139,7 @@
   // 人の手番中にBotが先読みする（Botの1手は5秒以内）
   function ponder() {
     if (!worker || !G || G.over || G.toPlay !== G.me || G.online) return;
-    worker.postMessage({ type: 'ponder', size: BN, board: G.board, toPlay: G.toPlay, ko: G.ko, komi: G.komi, last: G.last, level: G.bot.level });
+    worker.postMessage({ type: 'ponder', size: BN, board: G.board, toPlay: G.toPlay, ko: G.ko, komi: G.komi, last: G.last, level: G.bot.level, rec: G.hc ? null : G.record.slice() });
   }
   function stopPonder() { if (worker) worker.postMessage({ type: 'stop' }); }
 
@@ -506,7 +506,7 @@
     const g = G, id = G.id, mv = G.moveNo;
     g.thinking = true;
     const t0 = performance.now();
-    const r = await ask({ type: 'think', board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: g.komi, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last });
+    const r = await ask({ type: 'think', size: BN, board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: g.komi, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last, rec: g.hc ? null : g.record.slice() });
     const wait = Math.max(0, Math.min(4800 - (performance.now() - t0), 500 + Math.random() * 600 - (performance.now() - t0)));
     await new Promise(res => setTimeout(res, wait));
     if (!G || G.id !== id || G.over || G.moveNo !== mv) return;
@@ -848,9 +848,13 @@
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
     if (e.av) S.av = e.av;
     if (e.pid) S.pid = e.pid;
+    if (layout === false && e.rooms2 && e.rooms2.length > (r.extra = r.extra || []).length) {   // 部屋を買った：新しい部屋だけ足す
+      for (const x of e.rooms2.slice(r.extra.length)) r.extra.push({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [] });
+    }
     if (layout !== false && e.room) {
-      Object.assign(r, { floor: e.room.floor, wall: e.room.wall, items: e.room.items, walls: e.room.walls });
-      r.seq = Math.max(r.seq || 1, ...r.items.concat(r.walls).map(i => (i.uid | 0) + 1));
+      Object.assign(r, { floor: e.room.floor, wall: e.room.wall, items: e.room.items, walls: e.room.walls, g: e.room.g });
+      r.extra = (e.rooms2 || []).map(x => ({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [], av: x.av, g: x.g }));
+      r.seq = Math.max(r.seq || 1, ...r.items.concat(r.walls).concat(...r.extra.map(x => x.items.concat(x.walls))).map(i => (i.uid | 0) + 1));
     }
     saveLocal(); renderHome();
     if (window.ROOM) window.ROOM.refresh();
@@ -1386,6 +1390,7 @@
       if (what.item) r.ownedItems[what.item] = (r.ownedItems[what.item] || 0) + 1;
       else if (what.floor) r.owned.floors.push(what.floor);
       else if (what.wall) r.owned.walls.push(what.wall);
+      else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [] }); }
       save(); cb({ ok: true });
     },
     // マイルームのつながり（日記・チャット・フレンドなど）。サーバーにつながっていないときは reason: 'offline'
@@ -1399,7 +1404,8 @@
     saveRoom() {
       saveLocal();
       const r = S.room;
-      if (econOn()) netSend({ t: 'room', room: { floor: r.floor, wall: r.wall, items: r.items.filter(i => !i.trial), walls: r.walls.filter(i => !i.trial), av: r.av } });   // 試し置きは送らない
+      const pack = x => ({ floor: x.floor, wall: x.wall, items: (x.items || []).filter(i => !i.trial), walls: (x.walls || []).filter(i => !i.trial), av: x.av, g: x.g });   // 試し置きは送らない
+      if (econOn()) netSend({ t: 'room', room: pack(r), rooms2: (r.extra || []).map(pack) });
     },
     // マイルームに来たキャラと一局（レート対局）
     playChara(chara, level) {
