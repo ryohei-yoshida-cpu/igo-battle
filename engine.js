@@ -431,12 +431,13 @@
     return { saves, kos, dames };
   }
 
-  // 段級 level（0 = 10級 … 9 = 1級）ごとの読みの量と時間。1手は最大4.5秒
-  const MAX_MS = 4500;
+  // 段級 level（0 = 10級 … 9 = 1級）ごとの読みの量。
+  // 強さは「読む回数」で決める（時間では決めない）。相手の手番中に先読みした分もふくめて数えるので、
+  // スマホの速さや、相手がどれだけ考えたかで強さが変わりにくい。時間は、遅い機種での上限としてだけ使う
+  const MAX_MS = 6000;
   function budget(level, timeLeft) {
-    const s = level + 5;
-    const playouts = Math.round(300 * Math.pow(1.5, s));           // 10級 約2300 … 1級 約87000
-    const ms = Math.max(250, Math.min(MAX_MS, 300 + s * 300, timeLeft / 14));
+    const playouts = Math.round(3000 * Math.pow(1.3, level));       // 10級 3000 … 5級 約11000 … 1級 約32000
+    const ms = Math.max(250, Math.min(MAX_MS, timeLeft / 14));
     return { playouts, ms };
   }
 
@@ -447,7 +448,7 @@
     const { playouts, ms } = budget(L, d.timeLeft);
     const t = treeFor(d.board, c, d.ko, d.komi, last);
     const reused = t.root.N;
-    t.run(reused + playouts, Date.now() + ms);
+    t.run(Math.max(playouts, reused + Math.round(playouts * 0.2)), Date.now() + ms);   // 先読みの分もふくめて playouts 回（最低2割は新しく読む）
     tree = t;
     const f = t.rootF, root = t.root, own = t.own, n = t.n;
     const eg = endgameMoves(f, c);
@@ -482,17 +483,20 @@
     }
     // 自分からパスするのは、ツナギ・コウ・ダメが残っていないときだけ
     if (!must && d.moveNum >= NN * 0.37 && settled && ahead) return Object.assign(out, { move: -1 });
+    // 弱くするしかけ：でたらめな手は打たない。「最善より少しだけ勝率の低い手」を、ちゃんと読んだ候補の中から選ぶ
+    //   loss … 最善からどこまで勝率が下がってよいか（10級 26% … 5級 約9% … 1級 1%）
+    //   slip … ときどき、もう少し大きく損する手も許す確率（10級 15% … 3級 1%、2級・1級は0）
+    //   弱いほど、候補を平らに選ぶ（強いほど、よく読んだ手を選ぶ）
     let choice = best;
-    // 弱いbotほど、2〜5番手の手もときどき選ぶ
-    const T = Math.max(0, 0.7 - 0.15 * S);
-    if (T > 0.05) {
-      const top = sorted.slice(0, 5);
-      const w = top.map(ch => Math.pow(ch.N + 1, 1 / T));
+    const loss = 0.25 * Math.pow(1 - L / 9, 1.5) + 0.01, slip = Math.max(0, 0.15 - 0.02 * L), pw = 0.5 + L / 18;
+    const lim = loss * (Math.random() < slip ? 2.5 : 1);
+    const minN = Math.max(20, best.N * 0.04);
+    const ok = sorted.filter(ch => ch.N >= minN && ch.W / ch.N >= wr - lim);
+    if (ok.length > 1 && wr > 0.03 && wr < 0.97) {
+      const w = ok.map(ch => Math.pow(ch.N, pw));
       let r = Math.random() * w.reduce((a, z) => a + z, 0);
-      for (let i = 0; i < top.length; i++) { r -= w[i]; if (r <= 0) { choice = top[i]; break; } }
+      for (let i = 0; i < ok.length; i++) { r -= w[i]; if (r <= 0) { choice = ok[i]; break; } }
     }
-    const blunder = Math.max(0, 0.1 - 0.025 * S);
-    if (Math.random() < blunder) choice = sorted[(Math.random() * Math.min(10, sorted.length)) | 0];
     return Object.assign(out, { move: choice.move });
   }
 
@@ -501,7 +505,7 @@
   function ponderStart(d) {
     const last = d.last === undefined ? -1 : d.last;
     tree = treeFor(d.board, d.toPlay, d.ko, d.komi, last);
-    ponderCap = tree.root.N + budget(Math.max(0, Math.min(9, d.level)), 1e9).playouts;
+    ponderCap = budget(Math.max(0, Math.min(9, d.level)), 1e9).playouts;   // 先読みも、その級の読みの量まで
     if (!pondering) { pondering = true; setTimeout(ponderStep, 0); }
   }
   function ponderStep() {
@@ -515,7 +519,7 @@
   // 検討用：一番強い設定で読んだ候補手（上位3つ）
   function analyze(d) {
     const f = FB.fromArray(d.board, d.ko);
-    const { root, n } = search(f, d.toPlay, 400000, Math.min(d.ms || MAX_MS, MAX_MS), d.komi, d.last === undefined ? -1 : d.last);
+    const { root, n } = search(f, d.toPlay, 400000, Math.min(d.ms || 4500, 4500), d.komi, d.last === undefined ? -1 : d.last);
     if (!n) return { cands: [], playouts: 0 };
     const sorted = root.children.slice().sort((a, z) => z.N - a.N).slice(0, 3);
     return { cands: sorted.map(ch => ({ move: ch.move, wr: ch.N ? ch.W / ch.N : 0.5, visits: ch.N })), playouts: n };
