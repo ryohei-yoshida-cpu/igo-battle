@@ -34,6 +34,9 @@
       case 'myrank': return `あなたの段級位が${link('record', it.rank)}に上がりました`;
       case 'myinvite': return `${esc(it.name)}さんに対人戦を申し込みました。部屋番号は${link('friend', it.code)}です`;
       case 'myavatar': return `あなたの${link('avatar', 'アバター')}を着がえました`;
+      case 'freq': return `${who}からフレンド申請が届きました。${link('gift', 'プレゼントボックス')}で許可できます`;
+      case 'friendok': return `${who}とフレンドになりました`;
+      case 'fzeni': return `${who}から100銭が届きました（${link('gift', 'プレゼントボックス')}）`;
     }
     return '';
   }
@@ -90,6 +93,7 @@
     else if (k === 'record') $('#openRecord').click();
     else if (k === 'join') window.FRIEND.joinWith(v);
     else if (k === 'friend') { P.showScreen('friend'); window.FRIEND.open(); }
+    else if (k === 'gift') $('#openGift').click();
   }
   $('#ticker').addEventListener('click', e => {
     const u = e.target.closest('u[data-go]');

@@ -14,12 +14,12 @@
   const mini = (room, av) => window.ROOM ? window.ROOM.miniOf(room, av) : '';
 
   /* ---------- フレンド ---------- */
-  let page = 0, list = [], total = 0, freq = [];
+  let page = 0, list = [], total = 0, freq = [], fsent = [];
   function friendCard(f) {
     return `<article class="frs-card" data-pid="${esc(f.pid)}">
       <button type="button" class="frs-room" data-visit="${esc(f.pid)}" aria-label="${esc(f.name)}さんの部屋へ">${mini(f.room, f.av || window.AVATAR.PRESETS.girl)}</button>
       <div class="frs-body">
-        <div class="frs-top"><b>${esc(f.name)}</b><button type="button" class="btn lac small" data-visit="${esc(f.pid)}">部屋へ</button></div>
+        <div class="frs-top"><b>${esc(f.name)}</b><button type="button" class="btn lac small" data-visit="${esc(f.pid)}">部屋へ</button>${fsent.includes(f.pid) ? '<span class="frs-sent">今日は送りました</span>' : `<button type="button" class="btn primary small" data-zeni="${esc(f.pid)}">100銭おくる</button>`}</div>
         ${f.hito ? `<p class="frs-hito">「${esc(f.hito)}」</p>` : ''}
         ${f.diary ? `<button type="button" class="frs-diary" data-dpid="${esc(f.pid)}" data-did="${f.diary.id}"><small>${md(f.diary.t)} の日記</small>${esc(f.diary.title)}</button>` : '<p class="frs-none">日記はまだありません</p>'}
       </div>
@@ -34,14 +34,14 @@
     if (freq.length) h += `<div class="sc-sec hi"><b>フレンド申請が来ています</b><ul class="sc-people">${freq.map(f => `<li><button type="button" class="sc-name" data-visit="${esc(f.pid)}">${esc(f.name)}</button><button type="button" class="btn primary small" data-fa="${esc(f.pid)}">承認</button><button type="button" class="btn lac small" data-fd="${esc(f.pid)}">ことわる</button></li>`).join('')}</ul></div>`;
     h += list.length ? list.map(friendCard).join('') : '<p class="rm-help">まだフレンドがいません。ルーム探訪や、ほかの人の部屋の「この人」から、フレンド申請してみましょう。</p>';
     $('#frsList').innerHTML = h;
-    $('#frsCount').textContent = `${total} / 100人`;
+    $('#frsCount').textContent = `${total} / 100人・今日おくった銭 ${fsent.length} / 5人`;
     $('#frsMore').hidden = list.length >= total;
   }
   function loadFriends(more) {
     if (!more) { page = 0; list = []; }
     P.soc('flist', { page }, res => {
       if (!res.ok) { $('#frsList').innerHTML = `<p class="rm-help">${why(res)}</p>`; return; }
-      list = list.concat(res.list); total = res.total; renderFriends();
+      list = list.concat(res.list); total = res.total; fsent = res.fsent || []; renderFriends();
     });
   }
   function openFriends() {
@@ -59,6 +59,14 @@
     const ds = b.dataset;
     if (ds.visit) { window.ROOM.visit(ds.visit, openFriends); return; }
     if (ds.did) { window.DIARY.read(ds.dpid, +ds.did); return; }
+    if (ds.zeni) {   // フレンドに100銭（1人に1日1回・1日5人まで。相手は1日500銭まで受け取れる）
+      b.disabled = true;
+      P.soc('fsend', { pid: ds.zeni }, res => {
+        if (!res.ok) { b.disabled = false; P.toast({ already: '今日はもう送りました', mymax: '1日に送れるのは5人までです', theirmax: '相手は今日、もう受け取れません（1日500銭まで）', notfriend: 'フレンドにだけ送れます' }[res.reason] || why(res)); return; }
+        fsent = res.sent || fsent.concat(ds.zeni); P.sound('ok'); P.toast('100銭をおくりました（相手のプレゼントボックスに届きます）'); renderFriends();
+      });
+      return;
+    }
     if (ds.send) {
       const box = document.querySelector(`[data-to="${ds.send}"]`), text = box.value.trim();
       if (!text) { P.toast('何か書いてください'); return; }
@@ -105,4 +113,49 @@
   $('#exPub').onchange = e => P.soc('rpub', { v: e.target.checked }, res => { if (res.ok) P.toast(res.rpub ? '自分の部屋も、ルーム探訪に出します（もようがえしたときに出ます）' : '自分の部屋は、ルーム探訪に出しません'); });
 
   window.FRIENDS = { open: openFriends, explore: openExplore };
+})();
+
+/* 相手の戦績（対局のあと・交流の「最近の対局相手」から）。ここからフレンド申請できる */
+(function () {
+  'use strict';
+  const P = window.APP;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let box = null;
+  function ensure() {
+    if (box) return box;
+    box = document.createElement('div'); box.className = 'prof-wrap'; box.hidden = true;
+    box.innerHTML = '<div class="prof-card" role="dialog" aria-modal="true"><button type="button" class="prof-x" aria-label="閉じる">✕</button><div class="prof-body"></div></div>';
+    document.body.append(box);
+    box.addEventListener('click', e => {
+      if (e.target === box || e.target.closest('.prof-x')) { box.hidden = true; return; }
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const pid = box.dataset.pid;
+      if (b.dataset.act === 'room') { box.hidden = true; window.ROOM.visit(pid); return; }
+      if (b.dataset.act === 'freq') {
+        b.disabled = true;
+        P.soc('freq', { pid }, res => {
+          if (!res.ok) { b.disabled = false; P.toast({ myfull: 'フレンドは100人までです', theirfull: '相手のフレンドがいっぱいです', blocked: '申請できませんでした', full: '相手に申請がたくさん届いています。また今度' }[res.reason] || '申請できませんでした'); return; }
+          P.sound('ok'); P.toast('フレンド申請を送りました'); b.textContent = '申請中';
+        });
+      }
+    });
+    return box;
+  }
+  function open(pid, fallback) {
+    const b = ensure(), body = b.querySelector('.prof-body');
+    b.dataset.pid = pid; b.hidden = false;
+    body.innerHTML = '<p class="rm-help">読みこみ中……</p>';
+    if (!P.online()) { body.innerHTML = '<p class="rm-help">サーバーにつながっているときに見られます。</p>'; return; }
+    P.soc('prof', { pid }, res => {
+      if (!res.ok) { body.innerHTML = `<p class="rm-help">${esc((fallback && fallback.name) || '')}さんの戦績は見られませんでした。</p>`; return; }
+      const rank = P.RANKS[Math.min(P.RANKS.length - 1, P.rankOf ? P.rankOf(res.rating) : 0)] || '';
+      const wr = res.games ? Math.round(res.wins / res.games * 100) + '%' : '—';
+      const btn = res.mine ? '' : res.friend ? '<span class="prof-tag">フレンド</span>' : res.asked ? '<button type="button" class="btn lac" disabled>申請中</button>' : '<button type="button" class="btn primary" data-act="freq">フレンド申請</button>';
+      body.innerHTML = `<div class="prof-top"><div class="prof-fig">${window.AVATAR ? window.AVATAR.svg(res.av || window.AVATAR.PRESETS.girl) : ''}</div>
+        <div class="prof-name"><b>${esc(res.name)}</b><small>部屋番号 ${esc(res.pid)}</small>${res.hito ? `<p>「${esc(res.hito)}」</p>` : ''}</div></div>
+        <dl class="prof-stats"><div><dt>段級位</dt><dd>${esc(rank)}</dd></div><div><dt>レート</dt><dd>${res.rating}</dd></div><div><dt>対局</dt><dd>${res.games}</dd></div><div><dt>勝率</dt><dd>${wr}</dd></div></dl>
+        <div class="prof-btns">${btn}<button type="button" class="btn lac" data-act="room">部屋をたずねる</button></div>`;
+    });
+  }
+  window.PROFILE = { open };
 })();

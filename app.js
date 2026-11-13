@@ -651,6 +651,12 @@
       if (op.human && r && !r.friend) d = eloDelta(op.rating, r.old, r.d > 0 ? 0 : r.d < 0 ? 1 : 0.5, 20);
       $('#resOppRate').textContent = d == null ? `レート ${op.rating}` : `${op.rating} → ${op.rating + d}`;
       const de = $('#resOppDelta'); de.textContent = d == null ? (G.friend ? 'レート変動なし' : 'Botのレートは変わりません') : (d >= 0 ? '+' : '') + d; de.className = d == null ? '' : d >= 0 ? 'up' : 'down';
+      // 人が相手なら、タップで戦績（そこからフレンド申請）
+      const tap = !!(op.human && op.pid && window.PROFILE);
+      box.classList.toggle('tappable', tap);
+      let hint = box.querySelector('.res-opp-tap'); if (!hint) { hint = document.createElement('small'); hint.className = 'res-opp-tap'; box.append(hint); }
+      hint.textContent = tap ? 'タップで戦績・フレンド申請' : '';
+      box.onclick = tap ? () => { sound('tap'); window.PROFILE.open(op.pid, op); } : null;
     }
     // 「もう一局」は、少したってからハンコのように押される
     const ag = $('#resAgain'); ag.classList.remove('stamped'); ag.style.visibility = 'hidden';
@@ -1377,7 +1383,7 @@
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
-    saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
+    rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
       if (econOn()) netSend({ t: 'claim', kind, id });

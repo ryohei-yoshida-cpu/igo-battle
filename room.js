@@ -143,9 +143,11 @@
     // 家のほかの部屋と廊下：奥にあるものから順に
     const parts = H.list.map((rm, i) => ({ i, k: H.L.pos[i].x + H.L.pos[i].y })).concat(H.L.halls.map(h => ({ h, k: h.x0 + h.y0 + .5 }))).sort((a, b) => a.k - b.k);
     const myK = H.L.pos[cur].x + H.L.pos[cur].y;
+    // 廊下は床なので、いちばん先に描く（扉・家具・アバターが上にくる）
+    for (const h of H.L.halls) back += `<g class="rm-hallg" pointer-events="none">${R.drawHall(h.x0, h.y0, h.x1, h.y1)}</g>`;
     for (const pt of parts) {
       let g;
-      if (pt.h) g = `<g class="rm-hallg">${R.drawHall(pt.h.x0, pt.h.y0, pt.h.x1, pt.h.y1)}</g>`;
+      if (pt.h) continue;
       else if (pt.i === cur) continue;
       else { const o = offOf(H.L.pos[pt.i]), rm = H.list[pt.i], n = rm.n || R.N, top = R.proj(n / 2, n / 2, 0);
         g = `<g class="rm-other" data-room="${pt.i}" transform="translate(${o[0]} ${o[1]})">${drawRoomStatic(rm, pt.i, H.list, hallTo(pt.i))}<text x="${top[0]}" y="${top[1]}" class="rm-room-label">部屋${pt.i + 1}</text></g>`; }

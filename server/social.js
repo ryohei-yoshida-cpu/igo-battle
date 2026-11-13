@@ -166,7 +166,7 @@ export class Social {
 
     if (op === 'me') {
       const s = await this.readSoc(id);
-      out({ ok: true, pid: me, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset });
+      out({ ok: true, pid: me, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
       return;
     }
     if (op === 'avatar') {
@@ -228,7 +228,7 @@ export class Social {
           diary: last ? { id: last.id, t: last.t, title: last.title } : null,
           from: mine ? { text: mine.text, t: mine.t } : null, to: theirs ? { text: theirs.text, t: theirs.t } : null });
       }
-      out({ ok: true, list, total, page });
+      out({ ok: true, list, total, page, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
       return;
     }
     if (op === 'rpub') {
@@ -275,6 +275,17 @@ export class Social {
     const oid = pid === me ? id : await this.idOf(pid);
     if (!oid) { out({ ok: false, reason: 'nobody' }); return; }
 
+    // 相手の戦績（対局のあとで）：名前・アバター・レート・対局数・勝率・フレンドかどうか
+    if (op === 'prof') {
+      const acct = await this.store.get('acct:' + oid), s = fixSoc(await this.store.get('soc:' + oid));
+      let d = acct && acct.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
+      d = d || {};
+      const num = v => Math.max(0, v | 0);
+      out({ ok: true, pid, name: (acct && cleanName(d.name)) || this.nameOf(oid), av: (acct && acct.av) || null, hito: s.hito,
+        rating: num(d.rating), games: num(d.games), wins: num(d.wins), draws: num(d.draws), streak: num(d.streak),
+        friend: has(s.friends, me), asked: has(s.freq, me), mine: pid === me });
+      return;
+    }
     if (op === 'visit') {
       const acct = await this.store.get('acct:' + oid);
       let s = await this.readSoc(oid);
@@ -408,7 +419,31 @@ export class Social {
         if (s.freq.length >= LIM.freq) { reason = 'full'; return false; }
         s.freq.unshift({ pid: me, name: myName, t: now });
       });
+      if (!reason) {   // 相手のプレゼントボックスと、一言（お知らせ）に出す
+        await this.core.giftTo(oid, 'freq', 0, `${myName}さんからフレンド申請`, { pid: me, name: myName });
+        await this.notify(oid, { type: 'freq', pid: me, name: myName, av: myAv(), t: now });
+      }
       out({ ok: !reason, reason });
+      return;
+    }
+    // フレンドに銭をおくる：1人に1日1回100銭。送れるのは1日5人まで、受け取れるのは1日500銭まで
+    if (op === 'fsend') {
+      const day = this.day();
+      const mine = fixSoc(await this.store.get('soc:' + id));
+      if (!has(mine.friends, pid)) { out({ ok: false, reason: 'notfriend' }); return; }
+      const sent = mine.fsend && mine.fsend.day === day ? mine.fsend.to : [];
+      if (sent.includes(pid)) { out({ ok: false, reason: 'already' }); return; }
+      if (sent.length >= 5) { out({ ok: false, reason: 'mymax' }); return; }
+      let full = false;
+      const ok = await this.core.giftTo(oid, 'fzeni', 100, `${myName}さんからのおくりもの`, { pid: me, name: myName }, r => {
+        const got = r.fgot && r.fgot.day === day ? r.fgot.n : 0;
+        if (got + 100 > 500) { full = true; return false; }
+        r.fgot = { day, n: got + 100 };
+      });
+      if (!ok) { out({ ok: false, reason: full ? 'theirmax' : 'err' }); return; }
+      const s2 = await this.withSoc(id, s => { const t = s.fsend && s.fsend.day === day ? s.fsend.to : []; s.fsend = { day, to: t.concat(pid) }; });
+      await this.notify(oid, { type: 'fzeni', pid: me, name: myName, av: myAv(), t: now });
+      out({ ok: true, sent: s2.fsend.to });
       return;
     }
     if (op === 'faccept' || op === 'fdecline' || op === 'unfriend') {
@@ -425,6 +460,8 @@ export class Social {
         if (op === 'unfriend') s.friends = s.friends.filter(f => f.pid !== pid);
       });
       if (ok && op === 'faccept') await this.withSoc(oid, s => { if (has(s.friends, me)) return false; s.friends.unshift({ pid: me, name: myName, t: now }); s.freq = s.freq.filter(f => f.pid !== me); });
+      if (op === 'faccept' || op === 'fdecline') await this.core.dropGift(id, 'freq', pid);   // プレゼントボックスの申請を消す
+      if (ok && op === 'faccept') await this.notify(oid, { type: 'friendok', pid: me, name: myName, av: myAv(), t: now });
       if (op === 'unfriend') await this.withSoc(oid, s => { const n = s.friends.length; s.friends = s.friends.filter(f => f.pid !== me); if (n === s.friends.length) return false; });
       out({ ok, reason, friends: s.friends, freq: s.freq });
       return;

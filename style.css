@@ -1495,3 +1495,24 @@ body.fx-shake #app { animation: fxShake .35s; }
 #roomSvg .rm-other:hover { filter: brightness(1.06); }
 .rm-room-label { font-size: 11px; font-weight: 900; fill: #fff3dc; paint-order: stroke; stroke: rgba(40, 24, 10, .75); stroke-width: 3px; text-anchor: middle; pointer-events: none; }
 .rm-room-label.on { fill: #ffd98a; }
+.gf-btns { display: flex; gap: 6px; flex: none; }
+.frs-sent { font-size: 11px; color: var(--muted); }
+/* 相手の戦績 */
+.prof-wrap { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(10, 6, 2, .55); padding: 16px; }
+.prof-card { position: relative; width: min(380px, 100%); border-radius: 18px; padding: 18px; background: linear-gradient(160deg, #2b1d12, #1a110a); border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0, 0, 0, .5); color: #fff3dc; }
+.prof-x { position: absolute; right: 10px; top: 8px; border: 0; background: none; color: #fff3dc; font-size: 18px; cursor: pointer; }
+.prof-top { display: flex; gap: 12px; align-items: center; }
+.prof-fig { width: 84px; height: 110px; flex: none; border-radius: 12px; background: rgba(0, 0, 0, .25); overflow: hidden; }
+.prof-fig svg { width: 100%; height: 100%; }
+.prof-name { min-width: 0; display: grid; gap: 3px; }
+.prof-name b { font-size: 17px; }
+.prof-name small { color: var(--muted); font-size: 11px; }
+.prof-name p { margin: 0; font-size: 12px; opacity: .9; }
+.prof-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0; }
+.prof-stats div { background: rgba(255, 255, 255, .05); border-radius: 10px; padding: 8px 4px; text-align: center; }
+.prof-stats dt { font-size: 10px; color: var(--muted); }
+.prof-stats dd { margin: 2px 0 0; font-weight: 900; font-size: 15px; }
+.prof-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.prof-tag { font-size: 12px; padding: 6px 12px; border-radius: 999px; background: rgba(184, 134, 42, .25); }
+.res-opp.tappable { cursor: pointer; }
+.res-opp .res-opp-tap { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }

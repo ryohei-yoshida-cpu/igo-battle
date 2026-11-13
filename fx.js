@@ -64,12 +64,14 @@
     if (P.online()) P.giftReq({ t: 'gifts' }, m => setGifts(m.gifts));
     else if (LOCAL()) localDaily();
   }
-  const ICON = { welcome: '🎁', daily: '📅', rank: '🏮' };
+  const ICON = { welcome: '🎁', daily: '📅', rank: '🏮', freq: '🤝', fzeni: '💌' };
   function draw() {
     const list = $('#giftList');
-    list.innerHTML = gifts.length ? gifts.slice().reverse().map(g => `<li><span class="gf-ic">${ICON[g.kind] || '🎁'}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}</small></span><span class="gf-z">${g.amount.toLocaleString()}銭</span><button type="button" class="btn primary small" data-id="${g.id}">受け取る</button></li>`).join('')
+    list.innerHTML = gifts.length ? gifts.slice().reverse().map(g => g.kind === 'freq'
+      ? `<li class="gf-freq"><span class="gf-ic">${ICON.freq}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}・部屋番号 ${esc(g.pid)}</small></span><span class="gf-btns"><button type="button" class="btn primary small" data-fok="${esc(g.pid)}">許可</button><button type="button" class="btn lac small" data-fng="${esc(g.pid)}">ことわる</button></span></li>`
+      : `<li><span class="gf-ic">${ICON[g.kind] || '🎁'}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}</small></span><span class="gf-z">${g.amount.toLocaleString()}銭</span><button type="button" class="btn primary small" data-id="${g.id}">受け取る</button></li>`).join('')
       : '<p class="gf-empty">いまはプレゼントがありません。<br>毎日ログインすると100銭、昇級すると1000銭が届きます。</p>';
-    $('#giftAll').hidden = gifts.length < 2;
+    $('#giftAll').hidden = gifts.filter(g => g.kind !== 'freq').length < 2;
   }
   function take(id) {
     const done = got => {
@@ -88,6 +90,15 @@
   $('#giftClose').onclick = () => { $('#giftBox').hidden = true; };
   $('#giftBox').addEventListener('click', e => {
     if (e.target.id === 'giftBox') { $('#giftBox').hidden = true; return; }
+    const f = e.target.closest('[data-fok],[data-fng]');
+    if (f) {   // フレンド申請：許可・ことわる
+      const ok = !!f.dataset.fok, pid = f.dataset.fok || f.dataset.fng; f.disabled = true;
+      P.soc(ok ? 'faccept' : 'fdecline', { pid }, res => {
+        if (!res.ok) { P.toast(res.reason === 'myfull' ? 'フレンドは100人までです' : res.reason === 'theirfull' ? '相手のフレンドがいっぱいです' : 'うまくいきませんでした'); refresh(); return; }
+        P.sound(ok ? 'ok' : 'tap'); P.toast(ok ? 'フレンドになりました！' : '申請をことわりました'); refresh();
+      });
+      return;
+    }
     const b = e.target.closest('[data-id]'); if (b) { const v = b.dataset.id; take(LOCAL() ? +v : (v | 0)); }
   });
   $('#giftAll').onclick = () => take('all');

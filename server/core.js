@@ -232,6 +232,22 @@ export class Core {
     this.locks.set(id, run.catch(() => {}));
     return run;
   }
+  // プレゼントボックスに入れる（social.js から：フレンド申請・フレンドからの銭）。つながっていればすぐ知らせる
+  async giftTo(id, kind, amount, label, extra, check) {
+    const rec = await this.withAcct(id, async r => {
+      ensureEcon(r);
+      if (check && check(r) === false) return false;
+      if (kind === 'freq') r.gifts = (r.gifts || []).filter(g => !(g.kind === 'freq' && g.pid === extra.pid));
+      addGift(r, kind, amount, label, this.now(), extra);
+    });
+    if (!rec) return false;
+    for (const p of this.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify({ t: 'gifts', gifts: rec.gifts || [], zeni: rec.zeni })); } catch (e) {} }
+    return true;
+  }
+  async dropGift(id, kind, pid) {
+    const rec = await this.withAcct(id, async r => { const n = (r.gifts || []).length; r.gifts = (r.gifts || []).filter(g => !(g.kind === kind && g.pid === pid)); if (n === r.gifts.length) return false; });
+    if (rec) for (const p of this.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify({ t: 'gifts', gifts: rec.gifts || [], zeni: rec.zeni })); } catch (e) {} }
+  }
   // 銭をふやす（対人戦・Bot戦・レクチャーなど）。つながっていれば新しい残高を知らせる
   async give(id, amount, why, sock) {
     if (!id || !amount) return;
@@ -290,7 +306,7 @@ export class Core {
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         const keep = [];
-        for (const g of r.gifts || []) { if (m.id === 'all' || g.id === (m.id | 0)) got += g.amount; else keep.push(g); }
+        for (const g of r.gifts || []) { if (g.kind !== 'freq' && (m.id === 'all' || g.id === (m.id | 0))) got += g.amount; else keep.push(g); }   // フレンド申請は、許可・ことわるで消える
         r.gifts = keep; r.zeni += got;
       });
       if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni, got });
@@ -529,9 +545,9 @@ export class Core {
 const ECON = ['botstart', 'botend', 'claim', 'buy', 'room', 'gifts', 'gifttake', 'rankup'];
 const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000, RANKUP = 1000, DAILY = 100;
 // プレゼントボックス：受け取るまで銭にならない。{ id, kind, amount, label, t }
-function addGift(r, kind, amount, label, t) {
+function addGift(r, kind, amount, label, t, extra) {
   r.gifts = r.gifts || []; r.giftSeq = (r.giftSeq || 0) + 1;
-  r.gifts.push({ id: r.giftSeq, kind, amount, label, t }); if (r.gifts.length > 50) r.gifts.shift();
+  r.gifts.push(Object.assign({ id: r.giftSeq, kind, amount, label, t }, extra || {})); if (r.gifts.length > 50) r.gifts.shift();
 }
 // 毎日はじめてつないだら 100銭（日本時間の日付）
 function dailyGift(r, now) {
@@ -604,3 +620,4 @@ function cleanRoom(room, owned, total, n) {
 
 /* ---------- 使いすぎ対策の数字 ---------- */
 const LIMIT = { perSec: 2, burst: 30, dropsToClose: 60, connPerIp: 8, registersPerHour: 5, syncBytes: 100000 };
+
