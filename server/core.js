@@ -522,6 +522,9 @@ function avRenew(r) {
   r.avV = 3;
 }
 function ensureEcon(r) {
+  // 2026/11/13 に無料→300銭になった4点：その時点で着ていた人には、そのまま持たせる
+  if (!r.avG && r.owned && r.av) { r.owned.av = r.owned.av || []; for (const sl of ['head', 'body']) { const k = sl + ':' + r.av[sl]; if (['head:h00', 'head:h04', 'body:b01', 'body:b05'].includes(k) && !r.owned.av.includes(k)) r.owned.av.push(k); } }
+  if (r.owned) r.avG = 1;
   if (r.econV === 2 && r.avV !== 3 && r.owned) { avRenew(r); return; }
   // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
   if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; avRenew(r); return; }

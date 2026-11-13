@@ -110,7 +110,7 @@
   $('#avTry').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.tbuy) { askBuy(b.dataset.tbuy, look[b.dataset.tbuy]); return; }
-    if (b.dataset.tundo) { const sl = b.dataset.tundo; look[sl] = myLook()[sl]; P.sound('tap'); render(); return; }
+    if (b.dataset.tundo) { const sl = b.dataset.tundo, mine = myLook()[sl]; const ml = myLook(), boy = ml.head === 'h32' || ml.body === 'b32' || look.head === 'h32' || look.body === 'b32'; look[sl] = owned(sl, mine) ? mine : (boy ? AV.PRESETS.boy : AV.PRESETS.girl)[sl]; P.sound('tap'); render(); return; }
     if (b.dataset.tall) {
       const need = unowned(), total = need.reduce((a, sl) => a + entryOf(sl)[2], 0);
       P.confirmBox(`試着中の ${need.length} 点を、合計 ${total.toLocaleString()} 銭で買いますか？`, () => {
