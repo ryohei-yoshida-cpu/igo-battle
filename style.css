@@ -1417,3 +1417,14 @@ body.fx-shake #app { animation: fxShake .35s; }
 .diary-bar span { color: var(--kin); font-size: 17px; }
 .diary-bar i { margin-left: auto; font-style: normal; color: var(--kin); font-size: 20px; }
 .diary-bar:active { transform: scale(.98); }
+
+/* 着せかえの一覧：パーツの絵だけ（まわりは透明）。下に名前と値段 */
+#avGrid2 .av-item { position: relative; background: transparent; border: 0; padding: 2px 2px 6px; }
+#avGrid2 .av-item .av-thumb { background: transparent; border-radius: 0; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .35)); }
+#avGrid2 .av-item.on .av-thumb { filter: drop-shadow(0 0 6px var(--kin)) drop-shadow(0 0 2px var(--kin)); }
+#avGrid2 .av-item.on b { color: var(--kin); }
+#avGrid2 .av-item b { text-shadow: 0 1px 4px rgba(0, 0, 0, .8); line-height: 1.25; text-align: center; }
+#avGrid2 .av-item .price { font-size: 12px; font-weight: 900; color: var(--kin); text-shadow: 0 1px 4px rgba(0, 0, 0, .8); }
+.av-own { position: absolute; top: 4px; right: 4px; font-style: normal; font-size: 10px; font-weight: 900; color: #3a2410; background: var(--kin); border-radius: 999px; padding: 1px 7px; }
+#avGrid2 .av-item, #avGrid2 .av-item.on { aspect-ratio: auto; overflow: visible; height: auto; border: 0; background: transparent; box-shadow: none; }
+#avGrid2 { grid-auto-rows: max-content !important; align-items: start; row-gap: 14px; }

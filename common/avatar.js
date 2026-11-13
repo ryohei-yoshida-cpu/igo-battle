@@ -80,10 +80,9 @@
         const have = owned(sl, id), wearing = look[sl] === id;
         const preview = Object.assign({}, look, { [sl]: id });
         return `<button type="button" class="av-item ${wearing ? 'on' : ''}" data-sl="${sl}" data-id="${id}">${AV.thumb(preview, slot)}<b>${name}</b>` +
-          `<small class="${have ? 'own' : 'price'}">${have ? (wearing ? '着ている' : '持っている') : price.toLocaleString() + ' 銭'}</small></button>`;
+          `<small class="price">${price ? price.toLocaleString() + ' 銭' : '無料'}</small>${have ? `<i class="av-own">${wearing ? '着ている' : '持っている'}</i>` : ''}</button>`;
       }).join('');
     }
-    if (slot === 'tool') h += '<p class="av-sec">道具は準備中です。お楽しみに！</p>';
     if (mode === 'closet') h += `<button type="button" class="av-goshop" data-goshop="1">ほかの${SLOT_NAME[slot] || ''}は、服ショップで買えます →</button>`;
     $('#avGrid2').innerHTML = h;
     const need = mode === 'shop' ? unowned() : [];
