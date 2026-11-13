@@ -31,7 +31,6 @@
  *   （日記を書くと、フレンドにお知らせ）  お知らせは soc:<ID>.notes（最近30件）。つながっていれば op:'push' ですぐ届く
  */
 import { check, cleanName } from './ng.js';
-import '../common/avatar-cat.js';
 import '../common/avatar-art.js';
 const AV = globalThis.AVATAR;
 

@@ -47,7 +47,7 @@
   function open(m, startSlot, back) {
     if (typeof m !== 'string' || (m !== 'shop' && m !== 'closet')) { startSlot = m; m = 'closet'; }
     mode = m; if (back) from = back;
-    look = myLook(); slot = startSlot || (m === 'shop' ? 'outfit' : 'face');
+    look = myLook(); slot = startSlot || (m === 'shop' ? 'body' : 'head');
     P.showScreen('avatar');
     render();
     if (m === 'shop') hinata((S.zeni || 0) < 300 ? 'poor' : 'hello');
@@ -83,6 +83,7 @@
           `<small class="${have ? 'own' : 'price'}">${have ? (wearing ? '着ている' : '持っている') : price.toLocaleString() + ' 銭'}</small></button>`;
       }).join('');
     }
+    if (slot === 'tool') h += '<p class="av-sec">道具は準備中です。お楽しみに！</p>';
     if (mode === 'closet') h += `<button type="button" class="av-goshop" data-goshop="1">ほかの${SLOT_NAME[slot] || ''}は、服ショップで買えます →</button>`;
     $('#avGrid2').innerHTML = h;
     const need = mode === 'shop' ? unowned() : [];
@@ -171,7 +172,7 @@
   $('#avTabs').addEventListener('click', e => { const b = e.target.closest('[data-slot]'); if (b) { slot = b.dataset.slot; render(); } });
   document.querySelectorAll('.av-presets [data-preset]').forEach(b => b.onclick = () => {
     const p = AV.PRESETS[b.dataset.preset];
-    look = Object.assign({}, look, { face: p.face, outfit: p.outfit });
+    look = Object.assign({}, look, { head: p.head, body: p.body });
     render();
   });
   $('#avSave').onclick = () => { if (unowned().length) return; wear(look); };

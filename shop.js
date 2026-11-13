@@ -25,7 +25,7 @@
   }
   $('#openShop').onclick = () => { P.sound('stone'); open(); };
   $('#shopBack').onclick = () => { P.renderHome(); P.showScreen('home'); };
-  $('#shopAvatar').onclick = () => { bubble('#shopBubbleH', '#shopTalkH', pick(H_GO)); P.sound('stone'); setTimeout(() => window.AVATAR_UI.open('shop', 'outfit', 'shop'), 450); };
+  $('#shopAvatar').onclick = () => { bubble('#shopBubbleH', '#shopTalkH', pick(H_GO)); P.sound('stone'); setTimeout(() => window.AVATAR_UI.open('shop', 'body', 'shop'), 450); };
   $('#shopRoom').onclick = () => { bubble('#shopBubbleS', '#shopTalkS', pick(S_GO)); P.sound('stone'); setTimeout(() => window.ROOM.open('shop', 'shop'), 450); };
   $('#pvpShop').onclick = () => { P.sound('stone'); open(); };
   window.SHOP = { open };
