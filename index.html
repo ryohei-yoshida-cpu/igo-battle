@@ -138,9 +138,10 @@
     </button>
     <button class="bot-now" id="goBot" type="button">
       <img id="pmBot" alt="">
-      <span><b>今すぐBotと対局</b><small>待たずにすぐ打てる・レートが上がるのは初段まで</small></span>
+      <span><b>キャラクターと対局</b><small>待たずにすぐ打てる・レートが上がるのは初段まで</small></span>
       <i aria-hidden="true">›</i>
     </button>
+    <button class="pvp-shop" id="pvpShop" type="button">ショップへいく ›</button>
     <p class="pvp-note" id="pvpNote"></p>
   </section>
 
@@ -593,6 +594,7 @@
       <label class="toggle"><input type="checkbox" id="optNoBot"><i></i>Botとはマッチしない</label>
       <p class="mt-note" id="mtNoBotNote" hidden>人が見つかるまで待ち続けます。待っている間は検討モードも使えます。</p>
       <div class="mt-btns">
+        <button class="btn primary" id="matchChara">すぐにキャラクターとマッチ</button>
         <button class="btn lac" id="matchReview">待っている間に検討する</button>
         <button class="btn danger" id="cancelMatch">キャンセル</button>
       </div>
@@ -607,20 +609,35 @@
 
   <!-- 結果 -->
   <div class="overlay" id="result" hidden>
-    <img class="res-chara" id="resChara" alt="">
-    <div class="res-kanji" id="resKanji">勝</div>
-    <div class="res-reason" id="resReason"></div>
-    <div class="res-score" id="resScore"></div>
-    <div class="res-rate" id="resRate">
-      <span id="resOld"></span><span class="arrow">→</span><b id="resNew"></b><em id="resDelta"></em>
+    <div class="res-top">
+      <div class="res-wallet" id="resWallet"><i aria-hidden="true">銭</i><b id="resWalletN">0</b></div>
+      <button class="res-x" id="resClose" type="button" aria-label="対人戦の画面へもどる">✕</button>
     </div>
-    <div class="res-promo" id="resPromo" hidden></div>
-    <div class="res-zeni" id="resZeni" hidden></div>
+    <div class="res-main">
+      <div class="res-me">
+        <img class="res-chara" id="resChara" alt="">
+        <div class="res-kanji" id="resKanji">勝</div>
+        <div class="res-reason" id="resReason"></div>
+        <div class="res-score" id="resScore"></div>
+        <div class="res-rate" id="resRate">
+          <span id="resOld"></span><span class="arrow">→</span><b id="resNew"></b><em id="resDelta"></em>
+        </div>
+        <div class="res-promo" id="resPromo" hidden></div>
+        <div class="res-zeni" id="resZeni" hidden></div>
+      </div>
+      <div class="res-opp" id="resOpp" hidden>
+        <small>あいて</small>
+        <div class="res-opp-fig" id="resOppFig"></div>
+        <b id="resOppName"></b>
+        <span class="res-opp-rate" id="resOppRate"></span>
+        <em id="resOppDelta"></em>
+      </div>
+    </div>
     <div class="res-btns">
-      <button class="btn lac" id="resBoard">検討する</button>
-      <button class="btn lac" id="resHome">ホーム</button>
-      <button class="btn primary" id="resAgain">もう一局</button>
+      <button class="btn lac small" id="resBoard">検討する</button>
+      <button class="btn lac small" id="resHome" hidden>もどる</button>
     </div>
+    <button class="res-again" id="resAgain" type="button">もう一局</button>
   </div>
 
   <!-- 設定 -->

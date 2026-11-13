@@ -477,8 +477,8 @@ export class Core {
     g.over = true; this.clearTimeout(g.timer);
     for (const c of [1, 2]) if (g.away[c]) this.clearTimeout(g.away[c].timer);
     g.endMsg = { t: 'end', g: g.id, winner, reason, res: res || null, moves: g.moves };
-    // 対人戦の銭：1局100（勝ち負けに関係なく。8手未満で終わった対局は出さない）。フレンド戦は出さない（なれあいで増やせないように）
-    if (g.moves.length >= 8 && !g.hc) for (const c of [1, 2]) {
+    // 対人戦の銭：1局100（勝ち負けに関係なく。10手未満で終わった対局は出さない）。フレンド戦は出さない（なれあいで増やせないように）
+    if (g.moves.length >= 10 && !g.hc) for (const c of [1, 2]) {   // 10手未満で終わった対局（すぐ投了など）は銭なし
       const p = this.players.get(g.players[c]);
       const amount = GAME_ZENI;
       if (p && p.acct && amount) this.give(p.acct, amount, 'online').catch(() => {});

@@ -27,5 +27,6 @@
   $('#shopBack').onclick = () => { P.renderHome(); P.showScreen('home'); };
   $('#shopAvatar').onclick = () => { bubble('#shopBubbleH', '#shopTalkH', pick(H_GO)); P.sound('stone'); setTimeout(() => window.AVATAR_UI.open('shop', 'top', 'shop'), 450); };
   $('#shopRoom').onclick = () => { bubble('#shopBubbleS', '#shopTalkS', pick(S_GO)); P.sound('stone'); setTimeout(() => window.ROOM.open('shop', 'shop'), 450); };
+  $('#pvpShop').onclick = () => { P.sound('stone'); open(); };
   window.SHOP = { open };
 })();

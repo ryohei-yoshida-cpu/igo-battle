@@ -608,7 +608,8 @@
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
     const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
-    const zeni = G.friend || G.record.length < (G.online ? 8 : 16) ? 0 : 100;
+    const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
+    G.zeniBase = S.zeni || 0;
     if (win && !G.friend) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
     G.zeni = zeni;
     if (econOn()) {
@@ -621,6 +622,40 @@
     setTimeout(() => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r), scored ? 900 : 500);
   }
 
+  // 結果画面：右上に持っている銭（もらった銭が飛んで合わさる）、右の三分の一に相手、下に大きな「もう一局」（ハンコのように出る）
+  let resT = [];
+  function resultExtras(r) {
+    resT.forEach(clearTimeout); resT = [];
+    const base = G.zeniBase != null ? G.zeniBase : (S.zeni || 0) - (G.zeni || 0), gain = G.zeni || 0;
+    const wn = $('#resWalletN'); wn.textContent = base.toLocaleString(); $('#resWallet').classList.remove('bump');
+    const zc = $('#resZeni'); zc.classList.remove('fly'); zc.style.removeProperty('--fx'); zc.style.removeProperty('--fy');
+    if (gain) resT.push(setTimeout(() => {
+      // 「＋100銭」が右上の合計へ飛んで、数字がふえる
+      const a = zc.getBoundingClientRect(), b = $('#resWallet').getBoundingClientRect();
+      zc.style.setProperty('--fx', `${b.left + b.width / 2 - (a.left + a.width / 2)}px`); zc.style.setProperty('--fy', `${b.top + b.height / 2 - (a.top + a.height / 2)}px`);
+      zc.classList.add('fly');
+      resT.push(setTimeout(() => {
+        const t0 = performance.now(), dur = 700; sound('ok');
+        $('#resWallet').classList.add('bump');
+        const step = () => { const k = Math.min(1, (performance.now() - t0) / dur); wn.textContent = Math.round(base + gain * k).toLocaleString(); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+      }, 650));
+    }, 1100));
+    // 相手（名前・アバター・レート・上下したレート）
+    const op = G.bot, box = $('#resOpp');
+    box.hidden = !op || !!G.solo;
+    if (op && !G.solo) {
+      $('#resOppFig').innerHTML = op.human && window.AVATAR ? window.AVATAR.svg(op.av || window.AVATAR.PRESETS.girl) : `<img src="${A.charaUri(oppChara(op))}" alt="">`;
+      $('#resOppName').textContent = op.human ? op.name : `${A.VARIANTS[oppChara(op)].name}（${op.name}）`;
+      let d = null;
+      if (op.human && r && !r.friend) d = eloDelta(op.rating, r.old, r.d > 0 ? 0 : r.d < 0 ? 1 : 0.5, 20);
+      $('#resOppRate').textContent = d == null ? `レート ${op.rating}` : `${op.rating} → ${op.rating + d}`;
+      const de = $('#resOppDelta'); de.textContent = d == null ? (G.friend ? 'レート変動なし' : 'Botのレートは変わりません') : (d >= 0 ? '+' : '') + d; de.className = d == null ? '' : d >= 0 ? 'up' : 'down';
+    }
+    // 「もう一局」は、少したってからハンコのように押される
+    const ag = $('#resAgain'); ag.classList.remove('stamped'); ag.style.visibility = 'hidden';
+    resT.push(setTimeout(() => { ag.style.visibility = ''; void ag.offsetWidth; ag.classList.add('stamped'); setTimeout(() => sound('stone'), 330); }, gain ? 2300 : 1300));
+  }
   function showResult(win, label, scoreText, r) {
     const k = $('#resKanji');
     k.textContent = win > 0 ? '勝' : win === 0 ? '持' : '負';
@@ -629,6 +664,9 @@
     void k.offsetWidth; k.classList.add('pop');
     $('#resReason').textContent = label;
     $('#resZeni').hidden = !G.zeni; $('#resZeni').textContent = `＋${G.zeni} 銭`;
+    resultExtras(r);
+    $('#resHome').hidden = true;
+    $('#resClose').onclick = leaveGame;
     $('#resScore').textContent = scoreText;
     if (win > 0) { const kr = k.getBoundingClientRect(); setTimeout(() => A.burst(kr.left + kr.width / 2, kr.top + kr.height / 2, 'win'), 250); sound('ok'); }
     const pr = $('#resPromo');
@@ -658,6 +696,7 @@
       $('#resAgain').textContent = cleared ? '続きを読む' : 'もう一度挑戦';
       $('#resAgain').onclick = () => { $('#result').hidden = true; const g = G; G = null; solo.done(cleared, g); };
       $('#resHome').onclick = () => { $('#result').hidden = true; G = null; solo.back(); };
+      $('#resHome').hidden = false; $('#resClose').onclick = () => $('#resHome').click();
       $('#result').hidden = false;
       return;
     }
@@ -1036,6 +1075,8 @@
     M = null;
     $('#matching').hidden = true; $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
   }
+  // 待っている間に「すぐにキャラクターとマッチ」
+  $('#matchChara').onclick = () => { if (!M || M.found || M.friend) return; sound('stone'); netSend({ t: 'cancel' }); matchFound(); };
   $('#cancelMatch').onclick = () => { stopMatch(); if (!$('#home').hidden || !$('#pvp').hidden) openPvp(); };
   $('#optNoBot').addEventListener('change', e => {
     S.noBot = e.target.checked; save();
