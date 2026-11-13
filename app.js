@@ -564,13 +564,12 @@
     applyScore(res);
   }
 
-  // Bot との対局でレートが上がるのは初段（1700）まで
-  const BOT_CAP = TH[DAN_FROM];
+  // Bot との対局：自分よりレートの低い Bot に勝っても、レートは上がらない（負ければ下がる）
   function applyRating(score, opRating, color, opName, reason, rec, size, vsBot) {
     const win = score === 1, draw = score === 0.5;
     const old = S.rating, oldRank = displayRank();
     let d = eloDelta(S.rating, opRating, score, S.games), capped = false;
-    if (vsBot && d > 0 && S.rating + d > BOT_CAP) { d = Math.max(0, BOT_CAP - S.rating); capped = true; }
+    if (vsBot && d > 0 && opRating < S.rating) { d = 0; capped = true; }
     S.rating = Math.max(800, S.rating + d);
     S.games++;
     if (win) { S.wins++; S.streak++; } else if (draw) S.draws = (S.draws || 0) + 1; else S.streak = 0;
@@ -725,7 +724,7 @@
       setTimeout(() => window.FX && window.FX.stamp({ kicker: r.newRank >= DAN_FROM ? '昇段' : '昇級', stamp: RANKS[r.newRank] + '昇格', title: `${RANKS[r.newRank]}に昇格しました！`, rewards: rw, chara: nu.length ? nu[nu.length - 1] : charaIdx(), kind: 'rank' }), 700);
     }
     else if (r.newRank < r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に降${r.newRank >= DAN_FROM ? '段' : '級'}`; }
-    else if (r.capped) { pr.hidden = false; pr.textContent = 'Botとの対局でレートが上がるのは初段（1700）までです。この先は対人戦で！'; }
+    else if (r.capped) { pr.hidden = false; pr.textContent = '自分よりレートの低い相手（Bot）に勝っても、レートは上がりません。強い相手に挑戦しよう！'; }
     else pr.hidden = true;
     $('#result').hidden = false;
   }
