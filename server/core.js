@@ -50,8 +50,10 @@ export function memStore() { const m = new Map(); return { get: async k => m.get
 import { ITEMS, FLOORS, WALLS } from './prices.js';
 import { Social } from './social.js';
 import { cleanName } from './ng.js';
+import '../common/avatar-cat.js';
 import '../common/avatar-art.js';
-const AVP = globalThis.AVATAR.PRICE;
+const AVP = globalThis.AVATAR.PRICE, AVATAR_CLEAN = globalThis.AVATAR.clean;
+import { AV_OLD } from './av-old-prices.js';
 export const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000, AWAY_MS = 180 * 1000, START_DELAY_MS = 2500;
 
 export class Core {
@@ -511,9 +513,19 @@ function dailyGift(r, now) {
   r.loginDay = day; addGift(r, 'daily', DAILY, 'ログインボーナス（' + day.slice(5).replace('-', '/') + '）', now); return true;
 }
 // アカウントに銭・持ち物・部屋がなければ作る。前のバージョンのデータがあれば、上限つきで引き継ぐ
+function avRenew(r) {
+  // アバター作りなおし（2026/11/13）：前に買ったパーツの銭を、プレゼントボックスで返す。背景はそのまま持てる
+  const av = (r.owned && r.owned.av) || []; let back = 0;
+  for (const k of av) if (!k.startsWith('bg:')) back += AV_OLD[k] || 0;
+  r.owned.av = av.filter(k => k.startsWith('bg:'));
+  if (r.av) r.av = AVATAR_CLEAN(r.av);
+  if (back > 0) addGift(r, 'refund', back, 'アバター作りなおしのおかえし', Date.now());
+  r.avV = 2;
+}
 function ensureEcon(r) {
+  if (r.econV === 2 && r.avV !== 2 && r.owned) { avRenew(r); return; }
   // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
-  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; return; }
+  if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; avRenew(r); return; }
   if (r.econV === 2) return;
   const d = r.data || {}, old = d.room || {};
   r.zeni = Math.min(3000, Math.max(0, d.zeni | 0));   // 前のデータの銭（3000まで）。はじめてのプレゼントはプレゼントボックスへ
@@ -528,7 +540,7 @@ function ensureEcon(r) {
   const def = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0, on: false }], walls: [] };
   r.room = (Array.isArray(old.items) && old.items.length ? cleanRoom(old, r.owned) : null) || def;
   r.daily = { day: '', bot: 0 }; r.claims = {};
-  r.econV = 2; r.welcome = true;
+  r.econV = 2; r.welcome = true; r.avV = 2;
 }
 function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの

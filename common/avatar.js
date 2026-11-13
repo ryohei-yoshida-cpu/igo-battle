@@ -47,7 +47,7 @@
   function open(m, startSlot, back) {
     if (typeof m !== 'string' || (m !== 'shop' && m !== 'closet')) { startSlot = m; m = 'closet'; }
     mode = m; if (back) from = back;
-    look = myLook(); slot = startSlot || (m === 'shop' ? 'top' : 'face');
+    look = myLook(); slot = startSlot || (m === 'shop' ? 'outfit' : 'face');
     P.showScreen('avatar');
     render();
     if (m === 'shop') hinata((S.zeni || 0) < 300 ? 'poor' : 'hello');
@@ -61,9 +61,7 @@
   function unowned() { return AV.SLOTS.map(([sl]) => sl).filter(sl => !owned(sl, look[sl])); }
   // タブの中身：髪のタブは「髪型」と「髪の色」
   // 元の絵の服（色を買う）と、素材シートの服（形ごと買う）を分けて並べる
-  const sections = tab => tab === 'hair' ? [['hair', '髪型（元の絵）', id => !AV.isSheet(id)], ['hairColor', '髪の色（元の絵の髪だけ）'], ['hair', 'いろいろな髪型', AV.isSheet]]
-    : tab === 'face' || tab === 'body' || tab === 'bg' ? [[tab, '']]
-    : [[tab, tab === 'shoes' ? 'いろいろな靴' : 'いろいろな服', AV.isSheet], [tab, '元の絵の服の色', id => !AV.isSheet(id)]];
+  const sections = tab => [[tab, '']];
   function render() {
     const shop = mode === 'shop';
     $('#avTitle').textContent = shop ? '服ショップ' : 'クローク';
@@ -85,7 +83,7 @@
           `<small class="${have ? 'own' : 'price'}">${have ? (wearing ? '着ている' : '持っている') : price.toLocaleString() + ' 銭'}</small></button>`;
       }).join('');
     }
-    if (mode === 'closet') h += `<button type="button" class="av-goshop" data-goshop="1">ほかの${SLOT_NAME[slot === 'hair' ? 'hair' : slot] || ''}は、服ショップで買えます →</button>`;
+    if (mode === 'closet') h += `<button type="button" class="av-goshop" data-goshop="1">ほかの${SLOT_NAME[slot] || ''}は、服ショップで買えます →</button>`;
     $('#avGrid2').innerHTML = h;
     const need = mode === 'shop' ? unowned() : [];
     renderTry(need);
@@ -173,7 +171,7 @@
   $('#avTabs').addEventListener('click', e => { const b = e.target.closest('[data-slot]'); if (b) { slot = b.dataset.slot; render(); } });
   document.querySelectorAll('.av-presets [data-preset]').forEach(b => b.onclick = () => {
     const p = AV.PRESETS[b.dataset.preset];
-    look = Object.assign({}, look, { face: p.face, hair: p.hair, body: p.body });
+    look = Object.assign({}, look, { face: p.face, outfit: p.outfit });
     render();
   });
   $('#avSave').onclick = () => { if (unowned().length) return; wear(look); };

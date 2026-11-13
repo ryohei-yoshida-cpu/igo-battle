@@ -157,10 +157,10 @@
   }
   function drawOwner(e) {
     const look = guest ? guest.av : S.av;
-    const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 46, h = w * AV.H / AV.W;
+    const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 74, h = w * AV.H / AV.W;
     const on = drag && drag.av;
     // 背の高い絵なので、つかめるのは足もと〜おなかのあたりだけ（うしろの家具をさわれるように）
-    return `<g class="rm-owner${mode === 'edit' ? ' movable' : ''}${on ? ' rm-sel' : ''}"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="${AV.VB}" pointer-events="none">${AV.inner(look || AV.PRESETS.girl)}</svg>` +
+    return `<g class="rm-owner${mode === 'edit' ? ' movable' : ''}${on ? ' rm-sel' : ''}"><ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h * .955}" width="${w}" height="${h}" viewBox="${AV.VB}" pointer-events="none">${AV.inner(look || AV.PRESETS.girl)}</svg>` +
       `<rect class="rm-owner-hit" x="${sx - 13}" y="${sy - h * 0.55}" width="26" height="${h * 0.55 + 4}" rx="8" fill="transparent"/></g>`;
   }
 
@@ -666,7 +666,7 @@
     }
     for (const e of drawOrder(ents)) {
       if (e.it) s += R.drawFloorItem(e.it);
-      else { const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 46, h = w * AV.H / AV.W; s += `<ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h + 4}" width="${w}" height="${h}" viewBox="${AV.VB}">${AV.inner(e.look)}</svg>`; }
+      else { const [sx, sy] = R.proj(e.x + .5, e.y + .5, 0), w = 74, h = w * AV.H / AV.W; s += `<ellipse cx="${sx}" cy="${sy}" rx="14" ry="5" fill="rgba(0,0,0,.25)"/><svg x="${sx - w / 2}" y="${sy - h * .955}" width="${w}" height="${h}" viewBox="${AV.VB}">${AV.inner(e.look)}</svg>`; }
     }
     return `<svg viewBox="0 0 ${R.W} ${R.H}" aria-hidden="true">${s}</svg>`;
   }
