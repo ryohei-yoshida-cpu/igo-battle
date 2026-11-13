@@ -307,26 +307,29 @@
   }
 
   // 床の家具を描く（rot は 0/1）
-  // 家具の大きさの倍率（1・1.5・2）。床の家具は奥の角を中心に、壁の家具は下の辺を中心に大きくする
-  const SIZES = [1, 1.5, 2];
+  // 家具の大きさの倍率（0.5・1・1.5・2）。見た目の「1倍」は、元の絵の1.5倍（BASE）
+  //   床の家具は奥の角を中心に、壁の家具は下の辺を中心に大きくする。壁の家具は壁の高さに収まるところまで
+  const SIZES = [0.5, 1, 1.5, 2], BASE = 1.5;
   const sizeOf = it => SIZES.includes(it.s) ? it.s : 1;
+  const scaleOf = it => BASE * sizeOf(it);
+  const wallScale = it => { const c = BY_ID[it.k]; return Math.min(scaleOf(it), (WH - c.v) / c.h); };
   function drawFloorItem(it, opts) {
     const c = BY_ID[it.k]; if (!c) return '';
     const m = Maker(it.x, it.y, it.rot ? 1 : 0);
     c.draw(m, { on: !!it.on });
-    const s = sizeOf(it); if (s === 1) return m.out.join('');
+    const s = scaleOf(it); if (s === 1) return m.out.join('');
     const [px, py] = proj(it.x, it.y, 0);
     return `<g transform="translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})">${m.out.join('')}</g>`;
   }
   function drawWallItem(it, opts) {
     const c = BY_ID[it.k]; if (!c) return '';
-    const s = sizeOf(it);
+    const s = wallScale(it);
     return `<g transform="${wallMatrix(it.side, it.u, c.v + c.h * s)}"><g transform="scale(${s})">${c.wall({ on: !!it.on, night: opts && opts.night })}</g></g>`;
   }
   // 家具の大きさ（回転と倍率を考える。マスは切り上げ）
   function footprint(it) {
-    const c = BY_ID[it.k], s = sizeOf(it);
-    const w = Math.ceil(c.w * s - 1e-9), d = Math.ceil(c.d * s - 1e-9);
+    const c = BY_ID[it.k], s = c.kind === 'wall' ? wallScale(it) : scaleOf(it);
+    const w = Math.max(1, Math.ceil(c.w * s - 1e-9)), d = Math.max(1, Math.ceil((c.d || 1) * s - 1e-9));
     return it.rot ? { w: d, d: w } : { w, d };
   }
   // 床の点（マスの角）→ 画面の点、画面の点 → 床のマス
@@ -358,5 +361,5 @@
     <radialGradient id="rmGlowR"><stop offset="0" stop-color="#ffb05a" stop-opacity=".7"/><stop offset="1" stop-color="#ff8a3a" stop-opacity="0"/></radialGradient>
   </defs>`;
 
-  window.ROOMART = { SIZES, sizeOf, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
+  window.ROOMART = { SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
 })();

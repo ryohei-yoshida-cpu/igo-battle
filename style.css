@@ -1393,3 +1393,27 @@ body.fx-shake #app { animation: fxShake .35s; }
 .res-again.stamped { animation: againStamp .55s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes againStamp { 0% { transform: scale(2.4) rotate(-12deg); opacity: 0; } 55% { transform: scale(.94) rotate(2deg); opacity: 1; } 75% { transform: scale(1.04) rotate(-1deg); } 100% { transform: none; } }
 .pvp-shop { align-self: center; font: inherit; font-size: 13px; font-weight: 800; color: var(--kin); background: none; border: 0; padding: 4px 10px; cursor: pointer; text-decoration: underline; }
+
+/* ルームショップ：上に静馬と試し置き（動かない）、下にジャンル（動かない） */
+.rm-shop-top { position: sticky; top: 0; z-index: 4; display: flex; flex-direction: column; gap: 6px; padding: 6px 0; background: linear-gradient(var(--sumi) 85%, transparent); }
+.rm-shop-top .rm-clerk { margin-bottom: 0; }
+.rm-try { display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; border-radius: 14px; background: var(--lac-2); border: 1px solid var(--line); }
+.rm-try ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 108px; overflow-y: auto; }
+.rm-try li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.rm-try li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-try li em { font-style: normal; font-weight: 900; color: var(--kin); }
+.rm-try li .btn { padding: 4px 10px; font-size: 12px; }
+.rm-try .av-try-sum { align-items: center; gap: 8px; }
+.rm-try .av-try-sum b { margin-left: auto; }
+.rm-shop-nav { position: sticky; bottom: 0; z-index: 4; margin-top: 10px; justify-content: center; background: rgba(20, 13, 8, .96); border: 1px solid var(--line); box-shadow: 0 -8px 20px rgba(0, 0, 0, .5); }
+.rm-buycard { font: inherit; color: inherit; cursor: pointer; text-align: center; }
+.rm-buycard.on { border-color: var(--kin); box-shadow: 0 0 0 2px var(--kin) inset; }
+.rm-price { font-weight: 900; color: var(--kin); font-size: 13px; }
+.rm-trial { opacity: .78; }
+.rm-trial > * { filter: drop-shadow(0 0 3px rgba(232, 196, 110, .9)); }
+
+/* メインメニュー：日記を書く（横長・細め） */
+.diary-bar { flex: none; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; border-radius: 14px; border: 1px solid rgba(232, 196, 110, .45); background: linear-gradient(90deg, #f6ecd6 0 8px, #5a3a20 8px, #3a2412); color: #fff6ea; font: inherit; font-size: 15px; font-weight: 900; letter-spacing: .08em; cursor: pointer; }
+.diary-bar span { color: var(--kin); font-size: 17px; }
+.diary-bar i { margin-left: auto; font-style: normal; color: var(--kin); font-size: 20px; }
+.diary-bar:active { transform: scale(.98); }

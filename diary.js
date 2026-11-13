@@ -229,6 +229,7 @@
     if (showAll) loadAll(); else $('#dyAll').hidden = true;
   }
   $('#openDiary').onclick = () => { P.sound('stone'); openHub(); };
+  $('#homeDiary').onclick = () => { P.sound('stone'); back = () => { P.renderHome(); P.showScreen('home'); }; write(); };
   $('#dyBack').onclick = () => window.AVATAR_UI.openHub();
   $('#dyWrite').onclick = () => { if (mine.wrote) { P.toast('今日の日記はもう書きました。また明日！'); return; } write(); };
   $('#dyRead').onclick = () => { P.sound('stone'); loadAll(); };

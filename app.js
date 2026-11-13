@@ -1396,7 +1396,7 @@
     saveRoom() {
       saveLocal();
       const r = S.room;
-      if (econOn()) netSend({ t: 'room', room: { floor: r.floor, wall: r.wall, items: r.items, walls: r.walls } });
+      if (econOn()) netSend({ t: 'room', room: { floor: r.floor, wall: r.wall, items: r.items.filter(i => !i.trial), walls: r.walls.filter(i => !i.trial), av: r.av } });   // 試し置きは送らない
     },
     // マイルームに来たキャラと一局（レート対局）
     playChara(chara, level) {

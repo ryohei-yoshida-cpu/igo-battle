@@ -29,10 +29,18 @@
     }
     delete r.inv;
     r.seq = r.seq || 2;
+    if (r.sizeV !== 2) { r.sizeV = 2; refit(r); }
     return r;
   }
+  // 家具の「1倍」が大きくなったので、重なった家具は空いている場所へ（置けなければ倉庫へ）
+  function refit(r) {
+    const items = r.items, walls = r.walls; r.items = []; r.walls = [];
+    for (const it of items) { if (!cat(it.k)) continue; if (canPlace(it, it.x, it.y, it.rot)) r.items.push(it); else { const sp = freeSpot(it); if (sp) { Object.assign(it, sp); r.items.push(it); } } }
+    for (const it of walls) { if (!cat(it.k)) continue; if (canPlaceWall(it, it.side, it.u)) r.walls.push(it); else { const sp = freeWallSpot(it); if (sp) { Object.assign(it, sp); r.walls.push(it); } } }
+    dirty = true;
+  }
   // 倉庫にある数＝持っている数－置いている数
-  function invOf(k) { const r = room(); return (r.ownedItems[k] || 0) - r.items.concat(r.walls).filter(i => i.k === k).length; }
+  function invOf(k) { const r = room(); return (r.ownedItems[k] || 0) - r.items.concat(r.walls).filter(i => i.k === k && !i.trial).length; }
   function invKeys() { return Object.keys(room().ownedItems).filter(k => invOf(k) > 0); }
   let dirty = false;   // 配置を変えたが、まだサーバーに送っていない
   function flush() { if (dirty) { dirty = false; P.saveRoom(); } }
@@ -54,7 +62,7 @@
     return true;
   }
   // 壁の家具の幅と高さ（大きさの倍率つき）
-  const wallBox = it => { const c = cat(it.k), s = R.sizeOf(it); return { w: Math.ceil(c.w * s - 1e-9), v: c.v, h: c.h * s }; };
+  const wallBox = it => { const c = cat(it.k), s = R.wallScale(it); return { w: Math.max(1, Math.ceil(c.w * s - 1e-9)), v: c.v, h: c.h * s }; };
   function canPlaceWall(it, side, u) {
     const b = wallBox(it);
     if (u < 0 || u + b.w > N || b.v + b.h > R.WH + 1e-9) return false;
@@ -96,11 +104,11 @@
         s += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="rm-grid"/><line x1="${c[0]}" y1="${c[1]}" x2="${d[0]}" y2="${d[1]}" class="rm-grid"/>`;
       }
     }
-    for (const w of r.walls) s += `<g data-uid="${w.uid}" data-wall="1" class="${sel === w ? 'rm-sel' : ''}">${R.drawWallItem(w, {})}</g>`;
+    for (const w of r.walls) s += `<g data-uid="${w.uid}" data-wall="1" class="${sel === w ? 'rm-sel' : ''}${w.trial ? ' rm-trial' : ''}">${R.drawWallItem(w, {})}</g>`;
     const flats = r.items.filter(i => cat(i.k).kind === 'flat'), solids = r.items.filter(i => cat(i.k).kind !== 'flat');
-    for (const it of flats) s += `<g data-uid="${it.uid}" class="${sel === it ? 'rm-sel' : ''}">${R.drawFloorItem(it)}</g>`;
+    for (const it of flats) s += `<g data-uid="${it.uid}" class="${sel === it ? 'rm-sel' : ''}${it.trial ? ' rm-trial' : ''}">${R.drawFloorItem(it)}</g>`;
     // 選んでいる家具の足もと（置けるなら緑、置けないなら赤）
-    if (sel && !sel.side && mode === 'edit') {
+    if (sel && !sel.side && (mode === 'edit' || sel.trial)) {
       const f = R.footprint(sel), ok = drag ? drag.ok : true;
       const q = [R.proj(sel.x, sel.y, 0), R.proj(sel.x + f.w, sel.y, 0), R.proj(sel.x + f.w, sel.y + f.d, 0), R.proj(sel.x, sel.y + f.d, 0)];
       s += `<polygon points="${q.map(p => p.join(',')).join(' ')}" class="rm-foot ${ok ? 'ok' : 'ng'}"/>`;
@@ -110,7 +118,7 @@
       .concat(mode === 'view' && !guest ? visitors.map(v => ({ x: v.x, y: v.y, w: 1, d: 1, v })) : [])
       .concat(owner ? [{ x: owner.x, y: owner.y, w: 1, d: 1, av: true }] : []);
     for (const e of drawOrder(ents)) {
-      if (e.it) s += `<g data-uid="${e.it.uid}" class="${sel === e.it ? 'rm-sel' : ''}">${R.drawFloorItem(e.it)}</g>`;
+      if (e.it) s += `<g data-uid="${e.it.uid}" class="${sel === e.it ? 'rm-sel' : ''}${e.it.trial ? ' rm-trial' : ''}">${R.drawFloorItem(e.it)}</g>`;
       else if (e.av) s += drawOwner(e);
       else s += R.drawVisitor(e.v, A.faceUri(e.v.idx), e.v.key);
     }
@@ -126,8 +134,8 @@
     $('#rmShopBig').hidden = !!guest;
     $('#rmDiaryBig').textContent = guest ? '日記を見る' : '日記を書く';
     $('#rmShopBig').setAttribute('aria-pressed', String(tab === 'shop')); $('#rmDiaryBig').setAttribute('aria-pressed', String(tab === 'diary'));
-    $('#roomTools').hidden = !(mode === 'edit' && sel);
-    if (sel) { $('#rmRot').hidden = !!sel.side; $('#rmName').textContent = cat(sel.k).name; $('#rmSize').textContent = `大きさ ×${R.sizeOf(sel)}`; }
+    $('#roomTools').hidden = !((mode === 'edit' || (sel && sel.trial)) && sel);
+    if (sel) { $('#rmRot').hidden = !!sel.side; $('#rmName').textContent = cat(sel.k).name; $('#rmSize').textContent = `大きさ ×${R.sizeOf(sel)}`; $('#rmStore').textContent = sel.trial ? 'もどす' : 'しまう'; }
     // もようがえ中は、下のメニューは倉庫だけ
     const editing = mode === 'edit';
     $('#roomBig').hidden = editing;
@@ -307,7 +315,9 @@
     const onThing = findItem(e) || (e.target.closest && e.target.closest('.rm-owner'));
     if (zoom.z > 1.01 && (!onThing || (mode === 'view' && guest))) { if (mode === 'edit' && sel) { sel = null; render(); } startPan(e); return; }
     if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
-    if (mode === 'view') {
+    const tr = mode === 'view' && findItem(e);
+    if (mode === 'view' && !(tr && tr.trial)) {
+      if (sel && sel.trial) { sel = null; render(); }
       if (vg) { const v = visitors.find(x => x.key === vg.dataset.key); if (v) talk(v); return; }
       const it = findItem(e); if (!it) return;
       const c = cat(it.k);
@@ -396,6 +406,7 @@
   }
   function storeSel() {
     if (!sel) return;
+    if (sel.trial) { removeTrial(sel); return; }
     const r = room();
     if (sel.side) r.walls = r.walls.filter(w => w !== sel); else r.items = r.items.filter(i => i !== sel);
     sel = null; touch(); render(); if (tab === 'inv') renderPanel();
@@ -408,6 +419,49 @@
     else { const sp = freeSpot(it); if (!sp) { P.toast('床に空きがありません'); return; } Object.assign(it, sp); r.items.push(it); }
     mode = 'edit'; sel = it; touch(); setMode('edit'); renderPanel(); render();
     P.toast('ドラッグして好きな場所へ');
+  }
+
+  /* ---------- 試し置き（ルームショップ）：買う前に部屋に置いてみる。買ったら「そのまま置く？」 ---------- */
+  const trials = () => room().items.concat(room().walls).filter(i => i.trial);
+  function addTrial(k) {
+    const r = room(), c = cat(k), it = { uid: r.seq++, k, rot: 0, trial: true };
+    if (c.kind === 'wall') { const sp = freeWallSpot(it); if (!sp) { P.toast('壁に空きがありません'); return; } Object.assign(it, sp); r.walls.push(it); }
+    else { const sp = freeSpot(it); if (!sp) { P.toast('床に空きがありません'); return; } Object.assign(it, sp); r.items.push(it); }
+    sel = it; P.sound('stone'); render(); renderPanel();
+  }
+  function removeTrial(it) {
+    const r = room(); r.items = r.items.filter(i => i !== it); r.walls = r.walls.filter(i => i !== it);
+    if (sel === it) sel = null; render(); renderPanel();
+  }
+  function clearTrials() {
+    const r = room(); if (!trials().length) return;
+    r.items = r.items.filter(i => !i.trial); r.walls = r.walls.filter(i => !i.trial); if (sel && sel.trial) sel = null;
+  }
+  // 買う（list：試し置きの家具）。買えたら「そのまま置きますか？」
+  function buyTrials(list) {
+    const total = list.reduce((a, it) => a + cat(it.k).price, 0);
+    if ((S.zeni || 0) < total) { shima('poor'); P.toast('銭が足りません'); return; }
+    const names = list.length === 1 ? cat(list[0].k).name : `試し置きの ${list.length} 点`;
+    P.confirmBox(`${names}を、${list.length > 1 ? '合計 ' : ''}${total.toLocaleString()} 銭で買いますか？`, () => {
+      const bought = [];
+      const next = () => {
+        const it = list[bought.length];
+        if (!it) { done(); return; }
+        P.buy({ item: it.k }, cat(it.k).price, res => { if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); done(); return; } bought.push(it); next(); });
+      };
+      const done = () => {
+        if (!bought.length) { render(); renderPanel(); return; }
+        P.sound('ok'); shima('buy');
+        P.confirmBox(`${bought.length === 1 ? cat(bought[0].k).name : bought.length + ' 点'}を買いました！ そのまま部屋に置きますか？`, () => {
+          for (const it of bought) delete it.trial;
+          touch(); flush(); P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
+        }, () => {
+          for (const it of bought) { const r = room(); r.items = r.items.filter(i => i !== it); r.walls = r.walls.filter(i => i !== it); }
+          sel = null; P.toast('買った家具は、倉庫に入れました'); render(); renderPanel();
+        }, { yes: '置く', no: '倉庫へ' });
+      };
+      next();
+    });
   }
 
   /* ---------- パネル（ショップ・倉庫・お客さん） ---------- */
@@ -456,26 +510,28 @@
       return;
     }
     if (tab === 'shop') {
-      let h = `<div class="rm-clerk"><img src="img/stand_shima.webp" alt="店主の静馬" data-shima="1"><p id="rmClerk"><b>静馬</b><span>${esc(clerkLine)}</span></p></div><div class="rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
-      h += `<div class="rm-seg small">${[['all', 'すべて'], ['wa', '和'], ['yo', '洋'], ['chu', '中'], ['fun', 'おもしろ']].map(([k, n]) => `<button data-style="${k}" aria-pressed="${shopStyle === k}">${n}</button>`).join('')}</div><div class="rm-grid-list">`;
+      // 上：静馬と試し置きリスト（動かない）／中：商品／下：ジャンル（動かない）
+      const tl = trials(), total = tl.reduce((a, it) => a + cat(it.k).price, 0), short = total > (S.zeni || 0);
+      let h = `<div class="rm-shop-top"><div class="rm-clerk"><img src="img/stand_shima.webp" alt="店主の静馬" data-shima="1"><p id="rmClerk"><b>静馬</b><span>${esc(clerkLine)}</span></p></div>`;
+      if (tl.length) h += `<div class="rm-try"><b class="av-try-h">試し置き</b><ul>${tl.map(it => `<li><span>${cat(it.k).name}</span><em>${cat(it.k).price.toLocaleString()}</em><button type="button" class="btn primary small" data-tbuy="${it.uid}" ${cat(it.k).price > (S.zeni || 0) ? 'disabled' : ''}>買う</button><button type="button" class="sc-x" data-tundo="${it.uid}" aria-label="試し置きをやめる">×</button></li>`).join('')}</ul>
+        <div class="av-try-sum"><span>合計</span><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b>${tl.length > 1 ? `<button type="button" class="btn primary small" data-tall="1" ${short ? 'disabled' : ''}>まとめて買う</button>` : ''}</div></div>`;
+      h += '</div><p class="rm-help">家具をタップすると、部屋に「試し置き」できます。部屋の中でドラッグして動かせます。</p><div class="rm-grid-list">';
       if (shopKind === 'interior') {
         for (const [kind, table] of [['floors', R.FLOORS], ['walls', R.WALLS]]) for (const [id, it] of Object.entries(table)) {
-          if (shopStyle !== 'all' && it.style !== shopStyle) continue;
           const own = r.owned[kind].includes(id), using = (kind === 'floors' ? r.floor : r.wall) === id;
-          h += `<div class="rm-card"><div class="rm-swatch ${kind === 'floors' ? 'f-' : 'w-'}${id}"></div><b>${it.name}</b><small>${kind === 'floors' ? '床' : '壁紙'}・${STYLE_NAME[it.style]}</small>
+          h += `<div class="rm-card"><div class="rm-swatch ${kind === 'floors' ? 'f-' : 'w-'}${id}"></div><b>${it.name}</b><small>${kind === 'floors' ? '床' : '壁紙'}</small>
             <button class="btn ${own ? 'lac' : 'primary'} small" data-int="${kind}:${id}" ${using ? 'disabled' : ''}>${using ? '使用中' : own ? '使う' : `${it.price} 銭で買う`}</button></div>`;
         }
       } else {
         for (const c of R.CATALOG) {
           if (c.price <= 0) continue;
           if ((c.kind === 'wall') !== (shopKind === 'wall')) continue;
-          if (shopStyle !== 'all' && c.style !== shopStyle) continue;
-          const have = r.ownedItems[c.id] || 0;
-          h += `<div class="rm-card">${thumb(c.id)}<b>${c.name}</b><small>${STYLE_NAME[c.style]}${c.light ? '・電気' : ''}${have ? `・${have}こ持ってる` : ''}</small>
-            <button class="btn primary small" data-buy="${c.id}" ${S.zeni < c.price ? 'disabled' : ''}>${c.price} 銭</button></div>`;
+          const have = r.ownedItems[c.id] || 0, trying = tl.filter(it => it.k === c.id).length;
+          h += `<button type="button" class="rm-card rm-buycard${trying ? ' on' : ''}" data-try="${c.id}">${thumb(c.id)}<b>${c.name}</b><small>${c.light ? '電気・' : ''}${have ? `${have}こ持ってる` : ''}${trying ? '・試し置き中' : ''}</small><span class="rm-price">${c.price.toLocaleString()} 銭</span></button>`;
         }
       }
-      p.innerHTML = h + '</div>';
+      h += `</div><div class="rm-shop-nav rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
+      p.innerHTML = h;
     } else if (tab === 'inv') {
       const ks = invKeys();
       p.innerHTML = ks.length ? `<p class="rm-help">タップすると部屋に置きます。もようがえ中に家具を選んで「しまう」と、ここに戻ります。</p><div class="rm-grid-list">${ks.map(k => `<div class="rm-card">${thumb(k)}<b>${cat(k).name}</b><small>${invOf(k)}こ</small><button class="btn primary small" data-place="${k}">置く</button></div>`).join('')}</div>`
@@ -494,7 +550,11 @@
     if (SO.onClick(e, ctx())) return;
     if (e.target.closest('[data-shima]')) { shima('pick'); return; }
     const b = e.target.closest('button');
-    if (!b) { if (tab === 'shop' && e.target.closest('.rm-card')) shima('pick'); return; }
+    if (!b) return;
+    if (b.dataset.try) { if (guest) return; addTrial(b.dataset.try); shima('pick'); return; }
+    if (b.dataset.tbuy) { const it = trials().find(i => i.uid === +b.dataset.tbuy); if (it) buyTrials([it]); return; }
+    if (b.dataset.tundo) { const it = trials().find(i => i.uid === +b.dataset.tundo); if (it) removeTrial(it); return; }
+    if (b.dataset.tall) { buyTrials(trials()); return; }
     const r = room();
     if (b.dataset.kind) { shopKind = b.dataset.kind; renderPanel(); return; }
     if (b.dataset.style) { shopStyle = b.dataset.style; renderPanel(); return; }
@@ -529,6 +589,7 @@
     }
   }
   function setMode(m) {
+    if (m === 'edit') clearTrials();
     if (mode === 'edit' && m === 'view') flush();   // もようがえを終えたときだけ、部屋の配置をサーバーへ送る
     mode = m;
     if (m === 'view') { sel = null; if (!guest) placeVisitors(); }
@@ -544,7 +605,7 @@
     if (typeof startTab !== 'string') startTab = null;
     roomFrom = back || null;
     guest = null;
-    room();
+    room(); clearTrials();
     tab = startTab || 'inv'; mode = 'view'; sel = null;
     P.showScreen('myroom');
     setMode('view');
@@ -594,8 +655,8 @@
   function miniOf(rm, look) {
     rm = rm || DEF_ROOM();
     let s = R.DEFS + R.drawWalls(rm.wall || 'plain') + R.drawFloor(rm.floor || 'wood');
-    for (const w of rm.walls || []) if (cat(w.k)) s += R.drawWallItem(w, {});
-    const items = (rm.items || []).filter(it => cat(it.k));
+    for (const w of rm.walls || []) if (cat(w.k) && !w.trial) s += R.drawWallItem(w, {});
+    const items = (rm.items || []).filter(it => cat(it.k) && !it.trial);
     const ents = items.map(it => Object.assign(rectOf(it), { it }));
     if (look) {
       const busy = new Set();
@@ -617,7 +678,7 @@
   s.addEventListener('pointerup', onUp);
   s.addEventListener('pointercancel', onUp);
   $('#roomPanel').addEventListener('click', onPanelClick);
-  $('#roomTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.tab) { tab = b.dataset.tab; renderPanel(); if (['diary', 'chat', 'social', 'owner'].includes(tab)) loadSocial(guest ? guest.pid : null); } });
+  $('#roomTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.tab) { if (b.dataset.tab !== 'shop') { clearTrials(); render(); } tab = b.dataset.tab; renderPanel(); if (['diary', 'chat', 'social', 'owner'].includes(tab)) loadSocial(guest ? guest.pid : null); } });
   $('#rmEdit').onclick = () => setMode(mode === 'edit' ? 'view' : 'edit');
   $('#rmRot').onclick = rotateSel;
   $('#rmSize').onclick = sizeSel;
@@ -626,6 +687,7 @@
   $('#roomBack').onclick = () => {
     if (guest && guestBack) { const f = guestBack; guestBack = null; guest = null; f(); return; }
     if (guest) { goHome(); return; }
+    clearTrials();
     if (mode === 'edit') setMode('view'); flush();
     if (roomFrom === 'shop' && window.SHOP) { roomFrom = null; window.SHOP.open(); return; }
     if (window.AVATAR_UI) window.AVATAR_UI.openHub(); else { P.renderHome(); P.showScreen('home'); }
@@ -643,7 +705,7 @@
   }
   // ルームの下の大きなボタン：ショップ・日記
   $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; shima('hello'); renderPanel(); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
-  $('#rmDiaryBig').onclick = () => { if (!guest && window.DIARY) { flush(); P.sound('stone'); window.DIARY.write(); return; } tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
+  $('#rmDiaryBig').onclick = () => { if (!guest && window.DIARY) { clearTrials(); flush(); P.sound('stone'); window.DIARY.write(); return; } tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
   // ほかの人の部屋から「対人戦の申込」：フレンドマッチの部屋をつくって、合言葉を相手のお知らせへ
   $('#rmInvite').onclick = () => {
     if (!guest) return;
