@@ -53,10 +53,42 @@
     }
     $('#avGrid2').innerHTML = h;
     const need = unowned();
+    renderTry(need);
     $('#avSave').disabled = !changed() && !need.length;
-    $('#avSave').textContent = need.length ? '試着中のパーツを買う' : 'この姿にする';
+    $('#avSave').textContent = need.length ? `試着中を買う（${need.reduce((a, sl) => a + entryOf(sl)[2], 0).toLocaleString()} 銭）` : 'この姿にする';
     $('#avNote').textContent = need.length ? '「試着」中です。銭で買うと、この姿にできます。' : changed() ? '' : 'いまの姿です。';
   }
+  // 試着中リスト（まだ買っていないパーツ）：1つずつ買う・まとめて買う、合計の銭
+  const SLOT_NAME = Object.fromEntries(AV.SLOTS);
+  const entryOf = sl => AV.CATALOG[sl].find(x => x[0] === look[sl]);
+  function renderTry(need) {
+    const box = $('#avTry');
+    $('#avLead').hidden = !!need.length; box.hidden = !need.length;
+    $('.av-presets').hidden = !!need.length; $('#avSave').hidden = !!need.length; $('#avNote').hidden = !!need.length;   // 試着中は、リストだけ
+    if (!need.length) { box.innerHTML = ''; return; }
+    const total = need.reduce((a, sl) => a + entryOf(sl)[2], 0), short = total > (S.zeni || 0);
+    box.innerHTML = `<b class="av-try-h">試着中</b><ul>${need.map(sl => { const e = entryOf(sl); return `<li><span><small>${SLOT_NAME[sl]}</small>${e[1]}</span><em>${e[2].toLocaleString()}</em><button type="button" class="btn primary small" data-tbuy="${sl}" ${e[2] > (S.zeni || 0) ? 'disabled' : ''}>買う</button><button type="button" class="sc-x" data-tundo="${sl}" aria-label="試着をやめる">×</button></li>`; }).join('')}</ul>
+      <div class="av-try-sum"><span>合計</span><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b></div>
+      ${need.length > 1 ? `<button type="button" class="btn primary small" data-tall="1" ${short ? 'disabled' : ''}>まとめて買う（${total.toLocaleString()} 銭）</button>` : ''}
+      ${short ? `<small class="av-try-short">あと ${(total - (S.zeni || 0)).toLocaleString()} 銭たりません</small>` : ''}`;
+  }
+  $('#avTry').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tbuy) { askBuy(b.dataset.tbuy, look[b.dataset.tbuy]); return; }
+    if (b.dataset.tundo) { const sl = b.dataset.tundo; look[sl] = myLook()[sl]; P.sound('tap'); render(); return; }
+    if (b.dataset.tall) {
+      const need = unowned(), total = need.reduce((a, sl) => a + entryOf(sl)[2], 0);
+      P.confirmBox(`試着中の ${need.length} 点を、合計 ${total.toLocaleString()} 銭で買いますか？`, () => {
+        const next = () => {
+          const sl = unowned()[0];
+          if (!sl) { P.sound('ok'); P.toast('まとめて買いました。「この姿にする」で着がえられます'); render(); return; }
+          const id = look[sl];
+          P.buy({ av: sl + ':' + id }, entryOf(sl)[2], res => { if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); render(); return; } next(); });
+        };
+        next();
+      });
+    }
+  });
   const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
   // 1回目のタップは試着だけ。試着中のものをもう一度タップすると「買いますか？」
   function askBuy(sl, id) {
@@ -87,7 +119,7 @@
   });
   $('#avSave').onclick = () => {
     const need = unowned();
-    if (need.length) { askBuy(need[0], look[need[0]]); return; }   // まだ買っていないパーツを順に買う
+    if (need.length) { const b = $('#avTry [data-tall]') || $('#avTry [data-tbuy]'); if (b && !b.disabled) b.click(); else P.toast('銭が足りません'); return; }
     const l = AV.clean(look);
     const done = () => { S.av = l; P.saveLocal(); P.sound('ok'); P.toast('アバターを着がえました'); render(); };
     if (!P.online()) { if (P.FR.available()) { P.toast('サーバーにつながっていません'); return; } done(); return; }

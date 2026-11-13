@@ -106,6 +106,7 @@
       <button class="tile rev" id="openReview" type="button"><img id="tileRev" alt=""><b>検討</b></button>
     </nav>
 
+    <p class="credit home-credit">音楽：魔王魂</p>
     <button class="gift-fab" id="openGift" type="button" aria-label="プレゼントボックス"><span aria-hidden="true">🎁</span><b>プレゼント</b><i class="gift-badge" id="giftBadge" hidden>0</i></button>
     <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
   </section>
@@ -314,7 +315,8 @@
     <div class="av-stage">
       <div class="av-big" id="avBig"></div>
       <div class="av-side">
-        <p class="av-lead">パーツをえらぶと試着できます。気に入ったら銭で買って「この姿にする」。</p>
+        <p class="av-lead" id="avLead">パーツをタップすると試着できます。もう一度タップするか、試着中リストから買えます。</p>
+        <div class="av-try" id="avTry" hidden></div>
         <div class="av-presets"><button class="btn lac small" data-preset="girl">女の子にする</button><button class="btn lac small" data-preset="boy">男の子にする</button></div>
         <button class="btn primary" id="avSave" type="button">この姿にする</button>
         <p class="av-note" id="avNote"></p>
@@ -654,7 +656,8 @@
           </select>
         </label>
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
-        <label class="toggle"><input type="checkbox" id="optBgm"><i></i>BGM（和の音楽）</label>
+        <label class="toggle"><input type="checkbox" id="optBgm"><i></i>BGM</label>
+        <p class="credit">音楽：魔王魂（<a href="https://maou.audio/" target="_blank" rel="noopener">maou.audio</a>）</p>
       </div>
 
       <div class="field"><span>アカウント（データの保存と引き継ぎ）</span>
