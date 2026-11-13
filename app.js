@@ -695,7 +695,10 @@
       pr.hidden = false; pr.textContent = cleared ? 'ミッションクリア！' : 'ミッション失敗……もう一度挑戦しよう';
       $('#resAgain').textContent = cleared ? '続きを読む' : 'もう一度挑戦';
       $('#resAgain').onclick = () => { $('#result').hidden = true; const g = G; G = null; solo.done(cleared, g); };
-      $('#resHome').onclick = () => { $('#result').hidden = true; G = null; solo.back(); };
+      // 勝ったら、どのボタンで閉じても続きが読めるようにする（✕や「もどる」で閉じても、ミッションはクリア）
+      G.soloCleared = cleared;
+      if (cleared && solo.won) solo.won();   // 勝った時点で、続きを読めるようにしておく（アプリを閉じても大丈夫）
+      $('#resHome').onclick = () => { $('#result').hidden = true; G = null; if (cleared) solo.done(true); else solo.back(); };
       $('#resHome').hidden = false; $('#resClose').onclick = () => $('#resHome').click();
       $('#result').hidden = false;
       return;
@@ -1112,7 +1115,7 @@
   $('#resignBtn').onclick = () => { if (G && !G.over) confirmBox('投了しますか？ 負けになります。', () => { if (!G || G.over) return; if (G.online) netSend({ t: 'resign', g: G.online.g }); endGame(3 - G.me, '中押し'); }); };
   $('#startMatch').onclick = () => { sound('stone'); openPvp(); };
   $('#resHome').addEventListener('click', stopPonder);
-  $('#resBoard').onclick = () => { const rec = G ? (G.hc ? hcRec(G.hc.h, BN) : []).concat(G.record) : []; reviewBack = G && G.solo ? G.solo.back : null; $('#result').hidden = true; G = null; openReview(rec); };
+  $('#resBoard').onclick = () => { const rec = G ? (G.hc ? hcRec(G.hc.h, BN) : []).concat(G.record) : []; reviewBack = G && G.solo ? (G.soloCleared ? (s => () => s.done(true))(G.solo) : G.solo.back) : null; $('#result').hidden = true; G = null; openReview(rec); };
 
   /* ---------- 設定 ---------- */
   function renderSettings() {

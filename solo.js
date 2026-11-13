@@ -359,8 +359,10 @@
   }
   function resumeNext() { P.showScreen('reader'); RD.part++; RD.line = 0; showLine(); }
   function startGame(lv, back) {
+    let fired = false;
     P.jissen(`Bot ${P.RANKS[lv]}に勝て`, () => P.startSoloGame(lv, {
-      done: (cleared) => { if (cleared) missionClear(`Bot ${P.RANKS[lv]}に勝利`); else startGame(lv, back); },
+      done: (cleared) => { if (fired) return; fired = true; if (cleared) missionClear(`Bot ${P.RANKS[lv]}に勝利`); else startGame(lv, back); },
+      won: () => unlockNext(),
       back
     }));
   }
