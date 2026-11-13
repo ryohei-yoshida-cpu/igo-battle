@@ -277,7 +277,7 @@
   const CLOAK = new Set(['tansu', 'ikou', 'closet', 'rack', 'mirror', 'dresser']);
   for (const c of CATALOG) if (CLOAK.has(c.id)) { c.cloak = true; c.note = c.note || '置くと、お気に入りセットが2つふえる'; }
   // 絵で描いた家具（img/room/<id>.webp、つくものは <id>_on.webp）。[横, 縦] ピクセル
-  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[315,217],"bookshelf":[195,192],"chabudai":[291,172],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"kakejiku":[106,195],"plant":[184,175],"sofa":[316,207],"tv":[251,188],"tv_on":[252,211],"window":[263,175],"zabuton":[253,130]};
+  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[679,555],"bookshelf":[195,192],"chabudai":[291,172],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"kakejiku":[106,195],"plant":[308,355],"sofa":[589,473],"tv":[432,417],"tv_on":[432,417],"window":[263,175],"zabuton":[253,130]};
   for (const c of CATALOG) if (IMG[c.id]) {
     c.img = true;
     if (c.kind === 'wall') { const [iw, ih] = IMG[c.id]; c.h = Math.round(c.w * ih / iw * 100) / 100; }   // 壁の家具は絵の縦横の比にあわせる
