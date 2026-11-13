@@ -613,11 +613,11 @@
     if (root.KataAI.stepPonder(nnP.st, nnP.komi, nnP.cap, 40)) { nnP = null; return; }
     setTimeout(nnPonderStep, 0);
   }
-  // 検討：AIの候補手（上位3つ）
+  // 検討：いちばん強い設定（いちばん強いBotより多く読む）で、AIの候補手（上位3つ）
   function nnAnalyze(d) {
     const K = root.KataAI, st = K.stateFrom(d.board, d.toPlay, d.ko, d.rec);
     K.reset();
-    const rt = K.search(st, d.komi, 200, Math.min(d.ms || 4500, 4500));
+    const rt = K.search(st, d.komi, 800, Math.min(d.ms || 5000, 5000));
     const sorted = rt.kids.filter(k => k.n).sort((a, z) => z.n - a.n).slice(0, 3);
     return { cands: sorted.map(k => ({ move: k.mv, wr: k.w / k.n, visits: k.n })), playouts: rt.n, nn: true };
   }

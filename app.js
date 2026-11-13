@@ -1300,10 +1300,10 @@
     if (!R || (R.hint && R.hint.loading)) return;
     const st = R.st, at = R.idx + ':' + R.line.slice(0, R.idx).join(',');
     const out = $('#rvHintOut');
-    out.hidden = false; out.innerHTML = '<small>AIが考えています…（5秒以内）</small>';
+    out.hidden = false; out.innerHTML = '<small>最強のAIが考えています…（5秒ほど）</small>';
     R.hint = { loading: true, at, cands: [] };
     $('#rvHint').disabled = true;
-    const res = await ask({ type: 'analyze', board: st.b, toPlay: st.c, ko: st.ko, komi: KOMI, last: st.last, ms: 4500 });
+    const res = await ask({ type: 'analyze', size: BN, board: st.b, toPlay: st.c, ko: st.ko, komi: KOMI, last: st.last, rec: R.line.slice(0, R.idx), ms: 5000 });
     $('#rvHint').disabled = false;
     if (!R) return;
     const nowAt = R.idx + ':' + R.line.slice(0, R.idx).join(',');

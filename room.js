@@ -266,13 +266,18 @@
   let viewKey = '';
   function pickRoom(i, quiet) {
     if (i === cur) { focusRoom(); return; }
-    if (mode === 'shop') { P.toast('ショップを閉じてから、ほかの部屋をえらんでください'); return; }
+    if (mode === 'shop') {
+      // ショップのまま、ほかの部屋へ（試し置きは、それぞれの部屋に残る）
+      sel = null; drag = null; addMode = false; cur = i; room(); snapRoom(i);
+      if (!quiet) P.sound('stone');
+      viewKey = 'x'; render(); renderPanel(); focusRoom(); return;
+    }
     clearTrials(); sel = null; drag = null; addMode = false;
     cur = i; room();
     if (!quiet) P.sound('stone');
     viewKey = 'x'; render(); renderPanel(); showVisit(); focusRoom();
   }
-  const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_PRICE = 20000, BIG_N = 17;
+  const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_PRICE = 5000, BIG_N = 17;
   let addMode = false;
   // 家のメニュー（もようがえの上）：部屋を増やす（右下・左下）・広くする
   function houseBar() {}
@@ -669,12 +674,13 @@
     sel = it; P.sound('stone'); render(); renderPanel();
   }
   function removeTrial(it) {
-    const r = room(); r.items = r.items.filter(i => i !== it); r.walls = r.walls.filter(i => i !== it);
+    for (const r of allRooms()) { r.items = r.items.filter(i => i !== it); r.walls = r.walls.filter(i => i !== it); }
     if (sel === it) sel = null; render(); renderPanel();
   }
+  // 全部の部屋の試し置きを消す
   function clearTrials() {
-    const r = room(); if (!trials().length) return;
-    r.items = r.items.filter(i => !i.trial); r.walls = r.walls.filter(i => !i.trial); if (sel && sel.trial) sel = null;
+    for (const r of allRooms()) { r.items = r.items.filter(i => !i.trial); r.walls = r.walls.filter(i => !i.trial); }
+    if (sel && sel.trial) sel = null;
   }
   // 買う（list：試し置きの家具）。買えたら「そのまま置きますか？」
   function buyTrials(list) {
@@ -782,10 +788,27 @@
   }
 
   /* ---------- ルームショップ：試し置き（家具・床・壁紙）。ショップの中では、置いてある家具も動かせる ---------- */
-  let snap = null, tryInt = { floor: null, wall: null };
-  const cartList = () => trials().map(it => ({ kind: 'item', it, name: cat(it.k).name, price: cat(it.k).price }))
-    .concat(tryInt.floor ? [{ kind: 'floor', id: tryInt.floor, name: '床：' + R.FLOORS[tryInt.floor].name, price: R.FLOORS[tryInt.floor].price }] : [])
-    .concat(tryInt.wall ? [{ kind: 'wall', id: tryInt.wall, name: '壁紙：' + R.WALLS[tryInt.wall].name, price: R.WALLS[tryInt.wall].price }] : []);
+  // snaps[部屋番号]：ショップに入ったときの配置（ほかの部屋へ移ったら、その部屋のぶんも取る）。tryInts[部屋番号]：試している床・壁紙
+  let snaps = {}, tryInts = {};
+  const tryInt = () => tryInts[cur] = tryInts[cur] || { floor: null, wall: null };
+  const copyRoom = r => ({ floor: r.floor, wall: r.wall, items: JSON.parse(JSON.stringify(r.items.filter(i => !i.trial))), walls: JSON.parse(JSON.stringify(r.walls.filter(i => !i.trial))), av: r.av && Object.assign({}, r.av), gp: r.gp && Object.assign({}, r.gp), key: layoutOf(r) });
+  function snapRoom(i) { if (!snaps[i]) snaps[i] = copyRoom(allRooms()[i]); }
+  const roomName = i => `部屋${i + 1}`;
+  // カート：全部の部屋の試し置き＋床・壁紙（ri：どの部屋か）
+  function cartList() {
+    const out = [], rooms = allRooms(), multi = rooms.length > 1;
+    rooms.forEach((r, ri) => {
+      const pre = multi ? `[${roomName(ri)}] ` : '';
+      for (const it of r.items.concat(r.walls)) if (it.trial) out.push({ kind: 'item', it, ri, name: pre + cat(it.k).name, price: cat(it.k).price });
+      const t = tryInts[ri]; if (!t) return;
+      if (t.floor) out.push({ kind: 'floor', id: t.floor, ri, name: pre + '床：' + R.FLOORS[t.floor].name, price: R.FLOORS[t.floor].price });
+      if (t.wall) out.push({ kind: 'wall', id: t.wall, ri, name: pre + '壁紙：' + R.WALLS[t.wall].name, price: R.WALLS[t.wall].price });
+    });
+    // 同じ床・壁紙を、いくつかの部屋で試しているときは、1回買えばいい
+    const seen = new Set();
+    for (const c of out) if (c.kind !== 'item') { const k = c.kind + ':' + c.id; if (seen.has(k)) { c.dup = true; c.price = 0; } seen.add(k); }
+    return out;
+  }
   function renderShop() {
     const r = room(), cart = cartList(), total = cart.reduce((a, c) => a + c.price, 0), short = total > (S.zeni || 0);
     $('#rmClerk').querySelector('span').textContent = clerkLine;
@@ -806,7 +829,7 @@
     $('#rsGrid').innerHTML = (shopKind === 'cloak' ? '<p class="rm-help rs-note">部屋にクロークを1つ置くごとに、アバターの「お気に入りセット」が2つふえます。</p>' : '') + g;
     $('#rsCart').innerHTML = `<b class="rs-cart-h">選んでいる品</b>` + (cart.length
       ? `<ul>${cart.map((c, i) => `<li><span>${esc(c.name)}</span><em>${c.price.toLocaleString()} 銭</em><button type="button" class="sc-x" data-cx="${i}" aria-label="やめる">×</button></li>`).join('')}</ul>`
-      : '<p class="rs-empty">商品をタップすると、部屋に試し置きできます</p>') +
+      : `<p class="rs-empty">商品をタップすると、部屋に試し置きできます${allRooms().length > 1 ? '。ほかの部屋をタップすると、その部屋の買い物もまとめてできます' : ''}</p>`) +
       `<div class="rs-total"><small>合計</small><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b></div><button type="button" class="btn primary rs-buy" data-buyall="1" ${!cart.length || short ? 'disabled' : ''}>購入</button>`;
     $('#rsNav').innerHTML = [['floor', '床の家具'], ['wall', '壁の家具'], ['cloak', 'クローク'], ['interior', '床・壁紙']].map(([k, n]) => `<button type="button" data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('');
   }
@@ -815,33 +838,36 @@
     if (guest) return;
     if (mode === 'edit') { flush(); }
     clearTrials();
-    const r = room();
-    snap = { floor: r.floor, wall: r.wall, items: JSON.parse(JSON.stringify(r.items)), walls: JSON.parse(JSON.stringify(r.walls)), av: r.av && Object.assign({}, r.av), gp: r.gp && Object.assign({}, r.gp), key: layoutOf(r) };
-    tryInt = { floor: null, wall: null };
+    snaps = {}; tryInts = {}; snapRoom(cur);
     if (kind) shopKind = kind;
     mode = 'shop'; dockTab = null; sel = null;
     shima('hello'); P.sound('stone');
     render(); renderPanel(); showVisit();
   }
+  // 全部の部屋を、ショップに入ったときの配置にもどす
   function restoreSnap() {
-    const r = room(); if (!snap) return;
-    Object.assign(r, { floor: snap.floor, wall: snap.wall, items: snap.items, walls: snap.walls }); r.av = snap.av; r.gp = snap.gp;
-    if (!r.av) delete r.av; if (!r.gp) delete r.gp;
+    const rooms = allRooms();
+    for (const [i, s] of Object.entries(snaps)) {
+      const r = rooms[i]; if (!r) continue;
+      Object.assign(r, { floor: s.floor, wall: s.wall, items: JSON.parse(JSON.stringify(s.items)), walls: JSON.parse(JSON.stringify(s.walls)) }); r.av = s.av; r.gp = s.gp;
+      if (!r.av) delete r.av; if (!r.gp) delete r.gp;
+    }
   }
   // ショップを出る：動かした配置を残すか聞く（試し置きで買っていないものは消える）
   function leaveShop(cb) {
-    const r = room();
-    const end = () => { snap = null; tryInt = { floor: null, wall: null }; mode = 'view'; sel = null; render(); renderPanel(); showVisit(); if (cb) cb(); };
+    const rooms = allRooms();
+    const end = () => { snaps = {}; tryInts = {}; mode = 'view'; sel = null; render(); renderPanel(); showVisit(); if (cb) cb(); };
     clearTrials();
-    if (tryInt.floor) r.floor = snap.floor; if (tryInt.wall) r.wall = snap.wall;
-    if (snap && layoutOf(r) !== snap.key) {
+    for (const [i, t] of Object.entries(tryInts)) { const r = rooms[i], s = snaps[i]; if (!r || !s) continue; if (t.floor) r.floor = s.floor; if (t.wall) r.wall = s.wall; }
+    tryInts = {};
+    if (Object.entries(snaps).some(([i, s]) => rooms[i] && layoutOf(rooms[i]) !== s.key)) {
       P.confirmBox('動かした配置を、そのまま残しますか？', () => { touch(); flush(); end(); }, () => { restoreSnap(); end(); }, { yes: '残す', no: 'もとに戻す' });
       return;
     }
     end();
   }
   function leaveMode(quiet) {
-    if (mode === 'shop') { clearTrials(); restoreSnap(); snap = null; mode = 'view'; sel = null; return; }
+    if (mode === 'shop') { clearTrials(); restoreSnap(); snaps = {}; tryInts = {}; mode = 'view'; sel = null; return; }
     if (mode === 'edit') { flush(); mode = 'view'; sel = null; }
   }
   // まとめて買う → 「今の模様替えを反映する？」はい：そのまま／いいえ：配置を戻して、買った家具は倉庫へ
@@ -853,28 +879,28 @@
       const got = [];
       const next = () => {
         const c = cart[got.length]; if (!c) { done(); return; }
+        if (c.dup) { got.push(c); next(); return; }   // ほかの部屋で同じ床・壁紙を買った
         const what = c.kind === 'item' ? { item: c.it.k } : c.kind === 'floor' ? { floor: c.id } : { wall: c.id };
         P.buy(what, c.price, res => { if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); done(); return; } got.push(c); next(); });
       };
       const done = () => {
         if (!got.length) { renderPanel(); return; }
         shima('buy');
-        for (const c of got) { if (c.kind === 'item') delete c.it.trial; if (c.kind === 'floor') tryInt.floor = null; if (c.kind === 'wall') tryInt.wall = null; }
-        window.FANFARE.celebrate({ items: got.map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
-          const r = room(); touch(); flush();
-          snap = Object.assign(snap || {}, { floor: r.floor, wall: r.wall, items: JSON.parse(JSON.stringify(r.items.filter(i => !i.trial))), walls: JSON.parse(JSON.stringify(r.walls.filter(i => !i.trial))), av: r.av, gp: r.gp, key: layoutOf(r) });
+        for (const c of got) { if (c.kind === 'item') delete c.it.trial; const t = tryInts[c.ri]; if (t && c.kind === 'floor') t.floor = null; if (t && c.kind === 'wall') t.wall = null; }
+        window.FANFARE.celebrate({ items: got.filter(c => !c.dup).map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
+          touch(); flush();
+          const rooms = allRooms(); for (const i of Object.keys(snaps)) if (rooms[i]) snaps[i] = copyRoom(rooms[i]);
           P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
         }, () => {
-          const keepTrials = trials();
-          restoreSnap(); const r = room(); for (const t of keepTrials) (cat(t.k).kind === 'wall' ? r.walls : r.items).push(t);
-          if (tryInt.floor) r.floor = tryInt.floor; if (tryInt.wall) r.wall = tryInt.wall;
+          const rooms = allRooms(), keep = rooms.map(r => r.items.concat(r.walls).filter(i => i.trial));
+          restoreSnap();
+          rooms.forEach((r, i) => { for (const t of keep[i]) (cat(t.k).kind === 'wall' ? r.walls : r.items).push(t); const ti = tryInts[i]; if (ti && ti.floor) r.floor = ti.floor; if (ti && ti.wall) r.wall = ti.wall; });
           sel = null; P.toast('配置をもとに戻しました。買った家具は倉庫にあります'); render(); renderPanel();
         }, { yes: 'はい', no: 'いいえ' }) });
       };
       next();
     });
   }
-  $('#rsClose').onclick = () => { P.sound('tap'); leaveShop(); };
   $('#rsFace').onclick = () => shima('pick');
   $('#roomShop').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -884,14 +910,14 @@
       const [kind, id] = b.dataset.int.split(':'), r = room(), isF = kind === 'floors';
       if (isF) r.floor = id; else r.wall = id;
       const own = base().owned[kind].includes(id);
-      if (isF) tryInt.floor = own ? null : id; else tryInt.wall = own ? null : id;
+      if (isF) tryInt().floor = own ? null : id; else tryInt().wall = own ? null : id;
       shima('pick'); P.sound('tap'); render(); renderShop(); return;
     }
     if (b.dataset.cx != null) {
       const c = cartList()[+b.dataset.cx]; if (!c) return;
       if (c.kind === 'item') { removeTrial(c.it); return; }
-      const r = room();
-      if (c.kind === 'floor') { r.floor = snap.floor; tryInt.floor = null; } else { r.wall = snap.wall; tryInt.wall = null; }
+      const r = allRooms()[c.ri], s = snaps[c.ri], t = tryInts[c.ri];
+      if (c.kind === 'floor') { r.floor = s.floor; t.floor = null; } else { r.wall = s.wall; t.wall = null; }
       render(); renderShop(); return;
     }
     if (b.dataset.buyall) buyCart();
@@ -938,7 +964,7 @@
   function open(startTab, back) {
     if (typeof startTab !== 'string') startTab = null;
     roomFrom = back || null;
-    guest = null; viewKey = ''; snap = null; dockTab = null;
+    guest = null; viewKey = ''; snaps = {}; tryInts = {}; dockTab = null;
     room(); clearTrials();
     mode = 'view'; sel = null;
     P.showScreen('myroom');

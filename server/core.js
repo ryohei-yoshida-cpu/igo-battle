@@ -652,7 +652,7 @@ function antiqueGift(r, x) {
 const AV_RM = { 'body:b02': 1800, 'body:b06': 1800, 'body:b24': 1800, 'body:b25': 1200, 'body:b26': 1200, 'body:b27': 1800, 'body:b29': 1800, 'body:b30': 300, 'body:b31': 300 };
 function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [] }; }
 // 部屋は最大6つ（はじめの部屋＋5）。1つ増やすのに 10000銭
-const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 20000;
+const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 5000;
 const defAt = i => i === 1 ? { p: 0, d: 'x' } : i === 2 ? { p: 0, d: 'y' } : { p: i - 1, d: 'x' };   // 位置の記録がない部屋（はじめのころに買った部屋）
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの
 function cleanRoom(room, owned, total, n) {
