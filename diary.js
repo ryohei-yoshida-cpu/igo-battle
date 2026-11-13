@@ -76,7 +76,7 @@
     const ov = $('#book'), el = $('#bookEl');
     $('#bookPage').innerHTML = html;
     ov.hidden = false; el.classList.remove('open', 'closing'); void el.offsetWidth;
-    setTimeout(() => el.classList.add('open'), 250);   // 閉じた表紙を少し見せてから、ひらく
+    setTimeout(() => el.classList.add('open'), 500);   // 閉じた表紙を少し見せてから、ひらく
     P.sound('stone');
   }
   function turnPage(html) {
@@ -86,7 +86,7 @@
     const ov = $('#book'), el = $('#bookEl');
     if (now) { ov.hidden = true; return; }
     el.classList.add('closing'); el.classList.remove('open');
-    setTimeout(() => { ov.hidden = true; el.classList.remove('closing'); }, 520);
+    setTimeout(() => { ov.hidden = true; el.classList.remove('closing'); }, 1040);
   }
   $('#book').addEventListener('click', e => { if (e.target.id === 'book') closeBook(); });
 
@@ -114,7 +114,7 @@
       }
       kifu = null; pub = 'all'; cur = { write: true };
       openBook(writePage());
-      setTimeout(() => { const t = $('#bkTitle'); if (t) t.focus({ preventScroll: true }); }, 700);
+      setTimeout(() => { const t = $('#bkTitle'); if (t) t.focus({ preventScroll: true }); }, 2400);
     });
   }
   function save(btn) {

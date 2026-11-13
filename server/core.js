@@ -539,12 +539,12 @@ function cleanRoom(room, owned) {
   for (const it of (Array.isArray(room.items) ? room.items : []).slice(0, 200)) {
     if (!it || !ITEMS[it.k] || ITEMS[it.k][1] === 'w' || !num(it.x, 0, 11) || !num(it.y, 0, 11)) return null;
     cnt[it.k] = (cnt[it.k] || 0) + 1;
-    items.push({ uid: it.uid | 0, k: it.k, x: it.x, y: it.y, rot: it.rot ? 1 : 0, on: !!it.on });
+    items.push({ uid: it.uid | 0, k: it.k, x: it.x, y: it.y, rot: it.rot ? 1 : 0, on: !!it.on, s: it.s === 1.5 || it.s === 2 ? it.s : 1 });   // s：大きさ（1・1.5・2倍）
   }
   for (const it of (Array.isArray(room.walls) ? room.walls : []).slice(0, 100)) {
     if (!it || !ITEMS[it.k] || ITEMS[it.k][1] !== 'w' || !num(it.u, 0, 11) || (it.side !== 'L' && it.side !== 'R')) return null;
     cnt[it.k] = (cnt[it.k] || 0) + 1;
-    walls.push({ uid: it.uid | 0, k: it.k, side: it.side, u: it.u, on: !!it.on });
+    walls.push({ uid: it.uid | 0, k: it.k, side: it.side, u: it.u, on: !!it.on, s: it.s === 1.5 || it.s === 2 ? it.s : 1 });
   }
   for (const [k, n] of Object.entries(cnt)) if (n > (owned.items[k] || 0)) return null;
   const floor = owned.floors.includes(room.floor) ? room.floor : 'wood', wall = owned.walls.includes(room.wall) ? room.wall : 'plain';

@@ -222,14 +222,16 @@
       <h2>ショップ</h2>
       <span class="zeni-chip" id="shopZeni"></span>
     </header>
-    <div class="shop-clerk">
-      <img id="shopImg" alt="店員のひなた">
-      <div class="shop-bubble" id="shopBubble"><b>ひなた</b><p id="shopTalk"></p></div>
-    </div>
-    <div class="shop-cards">
-      <button class="shop-card av" id="shopAvatar" type="button"><span class="sc-fig" id="shopAvFig"></span><b>アバターショップ</b><small>服・靴・髪の色</small></button>
-      <button class="shop-card room" id="shopRoom" type="button"><span class="sc-fig room" id="shopRoomFig"></span><b>マイルームショップ</b><small>家具・床・壁紙</small></button>
-    </div>
+    <button class="shop2 fuku" id="shopAvatar" type="button">
+      <img src="img/stand_hinata.webp" alt="店員のひなた">
+      <span class="shop2-bubble" id="shopBubbleH"><b>ひなた</b><span id="shopTalkH"></span></span>
+      <span class="shop2-k"><b>服ショップ</b><small>服・靴・髪・背景</small></span>
+    </button>
+    <button class="shop2 heya" id="shopRoom" type="button">
+      <img src="img/stand_shima.webp" alt="店主の静馬">
+      <span class="shop2-bubble" id="shopBubbleS"><b>静馬</b><span id="shopTalkS"></span></span>
+      <span class="shop2-k"><b>ルームショップ</b><small>家具・床・壁紙</small></span>
+    </button>
   </section>
 
   <!-- マイルームのえらぶ画面：アバター／マイルーム／キャラクター -->
@@ -239,11 +241,12 @@
       <h2>マイルーム</h2>
       <span class="zeni-chip" id="hubZeni"></span>
     </header>
-    <button class="hub-card av" id="openAvatar" type="button">
+    <div class="hub-card av">
       <span class="hub-fig" id="hubAv"></span>
       <span class="hub-k">アバター</span>
-      <span class="hub-sub">顔・髪・ポーズ・服・靴を、銭で買って着がえる</span>
-    </button>
+      <span class="hub-sub">服ショップで買って、クロークで着がえる</span>
+      <span class="hub-btns"><button type="button" class="btn primary small" id="openAvShop">ショップ</button><button type="button" class="btn lac small" id="openAvatar">クローク</button></span>
+    </div>
     <button class="hub-card room" id="openRoom" type="button">
       <span class="hub-fig room" id="hubRoom"></span>
       <span class="hub-k">マイルーム</span>
@@ -309,9 +312,14 @@
   <section id="avatar" class="screen" hidden>
     <header class="bar">
       <button class="btn lac small" id="avBack">← もどる</button>
-      <h2>アバター</h2>
-      <span class="zeni-chip" id="avZeni"></span>
+      <h2 id="avTitle">服ショップ</h2>
+      <button class="btn lac small" id="avSwitch" type="button">クロークへ</button>
     </header>
+    <div class="av-clerk" id="avClerk">
+      <img src="img/stand_hinata.webp" alt="店員のひなた" id="avClerkImg">
+      <p class="av-clerk-b" id="avClerkB"><b>ひなた</b><span id="avClerkT"></span></p>
+      <span class="zeni-chip" id="avZeni"></span>
+    </div>
     <div class="av-stage">
       <div class="av-big" id="avBig"></div>
       <div class="av-side">
@@ -337,9 +345,11 @@
       <div class="room-hito" id="roomHito" hidden></div>
       <div class="room-visits" id="roomVisits"></div>
       <svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg>
+      <div class="room-zoom" id="roomZoom"><button type="button" id="rmZoomIn" aria-label="大きく見る">＋</button><button type="button" id="rmZoomOut" aria-label="小さく見る">－</button></div>
       <div class="room-tools" id="roomTools" hidden>
         <span id="rmName"></span>
         <button type="button" class="btn lac small" id="rmRot">回転</button>
+        <button type="button" class="btn lac small" id="rmSize">大きさ ×1</button>
         <button type="button" class="btn lac small" id="rmStore">しまう</button>
         <button type="button" class="btn primary small" id="rmDone">OK</button>
       </div>

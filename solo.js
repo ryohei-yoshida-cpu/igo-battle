@@ -218,7 +218,8 @@
     els.forEach((el, i) => {
       const k = RD.actors[i];
       if (!k) { el.hidden = true; el.dataset.key = ''; return; }
-      if (el.dataset.key !== k) { el.dataset.key = k; el.src = standSrc(k); el.classList.toggle('bust', !STAND.has(k)); el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
+      // 物語では、背景つきの大きな胸から上の絵（キャラ設定画の右側）を使う
+      if (el.dataset.key !== k) { el.dataset.key = k; el.src = `img/bust_${k}.webp`; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
       el.hidden = false;
       const speaking = key && k === key && i === side;
       el.classList.toggle('speak', !!speaking);
@@ -578,5 +579,5 @@
   $('#lsRetry').onclick = () => { if (LS && LS.phase === 'prob') probStep(); };
   $('#lsBack').onclick = () => { if (!LS) return; const done = LS.onDone; LS = null; done(false); };
 
-  window.SOLO = { open };
+  window.SOLO = { open, read: (id, part) => { const st = STORIES.find(s => s.id === id); if (st) openReader(st, part || 0); } };
 })();

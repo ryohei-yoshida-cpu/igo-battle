@@ -50,6 +50,8 @@
   const PFX = { hair: 'h', top: 't', bottom: 'b', shoes: 's' };
   for (const [slot, list] of Object.entries(SHEET)) list.forEach(([name, price], i) => CATALOG[slot].push([PFX[slot] + String(i).padStart(2, '0'), name, price]));
   const isSheet = id => /^[htbs]\d\d$/.test(id);
+  // 素材シートの服・靴は、体がはみ出ないように 1.15倍。すその真ん中を中心に、上と横へ大きくする
+  const GROW = 1.15, ANCHOR = {"b00_boy":[161,607],"b00_girl":[159,569],"b01_boy":[161,629],"b01_girl":[159,591],"b02_boy":[161,640],"b02_girl":[159,602],"b03_boy":[161,641],"b03_girl":[159,603],"b04_boy":[161,627],"b04_girl":[159,590],"b05_boy":[161,608],"b05_girl":[159,570],"b06_boy":[161,609],"b06_girl":[159,571],"b07_boy":[161,635],"b07_girl":[159,597],"b08_boy":[161,635],"b08_girl":[159,597],"b09_boy":[161,639],"b09_girl":[159,601],"b10_boy":[161,592],"b10_girl":[160,555],"b11_boy":[161,596],"b11_girl":[159,559],"b12_boy":[162,605],"b12_girl":[159,568],"b13_boy":[161,591],"b13_girl":[159,553],"b14_boy":[161,622],"b14_girl":[159,584],"b15_boy":[161,650],"b15_girl":[159,612],"b16_boy":[161,652],"b16_girl":[159,614],"b17_boy":[161,646],"b17_girl":[159,608],"b18_boy":[161,612],"b18_girl":[159,574],"b19_boy":[161,624],"b19_girl":[159,586],"s00_boy":[161,773],"s00_girl":[159,758],"s01_boy":[161,773],"s01_girl":[159,758],"s02_boy":[161,773],"s02_girl":[159,758],"s03_boy":[161,773],"s03_girl":[159,758],"s04_boy":[161,773],"s04_girl":[159,758],"s05_boy":[161,773],"s05_girl":[159,758],"s06_boy":[161,773],"s06_girl":[159,758],"s07_boy":[161,773],"s07_girl":[159,758],"s08_boy":[161,773],"s08_girl":[159,758],"s09_boy":[161,773],"s09_girl":[159,758],"s10_boy":[161,773],"s10_girl":[159,758],"s11_boy":[161,773],"s11_girl":[159,758],"s12_boy":[161,773],"s12_girl":[159,758],"s13_boy":[161,773],"s13_girl":[159,758],"s14_boy":[161,773],"s14_girl":[159,758],"s15_boy":[161,773],"s15_girl":[159,758],"s16_boy":[161,773],"s16_girl":[159,758],"s17_boy":[161,773],"s17_girl":[159,758],"s18_boy":[161,773],"s18_girl":[159,758],"s19_boy":[161,773],"s19_girl":[159,758],"t00_boy":[161,484],"t00_girl":[160,448],"t01_boy":[161,497],"t01_girl":[160,460],"t02_boy":[161,490],"t02_girl":[160,454],"t03_boy":[161,493],"t03_girl":[160,457],"t04_boy":[161,504],"t04_girl":[160,466],"t05_boy":[161,494],"t05_girl":[160,458],"t06_boy":[161,492],"t06_girl":[160,456],"t07_boy":[161,487],"t07_girl":[160,451],"t08_boy":[161,492],"t08_girl":[160,456],"t09_boy":[161,493],"t09_girl":[160,457],"t10_boy":[161,477],"t10_girl":[160,443],"t11_boy":[161,494],"t11_girl":[160,458],"t12_boy":[161,486],"t12_girl":[160,450],"t13_boy":[161,483],"t13_girl":[160,448],"t14_boy":[161,503],"t14_girl":[160,465],"t15_boy":[161,505],"t15_girl":[160,467],"t16_boy":[161,504],"t16_girl":[160,466],"t17_boy":[161,500],"t17_girl":[160,462],"t18_boy":[161,499],"t18_girl":[160,461],"t19_boy":[161,489],"t19_girl":[160,453]};
   // サーバーが持ち物を確かめる項目（値段のあるもの）
   // 背景（3672.png から切りぬき）。アバターの大きな絵のうしろに出る
   CATALOG.bg = [['none', 'なし', 0]].concat(['白いスタジオ', '草原', '桜並木', '南の海', '雪の森', 'お城', '魔法の門', '夜の街', '神社', 'ネオン街', 'カフェ', '教室', '子ども部屋', '図書館', 'ステージ', '夏祭り', 'ハロウィン', '海の底', '宇宙', '雲の上のお城']
@@ -87,7 +89,11 @@
   function inner(look) {
     const l = clean(look), b = l.body, pre = 'av' + (++seq) + '_';
     let defs = '';
-    const img = (file, filt) => `<image href="${base}${file}${isSheet(file.slice(0, 3)) ? '.webp' : '.png'}" x="0" y="0" width="${W}" height="${H}"${filt ? ` filter="url(#${pre + filt})"` : ''}/>`;
+    const img = (file, filt) => {
+      const tag = `<image href="${base}${file}${isSheet(file.slice(0, 3)) ? '.webp' : '.png'}" x="0" y="0" width="${W}" height="${H}"${filt ? ` filter="url(#${pre + filt})"` : ''}/>`;
+      const a = ANCHOR[file]; if (!a) return tag;
+      return `<g transform="translate(${a[0]} ${a[1]}) scale(${GROW}) translate(${-a[0]} ${-a[1]})">${tag}</g>`;
+    };
     const tinted = (key, slot, ref) => { const col = COLOR[slot + ':' + l[slot]]; if (!col) return null; defs += tint(pre + key, col, ref); return key; };
     const fTop = isSheet(l.top) ? null : tinted('t', 'top', REF.top), fBot = isSheet(l.bottom) ? null : tinted('b', 'bottom', REF.bottom),
       fShoe = isSheet(l.shoes) ? null : tinted('s', 'shoes', REF.shoes), fHair = isSheet(l.hair) ? null : tinted('h', 'hairColor', REF.hair);

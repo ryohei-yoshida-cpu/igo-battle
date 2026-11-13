@@ -43,7 +43,7 @@
   function rectOf(it) { const f = R.footprint(it); return { x: it.x, y: it.y, w: f.w, d: f.d }; }
   const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.d && b.y < a.y + a.d;
   function canPlace(it, x, y, rot) {
-    const c = cat(it.k), f = rot ? { w: c.d, d: c.w } : { w: c.w, d: c.d };
+    const c = cat(it.k), f = R.footprint(Object.assign({}, it, { rot }));
     if (x < 0 || y < 0 || x + f.w > N || y + f.d > N) return false;
     const me = { x, y, w: f.w, d: f.d };
     for (const o of room().items) {
@@ -53,13 +53,15 @@
     }
     return true;
   }
+  // 壁の家具の幅と高さ（大きさの倍率つき）
+  const wallBox = it => { const c = cat(it.k), s = R.sizeOf(it); return { w: Math.ceil(c.w * s - 1e-9), v: c.v, h: c.h * s }; };
   function canPlaceWall(it, side, u) {
-    const c = cat(it.k);
-    if (u < 0 || u + c.w > N) return false;
+    const b = wallBox(it);
+    if (u < 0 || u + b.w > N || b.v + b.h > R.WH + 1e-9) return false;
     for (const o of room().walls) {
       if (o === it || o.side !== side) continue;
-      const oc = cat(o.k);
-      if (u < o.u + oc.w && o.u < u + c.w && c.v < oc.v + oc.h && oc.v < c.v + c.h) return false;
+      const ob = wallBox(o);
+      if (u < o.u + ob.w && o.u < u + b.w && b.v < ob.v + ob.h && ob.v < b.v + b.h) return false;
     }
     return true;
   }
@@ -125,7 +127,12 @@
     $('#rmDiaryBig').textContent = guest ? '日記を見る' : '日記を書く';
     $('#rmShopBig').setAttribute('aria-pressed', String(tab === 'shop')); $('#rmDiaryBig').setAttribute('aria-pressed', String(tab === 'diary'));
     $('#roomTools').hidden = !(mode === 'edit' && sel);
-    if (sel) { $('#rmRot').hidden = !!sel.side; $('#rmName').textContent = cat(sel.k).name; }
+    if (sel) { $('#rmRot').hidden = !!sel.side; $('#rmName').textContent = cat(sel.k).name; $('#rmSize').textContent = `大きさ ×${R.sizeOf(sel)}`; }
+    // もようがえ中は、下のメニューは倉庫だけ
+    const editing = mode === 'edit';
+    $('#roomBig').hidden = editing;
+    $('#roomTabs').hidden = editing;
+    $('#roomZoom').hidden = false;
     $('#roomStage').classList.toggle('editing', mode === 'edit');
   }
 
@@ -270,8 +277,33 @@
     const uid = +g.dataset.uid, r = room();
     return r.items.find(i => i.uid === uid) || r.walls.find(i => i.uid === uid) || null;
   }
+  /* ---------- ズーム（＋・－ボタン、2本指でつまむ、大きいときはドラッグで見る場所を動かす） ---------- */
+  const zoom = { z: 1, cx: R.W / 2, cy: R.H / 2 }, ptrs = new Map();
+  let pan = null, pinch = null;
+  function setZoom(z, cx, cy) {
+    zoom.z = Math.max(1, Math.min(3, z));
+    const vw = R.W / zoom.z, vh = R.H / zoom.z;
+    const x = Math.max(0, Math.min(R.W - vw, (cx != null ? cx : zoom.cx) - vw / 2)), y = Math.max(0, Math.min(R.H - vh, (cy != null ? cy : zoom.cy) - vh / 2));
+    zoom.cx = x + vw / 2; zoom.cy = y + vh / 2;
+    svg().setAttribute('viewBox', `${x.toFixed(1)} ${y.toFixed(1)} ${vw.toFixed(1)} ${vh.toFixed(1)}`);
+    $('#roomStage').classList.toggle('zoomed', zoom.z > 1.01);
+    $('#rmZoomOut').disabled = zoom.z <= 1.01; $('#rmZoomIn').disabled = zoom.z >= 2.99;
+  }
+  const unitsPerPx = () => (R.W / zoom.z) / svg().getBoundingClientRect().width;
+  function startPan(e) { pan = { x: e.clientX, y: e.clientY, cx: zoom.cx, cy: zoom.cy }; try { svg().setPointerCapture(e.pointerId); } catch (err) {} }
+  $('#rmZoomIn').onclick = () => { setZoom(zoom.z * 1.5); P.sound('tap'); };
+  $('#rmZoomOut').onclick = () => { setZoom(zoom.z / 1.5); P.sound('tap'); };
+
   function onDown(e) {
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 2) {   // 2本指：つまんでズーム
+      if (drag) { Object.assign(drag.it, drag.orig); drag = null; render(); }
+      const [a, b] = [...ptrs.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: zoom.z }; pan = null; return;
+    }
     const vg = null;
+    const onThing = findItem(e) || (e.target.closest && e.target.closest('.rm-owner'));
+    if (zoom.z > 1.01 && (!onThing || (mode === 'view' && guest))) { if (mode === 'edit' && sel) { sel = null; render(); } startPan(e); return; }
     if (mode === 'view' && guest) return;   // ほかの人の部屋は見るだけ
     if (mode === 'view') {
       if (vg) { const v = visitors.find(x => x.key === vg.dataset.key); if (v) talk(v); return; }
@@ -305,6 +337,9 @@
     render();
   }
   function onMove(e) {
+    if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; setZoom(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d); return; }
+    if (pan) { const k = unitsPerPx(); setZoom(zoom.z, pan.cx - (e.clientX - pan.x) * k, pan.cy - (e.clientY - pan.y) * k); return; }
     if (!drag) return;
     const [sx, sy] = svgPoint(e), it = drag.it;
     if (drag.av) {
@@ -315,7 +350,7 @@
     }
     if (drag.wall) {
       const w = R.toWall(sx, sy), u = Math.round(w.u - drag.off);
-      const cu = Math.max(0, Math.min(N - cat(it.k).w, u));
+      const cu = Math.max(0, Math.min(N - wallBox(it).w, u));
       if (cu !== it.u || w.side !== it.side) { it.side = w.side; it.u = cu; drag.ok = canPlaceWall(it, it.side, it.u); render(); }
     } else {
       const g = R.toGrid(sx, sy), f = R.footprint(it);
@@ -323,7 +358,10 @@
       if (x !== it.x || y !== it.y) { it.x = x; it.y = y; drag.ok = canPlace(it, x, y, it.rot); render(); }
     }
   }
-  function onUp() {
+  function onUp(e) {
+    if (e) ptrs.delete(e.pointerId);
+    if (ptrs.size < 2) pinch = null;
+    if (pan) { pan = null; return; }
     if (!drag) return;
     const it = drag.it;
     if (!drag.ok) { Object.assign(it, drag.orig); P.toast('そこには置けません'); }
@@ -339,6 +377,20 @@
     const t = Object.assign({}, sel, { rot: nr }), spot = freeSpot(t);
     if (spot) { sel.rot = nr; sel.x = spot.x; sel.y = spot.y; touch(); render(); }
     else P.toast('回すための場所がありません');
+  }
+  // 大きさ：1倍 → 1.5倍 → 2倍 → 1倍（置けないときは近くの空いている場所へ）
+  function sizeSel() {
+    if (!sel) return;
+    const cur = R.sizeOf(sel), next = R.SIZES[(R.SIZES.indexOf(cur) + 1) % R.SIZES.length];
+    const t = Object.assign({}, sel, { s: next });
+    if (sel.side) {
+      if (canPlaceWall(t, sel.side, sel.u)) sel.s = next;
+      else { const sp = (() => { for (const side of ['R', 'L']) for (let u = 0; u < N; u++) if (canPlaceWall(t, side, u)) return { side, u }; return null; })(); if (!sp) { P.toast('その大きさにする場所がありません'); return; } Object.assign(sel, sp, { s: next }); }
+    } else {
+      if (canPlace(t, sel.x, sel.y, sel.rot)) sel.s = next;
+      else { const sp = freeSpot(t); if (!sp) { P.toast('その大きさにする場所がありません'); return; } Object.assign(sel, sp, { s: next }); }
+    }
+    P.sound('tap'); touch(); render();
   }
   function storeSel() {
     if (!sel) return;
@@ -368,6 +420,20 @@
     const x0 = a[0] - 4, x1 = b[0] + 4, y0 = t[1] - 4, y1 = u[1] + 4;
     return `<svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" class="rm-thumb">${R.DEFS}${R.drawFloorItem(it)}</svg>`;
   }
+  /* ---------- 静馬（ルームショップの店主） ---------- */
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const SHIMA = {
+    hello: ['……いらっしゃい。ゆっくり見ていけ。', '部屋は、打ち手の心をうつす。', '掘り出し物が入っている。'],
+    pick: ['いい部屋になりそうだな。', '……センスがいい。', 'よく見つけたな。', 'そいつは代物だ。', '買ったアイテムは大きくできるぞ。', '置き場所まで考えてあるか？', '……悪くない。', '和・洋・中、混ぜるのもまた一興。'],
+    buy: ['毎度。……大事に使え。', '買ったアイテムは大きくできるぞ。', 'いい買い物だ。'],
+    poor: ['……銭が足りないな。一局打ってこい。']
+  };
+  let clerkLine = SHIMA.hello[0];
+  function shima(kind) {
+    const list = SHIMA[kind]; clerkLine = list[Math.floor(Math.random() * list.length)];
+    const el = $('#rmClerk'); if (!el) return;
+    el.querySelector('span').textContent = clerkLine; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
   const STYLE_NAME = { wa: '和', yo: '洋', chu: '中', fun: 'おもしろ' };
   const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
   // 交流パネル（common/social.js）にわたす情報
@@ -388,7 +454,7 @@
       return;
     }
     if (tab === 'shop') {
-      let h = `<div class="rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
+      let h = `<div class="rm-clerk"><img src="img/stand_shima.webp" alt="店主の静馬" data-shima="1"><p id="rmClerk"><b>静馬</b><span>${esc(clerkLine)}</span></p></div><div class="rm-seg">${[['floor', '床の家具'], ['wall', '壁の家具'], ['interior', '床・壁紙']].map(([k, n]) => `<button data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('')}</div>`;
       h += `<div class="rm-seg small">${[['all', 'すべて'], ['wa', '和'], ['yo', '洋'], ['chu', '中'], ['fun', 'おもしろ']].map(([k, n]) => `<button data-style="${k}" aria-pressed="${shopStyle === k}">${n}</button>`).join('')}</div><div class="rm-grid-list">`;
       if (shopKind === 'interior') {
         for (const [kind, table] of [['floors', R.FLOORS], ['walls', R.WALLS]]) for (const [id, it] of Object.entries(table)) {
@@ -411,7 +477,8 @@
     } else if (tab === 'inv') {
       const ks = invKeys();
       p.innerHTML = ks.length ? `<p class="rm-help">タップすると部屋に置きます。もようがえ中に家具を選んで「しまう」と、ここに戻ります。</p><div class="rm-grid-list">${ks.map(k => `<div class="rm-card">${thumb(k)}<b>${cat(k).name}</b><small>${invOf(k)}こ</small><button class="btn primary small" data-place="${k}">置く</button></div>`).join('')}</div>`
-        : '<p class="rm-help">倉庫は空っぽです。ショップで家具を買うと、ここに入ります。</p>';
+        : '<p class="rm-help">倉庫は空っぽです。ショップで家具を買うと、すぐ部屋に置けます。</p>';
+      p.innerHTML += '<button type="button" class="btn primary rm-goshop" data-goshop="1">ショップに買いに行く</button>';
     } else {
       const mine = A.VARIANTS[P.charaIdx()].key;
       p.innerHTML = `<p class="rm-help">5勝すると遊びに来ます。自分のキャラは通算5勝、ほかのキャラはそのキャラに5勝（対局相手のキャラはBotの強さで変わります）。遊びに来たキャラをタップするとおしゃべり、「一局打つ」で対局できます。</p><div class="rm-guests">` +
@@ -423,17 +490,20 @@
   }
   function onPanelClick(e) {
     if (SO.onClick(e, ctx())) return;
-    const b = e.target.closest('button'); if (!b) return;
+    if (e.target.closest('[data-shima]')) { shima('pick'); return; }
+    const b = e.target.closest('button');
+    if (!b) { if (tab === 'shop' && e.target.closest('.rm-card')) shima('pick'); return; }
     const r = room();
     if (b.dataset.kind) { shopKind = b.dataset.kind; renderPanel(); return; }
     if (b.dataset.style) { shopStyle = b.dataset.style; renderPanel(); return; }
     if (b.dataset.buy) {
       const c = cat(b.dataset.buy);
-      if (S.zeni < c.price) { P.toast('銭が足りません'); return; }
+      if (S.zeni < c.price) { shima('poor'); P.toast('銭が足りません'); return; }
+      shima('pick');
       P.confirmBox(`${c.name}を ${c.price} 銭で買いますか？`, () => {
         P.buy({ item: c.id }, c.price, res => {
           if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
-          P.sound('ok'); P.toast(`${c.name}を買いました`);
+          P.sound('ok'); shima('buy'); P.toast(`静馬「${clerkLine}」`);
           placeFromInv(c.id);   // 買ったらすぐ、もようがえで置く
           $('#roomLower').scrollTo({ top: 0, behavior: 'smooth' });
         });
@@ -441,11 +511,13 @@
       return;
     }
     if (b.dataset.place) { placeFromInv(b.dataset.place); return; }
+    if (b.dataset.goshop) { setMode('view'); tab = 'shop'; renderPanel(); shima('hello'); P.sound('stone'); return; }
     if (b.dataset.int) {
       const [kind, id] = b.dataset.int.split(':'), table = kind === 'floors' ? R.FLOORS : R.WALLS, it = table[id];
       const use = () => { if (kind === 'floors') r.floor = id; else r.wall = id; dirty = true; flush(); renderPanel(); render(); };
       if (r.owned[kind].includes(id)) { use(); return; }
-      if (S.zeni < it.price) { P.toast('銭が足りません'); return; }
+      if (S.zeni < it.price) { shima('poor'); P.toast('銭が足りません'); return; }
+      shima('pick');
       P.confirmBox(`${it.name}を ${it.price} 銭で買いますか？`, () => {
         P.buy(kind === 'floors' ? { floor: id } : { wall: id }, it.price, res => {
           if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
@@ -458,13 +530,17 @@
     if (mode === 'edit' && m === 'view') flush();   // もようがえを終えたときだけ、部屋の配置をサーバーへ送る
     mode = m;
     if (m === 'view') { sel = null; if (!guest) placeVisitors(); }
+    if (m === 'edit') { tab = 'inv'; renderPanel(); }
     $('#rmEdit').textContent = m === 'edit' ? 'もようがえを終わる' : 'もようがえ';
     $('#rmEdit').classList.toggle('primary', m === 'edit');
     render();
     showVisit();
   }
 
-  function open(startTab) {
+  let roomFrom = null;   // 'shop'：ショップから来た（もどるでショップへ）
+  function open(startTab, back) {
+    if (typeof startTab !== 'string') startTab = null;
+    roomFrom = back || null;
     guest = null;
     room();
     tab = startTab || 'inv'; mode = 'view'; sel = null;
@@ -472,7 +548,8 @@
     setMode('view');
     renderPanel();
     loadSocial(null);
-
+    setZoom(1);
+    if (tab === 'shop') { shima('hello'); setTimeout(() => $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60 }), 50); }
   }
   // 交流の情報を読みこむ（自分の部屋なら「自分の情報」と「自分の部屋」、ほかの部屋ならその部屋）
   function loadSocial(pid) {
@@ -503,7 +580,7 @@
     P.soc('visit', { pid }, res => {
       if (!res.ok) { P.toast(SO.why(res)); return; }
       if (res.mine) { goHome(); return; }
-      guest = res; tab = 'diary'; sel = null; mode = 'view';
+      guest = res; tab = 'diary'; sel = null; mode = 'view'; setZoom(1);
       if (window.TICKER) setTimeout(window.TICKER.draw, 0);
       P.showScreen('myroom'); showVisit();
       render(); renderPanel(); P.sound('stone');
@@ -541,17 +618,20 @@
   $('#roomTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.tab) { tab = b.dataset.tab; renderPanel(); if (['diary', 'chat', 'social', 'owner'].includes(tab)) loadSocial(guest ? guest.pid : null); } });
   $('#rmEdit').onclick = () => setMode(mode === 'edit' ? 'view' : 'edit');
   $('#rmRot').onclick = rotateSel;
+  $('#rmSize').onclick = sizeSel;
   $('#rmStore').onclick = storeSel;
   $('#rmDone').onclick = () => { sel = null; render(); };
   $('#roomBack').onclick = () => {
     if (guest && guestBack) { const f = guestBack; guestBack = null; guest = null; f(); return; }
     if (guest) { goHome(); return; }
     if (mode === 'edit') setMode('view'); flush();
+    if (roomFrom === 'shop' && window.SHOP) { roomFrom = null; window.SHOP.open(); return; }
     if (window.AVATAR_UI) window.AVATAR_UI.openHub(); else { P.renderHome(); P.showScreen('home'); }
   };
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
   $('#openRoom').onclick = open;
   s.setAttribute('viewBox', `0 0 ${R.W} ${R.H}`);
+  s.addEventListener('wheel', e => { if (!e.ctrlKey && Math.abs(e.deltaY) < 1) return; e.preventDefault(); setZoom(zoom.z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
 
   // サーバーから銭・持ち物・部屋が届いたとき（もようがえ中は配置を上書きしない）
   function refresh() {
@@ -560,7 +640,7 @@
     sel = null; render(); renderPanel();
   }
   // ルームの下の大きなボタン：ショップ・日記
-  $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; renderPanel(); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
+  $('#rmShopBig').onclick = () => { if (guest) return; tab = 'shop'; shima('hello'); renderPanel(); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
   $('#rmDiaryBig').onclick = () => { if (!guest && window.DIARY) { flush(); P.sound('stone'); window.DIARY.write(); return; } tab = 'diary'; renderPanel(); loadSocial(guest ? guest.pid : null); P.sound('stone'); $('#roomLower').scrollTo({ top: $('#roomPanel').offsetTop - $('#roomLower').offsetTop - 60, behavior: 'smooth' }); };
   // ほかの人の部屋から「対人戦の申込」：フレンドマッチの部屋をつくって、合言葉を相手のお知らせへ
   $('#rmInvite').onclick = () => {

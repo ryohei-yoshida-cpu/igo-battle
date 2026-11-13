@@ -272,10 +272,12 @@
     const t = $('#toast'); t.textContent = msg; t.hidden = false;
     clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, ms);
   }
-  function confirmBox(text, yes) {
+  // labels：ボタンの文字（{ yes, no }）。no：やめたときにすること
+  function confirmBox(text, yes, no, labels) {
     $('#cfText').textContent = text; $('#confirm').hidden = false;
+    $('#cfYes').textContent = (labels && labels.yes) || 'はい'; $('#cfNo').textContent = (labels && labels.no) || 'やめる';
     $('#cfYes').onclick = () => { $('#confirm').hidden = true; yes(); };
-    $('#cfNo').onclick = () => { $('#confirm').hidden = true; };
+    $('#cfNo').onclick = () => { $('#confirm').hidden = true; if (no) no(); };
   }
 
   /* ---------- ホーム描画 ---------- */
