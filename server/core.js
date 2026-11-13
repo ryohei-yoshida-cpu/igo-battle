@@ -46,7 +46,7 @@ const ALPH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // まぎらわしい 0/O/1/I
 function randCode(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); let s = ''; for (const x of a) s += ALPH[x % ALPH.length]; return s; }
 async function sha(text) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
 export const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); } }; }
+export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); }, del: async k => { m.delete(k); } }; }
 import { ITEMS, FLOORS, WALLS } from './prices.js';
 import { Social } from './social.js';
 import { cleanName } from './ng.js';
@@ -327,6 +327,7 @@ export class Core {
         if (!room) return;
         r.room = room; ok = true;
       });
+      if (ok) this.social.roomChanged(id).catch(() => {});
       if (rec) out({ t: 'roomsaved', ok, econ: ok ? undefined : pubEcon(rec) });
     }
   }

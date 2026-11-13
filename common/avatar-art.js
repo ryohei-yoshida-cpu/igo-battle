@@ -57,8 +57,8 @@
   const SLOTS = [['face', '顔'], ['hair', '髪'], ['hairColor', '髪の色'], ['body', '体'], ['top', '上の服'], ['bottom', '下の服'], ['shoes', '靴'], ['bg', '背景']];
   // 着せかえ画面のタブ
   const TABS = [['face', '顔'], ['hair', '髪'], ['body', '体'], ['top', '上の服'], ['bottom', '下の服'], ['shoes', '靴'], ['bg', '背景']];
-  // 値段は4段階（下300・中600・上900・特1200 … 対局3・6・9・12回ぶん）
-  const TIER = p => p === 0 ? 0 : p <= 300 ? 300 : p <= 700 ? 600 : p <= 1000 ? 900 : 1200;
+  // 値段は4段階（下300・中1200・上1800・特2400 … 対局3・12・18・24回ぶん）
+  const TIER = p => p === 0 ? 0 : p <= 300 ? 300 : p <= 700 ? 1200 : p <= 1000 ? 1800 : 2400;
   for (const list of Object.values(CATALOG)) for (const it of list) it[2] = TIER(it[2]);
   const PRICE = {}, COLOR = {};
   for (const [slot, list] of Object.entries(CATALOG)) for (const [id, , price, col] of list) { PRICE[slot + ':' + id] = price; COLOR[slot + ':' + id] = col || null; }

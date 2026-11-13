@@ -38,6 +38,17 @@
 <!-- 演出：ハンコ -->
 <div class="fx-stamp" id="fxStamp" hidden></div>
 <!-- プレゼントボックス -->
+  <!-- 日記帳（ひらく演出つき）。書く／読む -->
+  <div class="overlay book-ov" id="book" hidden>
+    <div class="book" id="bookEl">
+      <div class="book-cover"><span>囲碁日記</span><i>九路 Blitz</i></div>
+      <div class="book-page" id="bookPage"></div>
+    </div>
+  </div>
+  <!-- 棋譜をえらぶ -->
+  <div class="overlay" id="kifuPick" hidden>
+    <div class="kp-card"><div class="gf-head"><b>棋譜をえらぶ</b><button type="button" class="btn lac small" id="kpClose">とじる</button></div><ul class="kp-list" id="kpList"></ul></div>
+  </div>
 <div class="overlay dim" id="giftBox" hidden>
   <div class="gf-card">
     <img class="gf-chara" id="giftChara" alt="">
@@ -242,6 +253,55 @@
       <span class="hub-k">キャラクター</span>
       <span class="hub-sub">対局で一緒に戦う、囲碁の相棒</span>
     </button>
+    <div class="hub-row">
+      <button class="hub-mini fr" id="openFriends" type="button"><img src="img/stand_hinata.webp" alt=""><b>フレンド</b><small>部屋・日記・一言</small></button>
+      <button class="hub-mini ex" id="openExplore" type="button"><img src="img/stand_mike.webp" alt=""><b>ルーム探訪</b><small>みんなの部屋へ</small></button>
+      <button class="hub-mini dy" id="openDiary" type="button"><img src="img/stand_shima.webp" alt=""><b>囲碁日記</b><small>書く・読む</small></button>
+    </div>
+  </section>
+
+  <!-- フレンド（全ゲーム共通） -->
+  <section id="friends" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="frsBack">← もどる</button>
+      <h2>フレンド</h2>
+      <span class="zeni-chip" id="frsCount"></span>
+    </header>
+    <p class="rm-help">フレンドの部屋・アバター・最近の日記が見られます。一言は、すぐ相手に届きます（フレンドは100人まで）。</p>
+    <div class="frs-list" id="frsList"></div>
+    <button type="button" class="btn lac small" id="frsMore" hidden>もっと見る</button>
+  </section>
+
+  <!-- みんなのルーム探訪（全ゲーム共通） -->
+  <section id="explore" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="exBack">← もどる</button>
+      <h2>ルーム探訪</h2>
+      <button class="btn lac small" id="exFind" type="button">友だちの部屋を探す</button>
+    </header>
+    <div class="ex-find" id="exFindBox" hidden>
+      <input type="text" id="exPid" inputmode="numeric" maxlength="6" placeholder="部屋番号（6けた）">
+      <button type="button" class="btn primary small" id="exGo">たずねる</button>
+    </div>
+    <p class="rm-help">最近もようがえした部屋から、ランダムに5部屋。タップでたずねます。</p>
+    <div class="ex-list" id="exList"></div>
+    <button type="button" class="btn lac" id="exMore">ほかの部屋を見る</button>
+    <label class="ex-pub"><input type="checkbox" id="exPub"> 自分の部屋も、ルーム探訪に出す</label>
+  </section>
+
+  <!-- 囲碁日記 -->
+  <section id="diaryHub" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="dyBack">← もどる</button>
+      <h2>囲碁日記</h2>
+      <span></span>
+    </header>
+    <div class="dy-big">
+      <button type="button" class="dy-write" id="dyWrite"><span class="dy-ico">✒</span><b>日記を書く</b><small id="dyWriteSub">1日1回・300字まで</small></button>
+      <button type="button" class="dy-read" id="dyRead"><span class="dy-ico">📖</span><b>みんなの日記を見る</b><small>公開の日記からランダムに5つ</small></button>
+    </div>
+    <div class="dy-sec" id="dyAll" hidden><div class="dy-h"><b>みんなの日記</b><button type="button" class="btn lac small" id="dyReload">ほかの日記</button></div><div class="dy-list" id="dyAllList"></div></div>
+    <div class="dy-sec"><div class="dy-h"><b>自分の日記帳</b><small>半年たった日記は消えます</small></div><div class="dy-list" id="dyMine"></div></div>
   </section>
 
   <!-- アバター（全ゲーム共通） -->
@@ -667,6 +727,8 @@
 <script src="common/social.js"></script>
 <script src="room.js"></script>
 <script src="common/avatar.js"></script>
+<script src="common/friends.js"></script>
+<script src="diary.js"></script>
 <script src="common/ticker.js"></script>
 <script src="shop.js"></script>
 </body>

@@ -15,7 +15,7 @@
     abuse: '人を傷つける言葉が入っているので、書きこめません', contact: 'URL・メールアドレス・電話番号などは書きこめません',
     fast: '少し待ってから書きこんでください', many: '今日はもう書きこめません（1日80回まで）', long: '文字数が多すぎます', empty: '何か書いてください',
     closed: 'この部屋は今、書きこみを受け付けていません', blocked: 'この部屋には入れません', nobody: 'その番号の部屋はありません',
-    offline: 'サーバーにつながっていません', full: '相手のフレンド申請がいっぱいです', gone: 'その日記は消されました', self: '自分にはできません'
+    offline: 'サーバーにつながっていません', full: '相手のフレンド申請がいっぱいです', myfull: 'フレンドは100人までです', theirfull: '相手のフレンドがいっぱいです（100人まで）', today: '日記は1日1回です', gone: 'その日記は消されました', self: '自分にはできません'
   };
   const why = r => WHY[r && r.reason] || 'うまくいきませんでした';
   const CSET = [['all', '全員'], ['friends', 'フレンドだけ'], ['none', '受け付けない']];
@@ -34,15 +34,9 @@
     const d = ctx.data || {}, me = ctx.me || {};
     let h = '';
     if (tab === 'diary') {
-      if (ctx.mine) h += `<div class="sc-write"><textarea id="scDiary" maxlength="300" rows="3" placeholder="今日の日記（300字まで）"></textarea><button type="button" class="btn primary small" data-post="diary">日記を書く</button></div>`;
-      h += closedNote(ctx);
-      if (!(d.diary || []).length) h += `<p class="rm-help">${ctx.mine ? 'まだ日記がありません。今日の一局のことを書いてみましょう。' : 'まだ日記がありません。'}</p>`;
-      for (const e of d.diary || []) {
-        h += `<article class="sc-diary"><header><time>${when(e.t)}</time>${ctx.mine ? `<button type="button" class="sc-x" data-del="diary" data-id="${e.id}">消す</button>` : ''}</header><p>${esc(e.text)}</p>`;
-        h += `<ul class="sc-comments">${e.c.map(c => `<li>${who(c, ctx)}<span>${esc(c.text)}</span><time>${when(c.t)}</time>${ctrl(c, ctx, 'comment', e.id)}</li>`).join('')}</ul>`;
-        if (ctx.mine || d.canWrite) h += `<div class="sc-line"><input type="text" maxlength="60" placeholder="コメント（60字まで）" data-cin="${e.id}"><button type="button" class="btn lac small" data-comment="${e.id}">送る</button></div>`;
-        h += '</article>';
-      }
+      if (ctx.mine) h += `<div class="sc-write"><button type="button" class="btn primary" data-dwrite="1">日記を書く（日記帳をひらく）</button></div>`;
+      if (!(d.diary || []).length) h += `<p class="rm-help">${ctx.mine ? 'まだ日記がありません。今日の一局のことを書いてみましょう。' : 'まだ見られる日記がありません。'}</p>`;
+      h += (d.diary || []).map(e => `<button type="button" class="dy-card" data-dopen="${e.id}"><span class="dy-day">${new Date(e.t).getMonth() + 1}/${new Date(e.t).getDate()}</span><span class="dy-t"><b>${esc(e.title)}</b><small>${e.kifu ? '棋譜つき' : ''}${e.nc ? `${e.kifu ? '・' : ''}コメント${e.nc}` : ''}</small></span></button>`).join('');
     } else if (tab === 'chat') {
       h += closedNote(ctx);
       if (ctx.mine || d.canWrite) h += `<div class="sc-line"><input type="text" id="scChat" maxlength="40" placeholder="一言（40字まで）"><button type="button" class="btn primary small" data-post="chat">送る</button></div>`;
@@ -77,12 +71,14 @@
     const ds = b.dataset;
     const after = res => { if (!res.ok) { P.toast(why(res)); return; } ctx.reload(); };
     if (ds.visit) { ctx.visit(ds.visit); return true; }
+    if (ds.dwrite) { ctx.write(); return true; }
+    if (ds.dopen) { ctx.read(ctx.pid, +ds.dopen); return true; }
     if (ds.post) {
-      const box = ds.post === 'diary' ? $('#scDiary') : ds.post === 'chat' ? $('#scChat') : $('#scHito');
+      const box = ds.post === 'chat' ? $('#scChat') : $('#scHito');
       const text = box.value.trim();
       if (!text && ds.post !== 'hito') { P.toast(WHY.empty); return true; }
       b.disabled = true;
-      P.soc(ds.post, { pid: ctx.pid, text }, res => { b.disabled = false; if (res.ok) { box.value = ''; P.sound('ok'); P.toast(ds.post === 'hito' ? 'ひとことを決めました' : '書きこみました'); if (ds.post === 'diary' && window.TICKER) window.TICKER.mine({ type: 'mydiary' }); } after(res); });
+      P.soc(ds.post, { pid: ctx.pid, text }, res => { b.disabled = false; if (res.ok) { box.value = ''; P.sound('ok'); P.toast(ds.post === 'hito' ? 'ひとことを決めました' : '書きこみました'); } after(res); });
       return true;
     }
     if (ds.comment) {

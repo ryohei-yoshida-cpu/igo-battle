@@ -335,7 +335,7 @@
   }
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'friends', 'explore', 'diaryHub'];
   // 対局のアイコン：アバターの顔（右下に相棒のキャラ）。Bot はキャラそのもの
   function setPb(el, look, ci) {
     const AVT = window.AVATAR;
@@ -1323,7 +1323,7 @@
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
-    saveLocal, econOn, FR, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
+    saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
       if (econOn()) netSend({ t: 'claim', kind, id });

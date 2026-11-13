@@ -27,7 +27,7 @@
     if (it.kind === 'chat') return `<b>${who}</b>${esc(it.text)}`;
     switch (it.type) {
       case 'visit': return `${esc(it.name)}が${link('room', 'マイルーム')}に遊びに来ました`;
-      case 'diary': return `${who}が${link('diary:' + it.pid, '日記')}を更新しました`;
+      case 'diary': return `${who}が${link('diary:' + it.pid, '日記')}を更新しました${it.title ? `「${esc(it.title)}」` : ''}`;
       case 'rank': return `${who}の段級位が${esc(it.rank)}に上がりました`;
       case 'invite': return `${who}から対人戦の申込みがあります。部屋番号は${link('join:' + it.code, it.code)}です`;
       case 'mydiary': return `あなたが${link('diary:me', '日記')}を更新しました`;
@@ -85,7 +85,7 @@
     const [k, v] = dest.split(':');
     const R = window.ROOM;
     if (k === 'room') { if (v && v !== String(S.pid)) R.visit(v); else R.open(); }
-    else if (k === 'diary') { if (v && v !== 'me' && v !== String(S.pid)) R.visit(v); else R.open('diary'); }
+    else if (k === 'diary') { if (v && v !== 'me' && v !== String(S.pid)) R.visit(v); else if (window.DIARY) window.DIARY.openHub(); else R.open('diary'); }
     else if (k === 'avatar') window.AVATAR_UI.open();
     else if (k === 'record') $('#openRecord').click();
     else if (k === 'join') window.FRIEND.joinWith(v);

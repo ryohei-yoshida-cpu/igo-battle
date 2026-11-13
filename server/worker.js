@@ -21,7 +21,7 @@ export class Lobby {
   constructor(ctx, env) {
     this.ctx = ctx;
     // アカウントは Durable Object のストレージ（消えない）に保存
-    this.core = new Core({ store: { get: k => ctx.storage.get(k), put: (k, v) => ctx.storage.put(k, v) } });
+    this.core = new Core({ store: { get: k => ctx.storage.get(k), put: (k, v) => ctx.storage.put(k, v), del: k => ctx.storage.delete(k) } });
   }
   async fetch(req) {
     const pair = new WebSocketPair();
