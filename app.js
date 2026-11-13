@@ -290,9 +290,9 @@
     setImg($('#heroChara'), myCharaSrc());
     setImg($('#soloChara'), A.charaUri(charaIdx() === 0 ? 1 : 0));
     const ki = k => A.VARIANTS.findIndex(v => v.key === k);
-    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('shima'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
+    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('tono'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
     if (window.AVATAR) $('#homeAv').innerHTML = window.AVATAR.svg(S.av || window.AVATAR.PRESETS.girl);
-    setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('tono')));
+    setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('shima')));
     // 新しく使えるようになったキャラを知らせる
     const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
     if (S.charaOpenN != null && nOpen > S.charaOpenN) {
@@ -1035,7 +1035,7 @@
     stopMatch();
     size = size === 13 ? 13 : 9;
     const myRank = rankFromRating(S.rating);
-    M = { t0: Date.now(), fixed: S.botLevel !== 'auto', myRank, found: false, timer: 0, size };
+    M = { t0: Date.now(), fixed: S.botLevel !== 'auto' && S.botLevel !== 'up', myRank, found: false, timer: 0, size };
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
@@ -1051,6 +1051,7 @@
     if (NET.ok) return `オンライン ${NET.online}人・対戦待ち ${NET.seeking}人`;
     if (S.noBot) return `${RANKS[Math.max(0, M.myRank - 1)]}〜${RANKS[Math.min(RANKS.length - 1, M.myRank + 1)]} のプレイヤー`;
     if (M.fixed) return `${RANKS[S.botLevel]} の相手`;
+    if (S.botLevel === 'up') { const lv = upLevels(); return `${RANKS[lv[0]]}${lv.length > 1 ? '〜' + RANKS[lv[lv.length - 1]] : ''} の相手`; }
     return `${RANKS[Math.max(0, Math.min(BOT_MAX, M.myRank) - 1)]}〜${RANKS[Math.min(BOT_MAX, M.myRank + 1)]} の相手`;
   }
   function matchTick() {
@@ -1084,12 +1085,19 @@
       hc ? `フレンドマッチ・${hc.size === 13 ? '13路' : '9路'}・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : `オンラインのプレイヤーとマッチしました（${m.size === 13 ? '13路' : '9路'}）`, hc);
     M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc, size: m.size }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
   }
+  // 「自分と同じ以上の強さ」：レートが自分以上の Bot のうち、弱いほうから2つ（いなければ いちばん強い Bot）
+  function upLevels() {
+    const out = [];
+    for (let i = 0; i <= BOT_MAX && out.length < 2; i++) if (botRating(i) >= S.rating) out.push(i);
+    return out.length ? out : [BOT_MAX];
+  }
   function matchFound() {
     M.found = true; clearInterval(M.timer);
-    const lv = M.fixed ? Math.min(BOT_MAX, S.botLevel) : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
+    const up = upLevels();
+    const lv = M.fixed ? Math.min(BOT_MAX, S.botLevel) : S.botLevel === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
     const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
     const myColor = Math.random() < 0.5 ? 1 : 2;
-    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, M.fixed ? '指定した強さのBotとマッチしました' : '近い強さのBotとマッチしました');
+    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, M.fixed ? '指定した強さのBotとマッチしました' : S.botLevel === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
     const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz }); }, 2200);
   }
   function stopMatch() {
@@ -1320,13 +1328,19 @@
   $('#rvSize').onclick = () => { if (R && !R.main.length) { openReview([], BN === 9 ? 13 : 9); } };
 
   /* ---------- Botの強さ ---------- */
+  // 設定画面と、対局画面の「キャラクターと対局」の右（当たる強さ）の2か所。どちらで変えても同じ
   (function setupBotPick() {
-    const sel = $('#botLevel');
-    const o = document.createElement('option'); o.value = 'auto'; o.textContent = '自動（近い強さ）'; sel.append(o);
-    RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = `${r}（レート ${botRating(i)}）`; sel.append(op); });
-    if (S.botLevel !== 'auto') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
-    sel.value = String(S.botLevel);
-    sel.addEventListener('change', () => { S.botLevel = sel.value === 'auto' ? 'auto' : +sel.value; save(); });
+    const sels = [$('#botLevel'), $('#botLevelQuick')].filter(Boolean);
+    sels.forEach((sel, k) => {
+      const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
+      add('auto', k ? '近い強さ' : '自動（近い強さ）');
+      add('up', k ? '同じ以上' : '自分と同じ以上の強さ');
+      RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => add(String(i), k ? r : `${r}（レート ${botRating(i)}）`));
+    });
+    if (S.botLevel !== 'auto' && S.botLevel !== 'up') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
+    const sync = () => sels.forEach(s => { s.value = String(S.botLevel); });
+    sync();
+    sels.forEach(sel => sel.addEventListener('change', () => { S.botLevel = sel.value === 'auto' || sel.value === 'up' ? sel.value : +sel.value; save(); sync(); }));
   })();
 
   /* ---------- 起動：前回の対局が途中で切れていたら負け ---------- */
