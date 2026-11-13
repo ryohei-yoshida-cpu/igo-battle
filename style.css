@@ -1430,11 +1430,10 @@ body.fx-shake #app { animation: fxShake .35s; }
 #avGrid2 { grid-auto-rows: max-content !important; align-items: start; row-gap: 14px; }
 
 /* ===== マイルーム：部屋がいくつも（廊下でつながる。横にスクロール） ===== */
-.room-strip { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.room-strip { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
 .room-strip::-webkit-scrollbar { display: none; }
 .rm-cell { flex: 0 0 100%; position: relative; scroll-snap-align: center; min-width: 0; }
 .room-strip.multi .rm-cell { flex-basis: 92%; }
-.room-stage:not(.editing):not(.zoomed) #roomSvg { touch-action: pan-x pan-y; }
 .rm-cell-name { position: absolute; left: 50%; transform: translateX(-50%); top: 8px; z-index: 2; font-size: 12px; color: #fff3dc; background: rgba(0, 0, 0, .45); padding: 2px 9px; border-radius: 999px; pointer-events: none; }
 .rm-cell.on .rm-cell-name { background: linear-gradient(135deg, #b8862a, #e8c46e); color: #2a1a0a; }
 .rm-cell-pick { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; position: relative; opacity: .82; filter: saturate(.85); }
@@ -1482,3 +1481,8 @@ body.fx-shake #app { animation: fxShake .35s; }
 .av-set.more { flex: 0 0 120px; height: 108px; border-radius: 12px; border: 1px dashed var(--kin); background: rgba(184, 134, 42, .15); color: #fff3dc; font: inherit; cursor: pointer; display: grid; align-content: center; gap: 4px; padding: 6px; text-align: center; }
 .av-set.more b { font-size: 13px; }
 .av-set.more small { font-size: 10px; opacity: .85; }
+.rm-thumb-img { object-fit: contain; padding: 4px; box-sizing: border-box; display: block; }
+
+.rm-nav { position: absolute; top: 50%; z-index: 3; transform: translateY(-50%); font: inherit; font-size: 12px; font-weight: 700; color: #fff3dc; background: rgba(0, 0, 0, .55); border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; cursor: pointer; }
+.rm-nav.prev { left: 6px; }
+.rm-nav.next { right: 6px; }

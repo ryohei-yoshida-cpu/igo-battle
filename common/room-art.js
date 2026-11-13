@@ -276,6 +276,13 @@
   // クローク（服をしまう家具）：置くと、アバターのお気に入りセットを増やせる
   const CLOAK = new Set(['tansu', 'ikou', 'closet', 'rack', 'mirror', 'dresser']);
   for (const c of CATALOG) if (CLOAK.has(c.id)) { c.cloak = true; c.note = c.note || '置くと、お気に入りセットが2つふえる'; }
+  // 絵で描いた家具（img/room/<id>.webp、つくものは <id>_on.webp）。[横, 縦] ピクセル
+  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[315,217],"bookshelf":[195,192],"chabudai":[291,172],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"kakejiku":[106,195],"plant":[184,175],"sofa":[316,207],"tv":[251,188],"tv_on":[252,211],"window":[263,175],"zabuton":[253,130]};
+  for (const c of CATALOG) if (IMG[c.id]) {
+    c.img = true;
+    if (c.kind === 'wall') { const [iw, ih] = IMG[c.id]; c.h = Math.round(c.w * ih / iw * 100) / 100; }   // 壁の家具は絵の縦横の比にあわせる
+  }
+  const imgOf = (id, on) => on && IMG[id + '_on'] ? [id + '_on', IMG[id + '_on']] : [id, IMG[id]];
   const BY_ID = {}; CATALOG.forEach(c => BY_ID[c.id] = c);
 
   /* 床と壁紙 */
@@ -336,10 +343,23 @@
   const sizeOf = it => SIZES.includes(it.s) ? it.s : 1;
   const scaleOf = it => BASE * sizeOf(it);
   const wallScale = it => { const c = BY_ID[it.k]; return Math.min(scaleOf(it), (WH - c.v) / c.h); };
+  // 絵の家具：床のひし形の左の角・下の角に、絵の左はし・下はしをあわせる。回転したら左右反転
+  function imgFloor(it, c) {
+    const rot = it.rot ? 1 : 0, fw = rot ? (c.d || 1) : c.w, fd = rot ? c.w : (c.d || 1);
+    const [file, [iw, ih]] = imgOf(c.id, it.on);
+    const left = proj(it.x, it.y + fd, 0), bottom = proj(it.x + fw, it.y + fd, 0);
+    const w = (fw + fd) * TW / 2, h = w * ih / iw, x = left[0], y = bottom[1] - h;
+    const flip = rot ? ` transform="translate(${(2 * x + w).toFixed(1)} 0) scale(-1 1)"` : '';
+    let s = `<image href="img/room/${file}.webp" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"${flip} preserveAspectRatio="none"/>`;
+    if (c.light && it.on) { const [gx, gy] = proj(it.x + fw / 2, it.y + fd / 2, 1); s += `<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="${(w * .55).toFixed(1)}" fill="url(#rmGlow)" pointer-events="none"/>`; }
+    return s;
+  }
   function drawFloorItem(it, opts) {
     const c = BY_ID[it.k]; if (!c) return '';
-    const m = Maker(it.x, it.y, it.rot ? 1 : 0);
-    c.draw(m, { on: !!it.on });
+    let body;
+    if (c.img) body = imgFloor(it, c);
+    else { const m = Maker(it.x, it.y, it.rot ? 1 : 0); c.draw(m, { on: !!it.on }); body = m.out.join(''); }
+    const m = { out: [body] };
     const s = scaleOf(it); if (s === 1) return m.out.join('');
     const [px, py] = proj(it.x, it.y, 0);
     return `<g transform="translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})">${m.out.join('')}</g>`;
@@ -347,7 +367,8 @@
   function drawWallItem(it, opts) {
     const c = BY_ID[it.k]; if (!c) return '';
     const s = wallScale(it);
-    return `<g transform="${wallMatrix(it.side, it.u, c.v + c.h * s)}"><g transform="scale(${s})">${c.wall({ on: !!it.on, night: opts && opts.night })}</g></g>`;
+    const inner = c.img ? `<image href="img/room/${imgOf(c.id, it.on)[0]}.webp" x="0" y="0" width="${c.w}" height="${c.h}" preserveAspectRatio="none"/>` : c.wall({ on: !!it.on, night: opts && opts.night });
+    return `<g transform="${wallMatrix(it.side, it.u, c.v + c.h * s)}"><g transform="scale(${s})">${inner}</g></g>`;
   }
   // 家具の大きさ（回転と倍率を考える。マスは切り上げ）
   function footprint(it) {
@@ -384,5 +405,5 @@
     <radialGradient id="rmGlowR"><stop offset="0" stop-color="#ffb05a" stop-opacity=".7"/><stop offset="1" stop-color="#ff8a3a" stop-opacity="0"/></radialGradient>
   </defs>`;
 
-  window.ROOMART = { SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
+  window.ROOMART = { hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
 })();

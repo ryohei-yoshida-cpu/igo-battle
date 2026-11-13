@@ -140,7 +140,7 @@
       else s += drawChara(e.ch, e.x, e.y, true);
     }
     $('#roomSvg').innerHTML = s;
-    strip();
+    strip(); navBtns();
     $('#roomZeni').textContent = guest ? `部屋番号 ${guest.pid}` : `${S.zeni.toLocaleString()} 銭`;
     $('#roomTitle').textContent = guest ? `${guest.name}さんの部屋` : 'マイルーム';
     const info = guest || mySoc;
@@ -220,7 +220,6 @@
     const canAdd = !guest && mode !== 'edit' && list.length < ROOM_MAX;
     const key = [guest ? 'g' + guest.pid : 'me', list.length, cur, mode, canAdd].join(':');
     if (key === stripKey && host.contains(svgEl)) return;
-    const changed = !stripKey.startsWith((guest ? 'g' + guest.pid : 'me') + ':' + list.length + ':' + cur + ':');
     stripKey = key;
     svgEl.remove();
     let h = '';
@@ -233,8 +232,27 @@
     host.innerHTML = h;
     host.querySelector(`.rm-cell[data-cell="${cur}"]`).prepend(svgEl);
     host.classList.toggle('multi', list.length > 1 || canAdd);
-    if (changed) centerCell(false);
+    centerCell(false);   // 作りなおしたら、いまの部屋をまんなかに（もようがえ中も動かない）
+    navBtns();
   }
+  // 左右のボタンで、となりの部屋へ（部屋の中を指でなぞっても、横には動かない）
+  function navBtns() {
+    const n = allRooms().length, canAdd = !guest && n < ROOM_MAX, show = mode !== 'edit' && !(sel && sel.trial);
+    const pv = $('#rmPrev'), nx = $('#rmNext');
+    pv.hidden = !show || cur <= 0; pv.textContent = `◀ 部屋${cur}`;
+    nx.hidden = !show || (cur >= n - 1 && !canAdd);
+    nx.textContent = cur < n - 1 ? `部屋${cur + 2} ▶` : '＋部屋 ▶';
+  }
+  $('#rmPrev').onclick = () => { if (cur > 0) pickRoom(cur - 1); };
+  $('#rmNext').onclick = () => {
+    if (cur < allRooms().length - 1) { pickRoom(cur + 1); return; }
+    const host = $('#roomStrip'), add = host.querySelector('.rm-add'); if (!add) return;
+    P.sound('tap'); host.scrollTo({ left: add.offsetLeft - (host.clientWidth - add.clientWidth) / 2, behavior: 'smooth' });
+    $('#rmNext').hidden = true; $('#rmPrev').hidden = false; $('#rmPrev').textContent = `◀ 部屋${cur + 1}`; backToCur = true;
+  };
+  let backToCur = false;
+  const prevClick = $('#rmPrev').onclick;
+  $('#rmPrev').onclick = () => { if (backToCur) { backToCur = false; centerCell(true); navBtns(); P.sound('tap'); return; } prevClick(); };
   function centerCell(smooth) {
     const host = $('#roomStrip'), cell = host.querySelector('.rm-cell.on'); if (!cell) return;
     const left = cell.offsetLeft - (host.clientWidth - cell.clientWidth) / 2;
@@ -612,6 +630,7 @@
   // 家具ひとつを小さく描く（ショップ・倉庫の見本）
   function thumb(k) {
     const c = cat(k);
+    if (c.img) return `<img class="rm-thumb rm-thumb-img" src="img/room/${(c.light || c.toggle) && R.hasOn(k) ? k + '_on' : k}.webp" alt="" loading="lazy">`;
     if (c.kind === 'wall') return `<svg viewBox="0 0 ${c.w} ${c.h}" class="rm-thumb wall">${c.wall({ on: !!c.light })}</svg>`;
     const it = { k, x: 0, y: 0, rot: 0, on: !!c.light };
     const f = R.footprint(it), hmax = 3.4;
