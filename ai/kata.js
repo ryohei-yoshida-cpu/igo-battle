@@ -1,9 +1,12 @@
-/* 囲碁BLITZ — ニューラルネットを使った読み（PUCT 探索）。ai/nn.js と engine.js（GoEngine）を使う。9路のみ。
+/* 囲碁BLITZ — ニューラルネットを使った読み（PUCT 探索）。ai/nn.js と engine.js（GoEngines）を使う。9路・13路（KataAI.of(N)）。
  * 入力の特徴は KataGo の版7入力（22面＋19個）にそろえる。地の特徴（パスしても生きている石）は省略。 */
 (function (root) {
   'use strict';
-  const N = 9, P = 81, NF = 22, NG = 19;
-  let E = null;   // GoEngine（9路）
+  const NF = 22, NG = 19;
+  let META = null, TEN = null, ENG = null;   // 重みの情報・重みの表（全部の大きさで共有）・盤の大きさごとの GoEngine
+  const inst = {};
+  function build(N) {
+  const P = N * N, E = ENG[N];
   const NB = [];
   for (let p = 0; p < P; p++) { const x = p % N, y = (p / N) | 0, a = []; if (x > 0) a.push(p - 1); if (x < N - 1) a.push(p + 1); if (y > 0) a.push(p - N); if (y < N - 1) a.push(p + N); NB.push(a); }
 
@@ -136,7 +139,7 @@
   }
 
   /* ---------- 評価 ---------- */
-  let net = null;
+  const net = new (root.GoNet.of(N).Net)(META, null, TEN);
   function evaluate(st, komi) {
     const sym = (Math.random() * 8) | 0, T = SYM[sym];
     const f = features(st, komi, sym);
@@ -243,8 +246,6 @@
     return root.n >= cap;
   }
 
-  /* ---------- 読みこみ ---------- */
-  function init(meta, u16, engine) { E = engine; net = new root.GoNet.Net(meta, u16); tree = null; }
   // 手の記録から、いまの局面（履歴つき）を作る。盤が合わなければ履歴なし
   function stateFrom(board, toPlay, ko, rec) {
     let st = { b: board.slice(), ko, pla: toPlay, hist: [], prev: [board, board], passes: 0 };
@@ -263,5 +264,20 @@
     }
     return st;
   }
-  root.KataAI = { init, ready: () => !!net, evaluate: (st, komi) => evaluate(st, komi), search, stepPonder, stateFrom, areaScore, reset: () => { tree = null; } };
+  return { N, P, evaluate: (st, komi) => evaluate(st, komi), search, stepPonder, stateFrom, areaScore, reset: () => { tree = null; } };
+  }
+
+  /* ---------- 読みこみ ---------- */
+  // engines：GoEngines（{ 9: …, 13: … }）。9路の GoEngine だけを渡してもよい
+  function init(meta, u16, engines) {
+    META = meta; TEN = root.GoNet.tensors(meta, u16);
+    ENG = engines && engines.play ? { 9: engines } : engines;
+    for (const k in inst) delete inst[k];
+  }
+  const of = n => TEN && ENG && ENG[n] ? (inst[n] || (inst[n] = build(n))) : null;
+  root.KataAI = {
+    init, of, ready: n => !!of(n || 9),
+    evaluate: (st, komi) => of(9).evaluate(st, komi), search: (...a) => of(9).search(...a), stepPonder: (...a) => of(9).stepPonder(...a),
+    stateFrom: (...a) => of(9).stateFrom(...a), areaScore: b => of(9).areaScore(b), reset: () => { for (const k in inst) inst[k].reset(); }
+  };
 })(typeof self !== 'undefined' ? self : this);

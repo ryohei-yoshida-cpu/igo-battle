@@ -1,9 +1,25 @@
 /* 囲碁BLITZ — 囲碁AI（ニューラルネット）の計算。KataGo の g170 系モデル（版8）を、ブラウザだけで動かす。
  * モデル：KataGo g170（CC0 / パブリックドメイン）。tools/nn/convert.py で ai/*.bin（float16）と ai/*.json に変換したもの。
- * 盤は9路のみ。データの並びは [点][チャンネル]（点 = y*9+x）。 */
+ * 盤の大きさは 9路・13路など（GoNet.of(N)）。データの並びは [点][チャンネル]（点 = y*N+x）。 */
 (function (root) {
   'use strict';
-  const N = 9, P = 81;
+  function half2f(u16) {
+    const out = new Float32Array(u16.length);
+    for (let i = 0; i < u16.length; i++) {
+      const h = u16[i], s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 31, f = h & 1023;
+      out[i] = e === 0 ? s * f * 5.960464477539063e-8 : e === 31 ? (f ? NaN : s * Infinity) : s * (1 + f / 1024) * Math.pow(2, e - 15);
+    }
+    return out;
+  }
+  // 重み（float16）を、一度だけ float32 の表に直す。どの盤の大きさでも同じ重みを使える
+  function tensors(meta, u16) {
+    const all = half2f(u16), T = {};
+    for (const k in meta.tensors) { const [o, n] = meta.tensors[k]; T[k] = all.subarray(o, o + n); }
+    return T;
+  }
+  const built = {};
+  function build(N) {
+  const P = N * N;
   // 3x3・5x5 の畳み込みで、点 p のとなり（はみ出しは -1）
   const NBR = {};
   function nbr(k) {
@@ -12,14 +28,6 @@
     for (let p = 0; p < P; p++) { const x = p % N, y = (p / N) | 0; let i = 0;
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const xx = x + dx, yy = y + dy; a[p * k * k + i++] = xx < 0 || yy < 0 || xx >= N || yy >= N ? -1 : yy * N + xx; } }
     return (NBR[k] = a);
-  }
-  function half2f(u16) {
-    const out = new Float32Array(u16.length);
-    for (let i = 0; i < u16.length; i++) {
-      const h = u16[i], s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 31, f = h & 1023;
-      out[i] = e === 0 ? s * f * 5.960464477539063e-8 : e === 31 ? (f ? NaN : s * Infinity) : s * (1 + f / 1024) * Math.pow(2, e - 15);
-    }
-    return out;
   }
   // 畳み込み：in [P][ic] → out [P][oc]（add=true なら足しこむ）。重みは [ky][kx][ic][oc]
   function conv(inp, ic, w, k, oc, out, add) {
@@ -51,9 +59,9 @@
   function matvec(v, ic, w, oc, out) { out.fill(0, 0, oc); for (let i = 0; i < ic; i++) { const a = v[i]; if (a === 0) continue; const r = i * oc; for (let o = 0; o < oc; o++) out[o] += a * w[r + o]; } }
   function addBias(x, c, bias) { for (let p = 0; p < P; p++) { const o = p * c; for (let i = 0; i < c; i++) x[o + i] += bias[i]; } }
 
-  function Net(meta, u16) {
-    const all = half2f(u16), T = {};
-    for (const k in meta.tensors) { const [o, n] = meta.tensors[k]; T[k] = all.subarray(o, o + n); }
+  // u16 のかわりに、tensors() で作った表（T）を渡してもよい
+  function Net(meta, u16, T) {
+    T = T || tensors(meta, u16);
     this.m = meta; this.T = T;
     const C = meta.trunkC, maxC = 4 * C;
     this.x = new Float32Array(P * C); this.h = new Float32Array(P * C); this.r = new Float32Array(P * maxC); this.r2 = new Float32Array(P * maxC); this.g = new Float32Array(P * maxC);
@@ -97,5 +105,8 @@
     const own = new Float32Array(P); for (let p = 0; p < P; p++) { let s = 0; for (let i = 0; i < cv; i++) s += g[p * cv + i] * T.own[i]; own[p] = Math.tanh(s); }
     return { policy, value, score, own };
   };
-  root.GoNet = { Net, N, P };
+  return { Net, N, P };
+  }
+  const of = n => built[n] || (built[n] = build(n));
+  root.GoNet = Object.assign({ of, tensors }, of(9));
 })(typeof self !== 'undefined' ? self : this);
