@@ -339,17 +339,19 @@
 
   <!-- マイルーム -->
   <section id="myroom" class="screen" hidden>
-    <header class="bar">
-      <button class="btn lac small" id="roomBack">← もどる</button>
-      <h2 id="roomTitle">マイルーム</h2>
+    <header class="bar room-bar">
+      <button class="btn lac small" id="roomBack" aria-label="もどる">←</button>
+      <small class="room-title" id="roomTitle">マイルーム</small>
+      <span class="room-visits" id="roomVisits"></span>
       <span class="zeni-chip" id="roomZeni"></span>
     </header>
-    <div class="room-house" id="roomHouse" hidden></div>
     <div class="room-stage" id="roomStage">
       <div class="room-hito" id="roomHito" hidden></div>
-      <div class="room-visits" id="roomVisits"></div>
       <div class="room-strip" id="roomStrip"><div class="rm-cell on" data-cell="0"><svg id="roomSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="マイルーム"></svg></div></div>
-      <div class="room-zoom" id="roomZoom"><button type="button" id="rmZoomIn" aria-label="大きく見る">＋</button><button type="button" id="rmZoomOut" aria-label="小さく見る">－</button></div>
+      <div class="room-zoom" id="roomZoom">
+        <button type="button" id="rmHouseAll" aria-label="家ぜんたいを見る" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h5v-5.5h3V20h5V9.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+        <button type="button" id="rmZoomIn" aria-label="大きく見る">＋</button><button type="button" id="rmZoomOut" aria-label="小さく見る">－</button>
+      </div>
       <div class="room-tools" id="roomTools" hidden>
         <span id="rmName"></span>
         <button type="button" class="btn lac small" id="rmRot">回転</button>
@@ -358,38 +360,42 @@
         <button type="button" class="btn primary small" id="rmDone">OK</button>
       </div>
     </div>
-    <!-- 遊びに来たキャラ：部屋の左下に立って、下に吹き出し -->
+    <!-- 遊びに来たキャラ：部屋の右はしに、頭が少しかぶるように立つ。左に吹き出し -->
     <div class="visit" id="visit" hidden>
       <div class="visit-bubble" id="visitBubble">
-        <img class="visit-chara" id="visitImg" alt="">
         <p><b id="visitName"></b><span id="visitLine"></span></p>
-        <span class="vb-btns"><button type="button" id="visitHide">隠す</button><button type="button" id="visitNext">ほかの話</button><button type="button" class="play" id="visitPlay">一局打つ</button></span>
+        <span class="vb-btns"><button type="button" id="visitNext">ほかの話</button><button type="button" id="visitCall">部屋に呼ぶ</button><button type="button" class="play" id="visitPlay">一局打つ</button></span>
       </div>
-      <div class="visit-icons" id="visitIcons"></div>
-      <button type="button" class="visit-show" id="visitShow">遊びに来たキャラを出す</button>
+      <img class="visit-chara" id="visitImg" alt="">
     </div>
+    <div class="visit-icons" id="visitIcons"></div>
     <div class="room-guestbar" id="roomGuestBar" hidden>
       <button type="button" class="btn primary" id="rmInvite">対人戦の申込</button>
-    </div>
-    <div class="room-lower" id="roomLower">
-    <div class="room-big" id="roomBig">
-      <button type="button" class="rb-shop" id="rmShopBig">ショップ</button>
-      <button type="button" class="rb-diary" id="rmDiaryBig">日記</button>
-    </div>
-    <div class="room-actions">
-      <button type="button" class="btn lac small" id="rmEdit">もようがえ</button>
       <nav class="rm-tabs" id="roomTabs">
-        <button type="button" data-tab="shop" data-own="2">ショップ</button>
-        <button type="button" data-tab="inv" data-own="1">倉庫</button>
-        <button type="button" data-tab="diary" data-own="0">日記</button>
+        <button type="button" data-tab="diary">日記</button>
         <button type="button" data-tab="chat">一言コメント</button>
-        <button type="button" data-tab="social" data-own="1">交流</button>
-        <button type="button" data-tab="guest" data-own="1">キャラ</button>
-        <button type="button" data-tab="owner" data-own="0">この人</button>
+        <button type="button" data-tab="owner">この人</button>
       </nav>
     </div>
-    <div class="room-panel" id="roomPanel"></div>
+    <div class="room-lower" id="roomLower">
+      <div class="room-panel" id="roomPanel"></div>
     </div>
+    <!-- ルームショップ：上に静馬、左に商品（2列）、右に選んでいる品、下に商品の種類 -->
+    <div class="rshop" id="roomShop" hidden>
+      <div class="rshop-clerk"><img src="img/bust_shima.webp" alt="店主の静馬" id="rsFace"><p id="rmClerk"><b>静馬</b><span></span></p><button type="button" class="rshop-x" id="rsClose" aria-label="ショップを閉じる">✕</button></div>
+      <div class="rshop-body">
+        <div class="rshop-grid" id="rsGrid"></div>
+        <aside class="rshop-cart" id="rsCart"></aside>
+      </div>
+      <nav class="rshop-nav" id="rsNav"></nav>
+    </div>
+    <!-- 下の帯：もようがえ・ショップ・キャラ・交流 -->
+    <nav class="room-dock" id="roomDock">
+      <button type="button" data-dock="edit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>もようがえ</span></button>
+      <button type="button" data-dock="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16l-1.5 11h-13zM8 9V7a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>ショップ</span></button>
+      <button type="button" data-dock="chara"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>キャラ</span></button>
+      <button type="button" data-dock="social"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>交流</span></button>
+    </nav>
   </section>
 
   <!-- キャラクター -->

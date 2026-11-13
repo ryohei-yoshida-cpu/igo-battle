@@ -91,16 +91,17 @@
   $('#book').addEventListener('click', e => { if (e.target.id === 'book') closeBook(); });
 
   /* ---------- 書く ---------- */
-  function writePage() {
-    const today = ymd(Date.now());
-    return `<div class="bk-in"><div class="bk-date">${today}</div>
-      <label class="bk-lab">題<input type="text" id="bkTitle" maxlength="30" placeholder="今日の一局（30字まで）"></label>
-      <label class="bk-lab">本文<textarea id="bkText" maxlength="300" rows="7" placeholder="今日の対局のこと、うれしかった一手、くやしかった一手……"></textarea></label>
-      <div class="bk-count"><span id="bkCount">0</span> / 300</div>
+  // ed：直すときの日記（なければ新しく書く）
+  function writePage(ed) {
+    const today = ymd(ed ? ed.t : Date.now());
+    return `<div class="bk-in"><div class="bk-date">${today}${ed ? '<span class="bk-pubtag">なおす</span>' : ''}</div>
+      <label class="bk-lab">題<input type="text" id="bkTitle" maxlength="30" placeholder="今日の一局（30字まで）" value="${ed ? esc(ed.title) : ''}"></label>
+      <label class="bk-lab">本文<textarea id="bkText" maxlength="300" rows="7" placeholder="今日の対局のこと、うれしかった一手、くやしかった一手……">${ed ? esc(ed.text) : ''}</textarea></label>
+      <div class="bk-count"><span id="bkCount">${ed ? ed.text.length : 0}</span> / 300</div>
       <div class="bk-kifu" id="bkKifu">${kifu ? kifuBlock(kifu, 'w') + '<button type="button" class="sc-x" data-unkifu="1">棋譜を外す</button>' : '<button type="button" class="btn lac small" data-pick="1">棋譜をえらぶ（戦歴から）</button>'}</div>
-      <div class="rm-seg bk-pub">${PUB.map(([k, n]) => `<button type="button" data-pub="${k}" aria-pressed="${pub === k}">${n}</button>`).join('')}</div>
+      ${ed ? '' : `<div class="rm-seg bk-pub">${PUB.map(([k, n]) => `<button type="button" data-pub="${k}" aria-pressed="${pub === k}">${n}</button>`).join('')}</div>`}
       <p class="bk-note">${NOTICE}</p>
-      <div class="bk-btns"><button type="button" class="btn lac" data-close="1">とじる</button><button type="button" class="btn primary" data-save="1">日記をつける</button></div></div>`;
+      <div class="bk-btns"><button type="button" class="btn lac" data-close="1">とじる</button><button type="button" class="btn primary" data-save="1">${ed ? '直して保存' : '日記をつける'}</button></div></div>`;
   }
   function write() {
     if (!P.online()) { P.toast('日記は、サーバーにつながっているときに書けます'); return; }
@@ -122,6 +123,19 @@
     if (!title) { P.toast(WHY.notitle); return; }
     if (!text) { P.toast(WHY.empty); return; }
     btn.disabled = true;
+    if (cur && cur.edit) {   // 書いた日記を直す
+      const did = cur.edit.id;
+      P.soc('dedit', { did, title, text, kifu }, res => {
+        btn.disabled = false;
+        if (!res.ok) { P.toast(why(res)); return; }
+        P.sound('ok'); P.toast('日記を直しました');
+        mine.diary = res.diary;
+        cur = { pid: mine.pid || S.pid, entry: res.entry, mine: true, name: S.name, canWrite: true };
+        turnPage(readPage());
+        if (!$('#diaryHub').hidden) renderMine();
+      });
+      return;
+    }
     P.soc('diary', { title, text, pub, kifu }, res => {
       btn.disabled = false;
       if (!res.ok) { P.toast(why(res)); return; }
@@ -162,7 +176,7 @@
     if (cur.canWrite) h += `<div class="sc-line"><input type="text" id="bkCm" maxlength="60" placeholder="コメント（60字まで）"><button type="button" class="btn lac small" data-cm="1">送る</button></div>`;
     h += '</div>';
     if (cur.mine) h += `<div class="rm-seg bk-pub">${PUB.map(([k, n]) => `<button type="button" data-repub="${k}" aria-pressed="${e.pub === k}">${n}</button>`).join('')}</div>`;
-    h += `<p class="bk-note">${NOTICE}</p><div class="bk-btns">${cur.mine ? '<button type="button" class="sc-x warn" data-deld="1">この日記を消す</button>' : ''}<button type="button" class="btn lac" data-close="1">とじる</button></div></div>`;
+    h += `<p class="bk-note">${NOTICE}</p><div class="bk-btns">${cur.mine ? '<button type="button" class="sc-x warn" data-deld="1">この日記を消す</button><button type="button" class="btn lac" data-edit="1">直す</button>' : ''}<button type="button" class="btn lac" data-close="1">とじる</button></div></div>`;
     return h;
   }
   function read(pid, did) {
@@ -182,6 +196,7 @@
     const ds = b.dataset;
     if (ds.close) { closeBook(); return; }
     if (ds.save) { save(b); return; }
+    if (ds.edit) { const e = cur.entry; kifu = e.kifu || null; cur = { edit: e }; turnPage(writePage(e)); return; }
     if (ds.pick) { pickKifu(); return; }
     if (ds.unkifu) { kifu = null; $('#bkKifu').innerHTML = '<button type="button" class="btn lac small" data-pick="1">棋譜をえらぶ（戦歴から）</button>'; return; }
     if (ds.pub) { pub = ds.pub; b.parentNode.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); return; }

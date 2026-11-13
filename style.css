@@ -1516,3 +1516,86 @@ body.fx-shake #app { animation: fxShake .35s; }
 .prof-tag { font-size: 12px; padding: 6px 12px; border-radius: 999px; background: rgba(184, 134, 42, .25); }
 .res-opp.tappable { cursor: pointer; }
 .res-opp .res-opp-tap { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ===== マイルーム（作りなおし）：上に小さな題名 → 部屋 → キャラと吹き出し → キャラのアイコン → 下の帯 ===== */
+#myroom { gap: 8px; padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+#myroom.rm-shopping { padding-bottom: 0; }
+.room-bar { display: flex; align-items: center; gap: 8px; }
+.room-bar #roomBack { padding: 6px 12px; }
+.room-title { font-size: 13px; font-weight: 900; color: #fff3dc; letter-spacing: .06em; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.room-bar .room-visits { position: static; background: none; padding: 0; color: var(--muted); font-weight: 700; }
+.room-zoom { left: auto; right: 8px; top: 8px; flex-direction: row; }
+.room-zoom button { display: grid; place-items: center; width: 34px; height: 34px; font-size: 18px; backdrop-filter: blur(4px); }
+.room-zoom svg { width: 18px; height: 18px; }
+.room-hito { max-width: 58%; }
+/* キャラ：部屋の右はしに、頭が少しかぶる。吹き出しは左 */
+#myroom .visit { margin-top: -54px; display: block; min-height: 132px; pointer-events: none; }
+#myroom .visit-bubble { pointer-events: auto; margin: 44px 33% 0 0; padding: 10px 14px; min-height: 0; border-radius: 16px 16px 4px 16px; }
+#myroom .visit-bubble::before { left: auto; right: -9px; top: auto; bottom: 14px; border: 9px solid transparent; border-right: 0; border-left-color: rgba(255, 250, 240, .97); }
+#myroom .visit-chara { left: auto; right: -4px; bottom: -8px; height: 190px; max-width: 36%; object-position: right bottom; }
+#myroom .vb-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+#myroom .vb-btns button { font: inherit; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 4px 10px; border: 1px solid rgba(90, 50, 20, .25); background: #fff; color: #5a3214; cursor: pointer; }
+#myroom .vb-btns button.play { background: linear-gradient(135deg, #b8862a, #e8c46e); color: #2a1a0a; border: 0; }
+#myroom .visit-icons { gap: 6px; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: none; }
+#myroom .visit-icons button { width: 42px; height: 42px; flex: none; border-radius: 50%; }
+/* 下の帯 */
+.room-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: center; gap: 4px; padding: 8px max(16px, env(safe-area-inset-left, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(180deg, rgba(30, 20, 12, .92), rgba(16, 10, 6, .98)); border-top: 1px solid var(--line); backdrop-filter: blur(8px); }
+.room-dock button { flex: 1; max-width: 110px; display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border: 0; border-radius: 14px; background: none; color: #d9c7a5; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; transition: background .2s, color .2s; }
+.room-dock svg { width: 24px; height: 24px; }
+.room-dock button[aria-pressed=true] { background: rgba(232, 196, 110, .16); color: #ffd98a; }
+/* もようがえ・キャラ・交流のパネル */
+.rm-house { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.rm-house b { color: #fff3dc; font-size: 13px; margin-right: auto; }
+.rm-house small { opacity: .75; font-size: 10px; }
+.rm-edit-h { display: flex; align-items: center; gap: 8px; }
+.rm-edit-h b { color: #fff3dc; }
+.rm-edit-h small { color: var(--muted); font-size: 11px; margin-right: auto; }
+.rm-soc { display: grid; gap: 10px; }
+.rm-soc-card { display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.rm-soc-card > small { color: var(--muted); font-size: 11px; }
+.rm-pid { font-size: 26px; letter-spacing: .18em; color: #ffd98a; font-variant-numeric: tabular-nums; }
+.rm-opps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rm-opps button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 0; background: rgba(0, 0, 0, .2); color: #fff3dc; font: inherit; cursor: pointer; text-align: left; }
+.rm-opps b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-opps span { font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 999px; }
+.rm-opps span.w { background: rgba(214, 70, 50, .25); color: #ffb3a3; }
+.rm-opps span.l { background: rgba(90, 120, 200, .25); color: #b8c9ff; }
+.rm-opps span.d { background: rgba(255, 255, 255, .1); }
+.rm-opps small { color: var(--muted); font-size: 10px; }
+/* ===== ルームショップ ===== */
+.rshop { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.rshop-clerk { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 16px; background: linear-gradient(135deg, rgba(60, 40, 24, .9), rgba(30, 20, 12, .9)); border: 1px solid var(--line); }
+.rshop-clerk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: 50% 15%; flex: none; border: 2px solid var(--kin); cursor: pointer; }
+.rshop-clerk p { margin: 0; flex: 1; min-width: 0; font-size: 12.5px; color: #fff3dc; line-height: 1.45; }
+.rshop-clerk p b { color: #ffd98a; margin-right: 6px; }
+.rshop-x { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: rgba(0, 0, 0, .3); color: #fff3dc; font-size: 15px; cursor: pointer; }
+.rshop-body { min-height: 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; }
+.rshop-grid { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 8px; padding-right: 2px; overscroll-behavior: contain; }
+.rshop-grid .rs-note { grid-column: 1 / -1; }
+.rs-card { position: relative; display: grid; justify-items: center; gap: 2px; padding: 8px 6px 7px; border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); color: #fff3dc; font: inherit; cursor: pointer; transition: transform .12s, border-color .2s; }
+.rs-card:active { transform: scale(.97); }
+.rs-card.on { border-color: var(--kin); box-shadow: 0 0 0 1px var(--kin) inset; }
+.rs-card .rm-thumb { width: 100%; height: 64px; }
+.rs-card .rm-swatch { width: 100%; height: 56px; border-radius: 8px; }
+.rs-card b { font-size: 11.5px; line-height: 1.3; text-align: center; }
+.rs-card .rm-price { font-size: 11px; color: #ffd98a; font-weight: 900; }
+.rs-have { position: absolute; left: 6px; top: 6px; font-size: 9.5px; background: rgba(0, 0, 0, .5); padding: 1px 6px; border-radius: 999px; }
+.rshop-cart { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; background: rgba(255, 246, 234, .06); border: 1px solid var(--line); }
+.rs-cart-h { font-size: 12px; color: #ffd98a; }
+.rshop-cart ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rshop-cart li { display: grid; grid-template-columns: 1fr auto; gap: 0 4px; font-size: 11px; color: #fff3dc; padding-bottom: 6px; border-bottom: 1px dashed rgba(255, 255, 255, .12); }
+.rshop-cart li span { grid-column: 1 / -1; font-weight: 800; line-height: 1.3; }
+.rshop-cart li em { font-style: normal; color: #ffd98a; }
+.rshop-cart .sc-x { justify-self: end; }
+.rs-empty { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.rs-total { margin-top: auto; display: grid; }
+.rs-total small { font-size: 10px; color: var(--muted); }
+.rs-total b { font-size: 16px; color: #fff3dc; }
+.rs-total b.short { color: #ff9b8a; }
+.rs-buy { width: 100%; padding: 10px 6px; }
+.rshop-nav { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); margin-bottom: env(safe-area-inset-bottom, 0px); }
+.rshop-nav button { flex: 1; border: 0; border-radius: 999px; padding: 8px 2px; background: none; color: #d9c7a5; font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; }
+.rshop-nav button[aria-pressed=true] { background: linear-gradient(135deg, #b8862a, #e8c46e); color: #2a1a0a; }
+.rm-edit-h b { white-space: nowrap; }
+.rm-edit-h .btn { flex: none; white-space: nowrap; }
+.room-bar .room-title { font-size: 12px !important; font-weight: 800; color: var(--muted); letter-spacing: .08em; }

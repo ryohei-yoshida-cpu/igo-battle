@@ -258,6 +258,23 @@ export class Social {
       if (pub !== 'me') this.notifyFriends(id, { type: 'diary', pid: me, name: myName, av: myAv(), title, t: now }).catch(() => {});
       return;
     }
+    // 書いた日記をあとから直す（題・本文・棋譜。日付と公開範囲・コメントはそのまま）
+    if (op === 'dedit') {
+      const did = m.did | 0, title = text(m.title), body = String(m.text || '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/\n{3,}/g, '\n\n').trim(), kifu = cleanKifu(m.kifu);
+      let reason = !title ? 'notitle' : title.length > LIM.text.title ? 'long' : !body ? 'empty' : body.length > LIM.text.diary ? 'long' : null;
+      if (!reason) { const ng = check(title) || check(body); if (ng) reason = NG_MSG[ng]; }
+      if (reason) { out({ ok: false, reason }); return; }
+      let entry = null;
+      const s = await this.withSoc(id, async s => {
+        const h = s.diary.find(d => d.id === did); if (!h) return false;
+        const d = await this.store.get(`dia:${id}:${did}`); if (!d) return false;
+        Object.assign(d, { title, text: body, kifu, edited: now }); await this.store.put(`dia:${id}:${did}`, d);
+        Object.assign(h, head(d)); entry = d;
+      });
+      if (!s) { out({ ok: false, reason: 'gone' }); return; }
+      out({ ok: true, diary: s.diary.map(head), entry });
+      return;
+    }
     if (op === 'dpub') {
       const pub = PUBS.includes(m.pub) ? m.pub : 'all', did = m.did | 0;
       const s = await this.withSoc(id, async s => {
