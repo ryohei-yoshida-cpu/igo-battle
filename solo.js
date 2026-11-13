@@ -66,7 +66,10 @@
   const LV_NAME = { 1: '1手で取る', 2: 'つながった石・アタリから逃げる', 3: '2手で取る（シチョウ・ゲタ）', 4: 'ひと工夫して逃げる', 5: '追いかけて取る', 6: '長いシチョウを読み切る' };
   const PER_LV = 6;
   const drillState = () => { S.solo.drill = Object.assign({ pts: 0, seen: [] }, S.solo.drill); return S.solo.drill; };
-  const drillLv = () => Math.min(LV_MAX, 1 + Math.floor(drillState().pts / PER_LV));
+  // ドリルのレベルは、そのレベルで使う考え方のレクチャーをクリアしてから（習っていないことは出さない）
+  const LV_NEED = { 1: ['toru'], 2: ['nige'], 3: ['shichou', 'geta'], 4: ['houkou', 'nobi'], 5: ['shichou', 'geta'], 6: ['shichouatari'] };
+  const drillCap = () => { let c = 0; for (let lv = 1; lv <= LV_MAX; lv++) { if ((LV_NEED[lv] || []).every(id => S.solo.lessons.includes(id))) c = lv; else break; } return c; };
+  const drillLv = () => Math.max(1, Math.min(LV_MAX, drillCap(), 1 + Math.floor(drillState().pts / PER_LV)));
   const LINES = {
     小春: {
       cap1: ['白石を1手で取ってください！', '白石の呼吸点は、あとひとつ。どこが空いてる？'],
@@ -159,7 +162,10 @@
       ll.append(b);
     });
     const db = document.createElement('button'); db.type = 'button'; db.className = 'drill';
-    db.innerHTML = `<span>実戦ドリル Lv.${drillLv()}</span><i>${LV_NAME[drillLv()] || ''}・次のレベルまで ${PER_LV - drillState().pts % PER_LV} 問・全${DRILL_N}問</i>`;
+    const cap = drillCap(), lvNow = drillLv(), capped = cap < LV_MAX && 1 + Math.floor(drillState().pts / PER_LV) > cap;
+    db.disabled = cap < 1;
+    db.innerHTML = cap < 1 ? '<span>実戦ドリル</span><i>レクチャー「石を取る（アタリ）」をクリアすると遊べます</i>'
+      : `<span>実戦ドリル Lv.${lvNow}</span><i>${LV_NAME[lvNow] || ''}・${capped ? '次のレベルは、レクチャーを進めると解放' : `次のレベルまで ${PER_LV - drillState().pts % PER_LV} 問`}・全${DRILL_N}問</i>`;
     db.onclick = () => runLesson(makeDrill(), () => open());
     ll.append(db);
   }
@@ -337,11 +343,11 @@
         ['対局する', 'primary', () => startGame(lv, back)], ['あとで', 'lac', open]
       ]);
     } else {
-      // 新しいレクチャーと実戦ドリルを交互に（レクチャーを全部クリアしたらドリルだけ）
-      // エピソードには、そのキャラのトレーニングが入る。ほかの物語は、レクチャーとドリルを交互に
+      // エピソードには、そのキャラのトレーニングが入る
       const own = RD.story.lessons && LESSONS.find(x => x.id === RD.story.lessons[Math.min(RD.part, RD.story.lessons.length - 1)]);
+      // ほかの物語は、レクチャーを勉強になる順番に1つずつ。全部クリアしたら実戦ドリル
       const nl = nextLesson();
-      const l = own || (nl && RD.part % 2 === 0 ? nl : makeDrill());
+      const l = own || nl || makeDrill();
       const desc = l.drill ? '自動で選ばれる3問に正解しよう。' : `${l.teacher}のトレーニングを受けて、問題に正解しよう。`;
       card('続きを読むには', `ミッション：${l.title}`, desc, [
         ['レクチャーを受ける', 'primary', () => runLesson(l, ok => { if (ok) missionClear(l.title); else back(); })], ['あとで', 'lac', open]
