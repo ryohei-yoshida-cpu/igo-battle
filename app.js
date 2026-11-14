@@ -1243,10 +1243,10 @@
     M.found = true; clearInterval(M.timer);
     const up = upLevels();
     const lv = S.botLevel === 'nyumon' ? 0 : M.fixed ? Math.min(BOT_MAX, S.botLevel) : S.botLevel === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
-    const bot = S.botLevel === 'nyumon' ? nyumonBot() : { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
+    const bot = S.botLevel === 'nyumon' ? Object.assign(nyumonBot(), { name: 'アタリ碁' }) : { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
     const myColor = Math.random() < 0.5 ? 1 : 2;
-    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, M.fixed || S.botLevel === 'nyumon' ? '指定した強さのBotとマッチしました' : S.botLevel === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
-    const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz }); }, 2200);
+    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, S.botLevel === 'nyumon' ? 'アタリ碁：先に石を1つ取ったほうが勝ち！' : M.fixed ? '指定した強さのBotとマッチしました' : S.botLevel === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
+    const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz, atari: !!bot.nyumon }); }, 2200);   // 入門はいつもアタリ碁
   }
   function stopMatch() {
     if (M) { clearInterval(M.timer); clearTimeout(M.timer); if (!M.found) netSend({ t: M.friend ? 'fcancel' : 'cancel' }); }
@@ -1487,7 +1487,7 @@
       const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
       add('auto', k ? '近い強さ' : '自動（近い強さ）');
       add('up', k ? '同じ以上' : '自分と同じ以上の強さ');
-      add('nyumon', k ? '入門' : '入門（10級より下・小春）');
+      add('nyumon', k ? '入門（アタリ碁）' : '入門（アタリ碁・小春）');
       RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => add(String(i), k ? r : `${r}（レート ${botRating(i)}）`));
     });
     if (S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';

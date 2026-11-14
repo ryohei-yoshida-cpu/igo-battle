@@ -565,9 +565,9 @@ body.washi .bd-grain { display: none; }
 .rd-gauge i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--shu), var(--kin)); transition: width .3s; }
 .rd-name { display: block; width: fit-content; }
 .rd-name.right { margin-left: auto; }
-.rd-name.swap { animation: nameIn .28s ease-out; }
+.rd-name.swap { animation: rdNameIn .28s ease-out; }
 .rd-name.swap.right { animation-name: nameInR; }
-@keyframes nameIn { from { transform: translateX(-18px); opacity: 0; } }
+@keyframes rdNameIn { from { transform: translateX(-18px); opacity: 0; } }
 @keyframes nameInR { from { transform: translateX(18px); opacity: 0; } }
 .sheet-h h2 small { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
 .log-sheet { max-height: 82%; gap: 10px; }
