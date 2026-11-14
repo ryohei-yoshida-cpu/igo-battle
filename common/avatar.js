@@ -13,6 +13,7 @@
   const myLook = () => AV.clean(S.av || AV.PRESETS.girl);
   const owned = (sl, id) => AV.PRICE[sl + ':' + id] === 0 || (S.avOwned || []).includes(sl + ':' + id);
   const zeniText = () => `${(S.zeni || 0).toLocaleString()} 銭`;
+  const walletHtml = () => `${(S.zeni || 0).toLocaleString()} 銭<i class="chip-tama">勾玉 ${(S.tama | 0).toLocaleString()}</i>`;
 
   /* ---------- えらぶ画面 ---------- */
   function openHub() {
@@ -47,7 +48,7 @@
   function open(m, startSlot, back) {
     if (typeof m !== 'string' || (m !== 'shop' && m !== 'closet')) { startSlot = m; m = 'closet'; }
     mode = m; if (back) from = back;
-    look = myLook(); slot = startSlot || (m === 'shop' ? 'body' : 'head');
+    look = myLook(); slot = startSlot || (m === 'shop' ? 'body' : 'head'); lineTry = null; lineWhere = '';
     P.showScreen('avatar');
     render();
     if (m === 'shop') hinata((S.zeni || 0) < 300 ? 'poor' : 'hello');
@@ -69,7 +70,7 @@
     $('#avClerk').classList.toggle('closet', !shop);
     $('#avClerkB').hidden = !shop; $('#avClerkImg').hidden = !shop;
     $('#avBig').innerHTML = AV.svg(look, 'av-svg', true);
-    $('#avZeni').textContent = zeniText();
+    $('#avZeni').innerHTML = walletHtml();
     $('#avTabs').innerHTML = AV.TABS.concat([['line', '台詞']]).map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
     let h = slot === 'line' ? linesHtml() : '';
     for (const [sl, title, only] of slot === 'line' ? [] : sections(slot)) {
@@ -98,19 +99,16 @@
   /* ---------- 台詞（せりふ）：対局のはじめ・勝ち・負け・おわりに、吹き出しで言う ---------- */
   const lineOwned = id => AV.PRICE['line:' + id] === 0 || (S.avOwned || []).includes('line:' + id);
   const linePrice = id => { const t = AV.TAMA['line:' + id]; return t ? `勾玉 ${t}` : `${AV.PRICE['line:' + id].toLocaleString()} 銭`; };
-  let lineJust = null, lineTry = null;   // 買ったばかりの台詞（どこで使うか聞く）・試し聞き中
+  let lineTry = null, lineWhere = '';   // 試し聞き中の台詞・試着中リストで決めた「使う場面」
   function linesHtml() {
     const ln = look.ln || {};
     let h = '';
-    if (mode === 'closet' || lineJust) {
+    if (mode === 'closet') {
       // 4つの場面に、持っている台詞をセット
       const mine = AV.LINES.filter(([id]) => lineOwned(id));
-      h += `<div class="ln-slots">${lineJust ? `<b class="ln-ask">「${esc(AV.LINE_TEXT[lineJust])}」をどこで言う？</b>` : '<b class="ln-ask">対局で言う台詞をセット</b>'}` +
-        AV.LINE_SLOTS.map(([k, n]) => lineJust
-          ? `<button type="button" class="btn lac small" data-lnset="${k}">${n}${ln[k] ? `<small>今：${esc(AV.LINE_TEXT[ln[k]])}</small>` : ''}</button>`
-          : `<label class="ln-row"><span>${n}</span><select data-lnsel="${k}"><option value="">（なし）</option>${mine.map(([id, t]) => `<option value="${id}" ${ln[k] === id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`).join('') +
-        (lineJust ? '<button type="button" class="sc-x" data-lnlater="1">あとで（クロークでセット）</button>' : '') + '</div>';
-      if (mode === 'closet') return h;
+      h += `<div class="ln-slots"><b class="ln-ask">対局で言う台詞をセット</b>` +
+        AV.LINE_SLOTS.map(([k, n]) => `<label class="ln-row"><span>${n}</span><select data-lnsel="${k}"><option value="">（なし）</option>${mine.map(([id, t]) => `<option value="${id}" ${ln[k] === id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`).join('') + '</div>';
+      return h;
     }
     h += `<p class="ln-lead">台詞は、対局のはじめ・勝ったとき・負けたとき・対局のおわりに、アバターの吹き出しで出ます。相手にも見えます。</p>`;
     h += AV.LINES.map(([id, t]) => {
@@ -127,14 +125,24 @@
     const b = document.createElement('div'); b.id = 'avBigSay'; b.className = 'say-bubble'; b.textContent = AV.LINE_TEXT[id];
     $('#avBig').append(b); setTimeout(() => b.remove(), 2600);
   }
+  // 台詞をその場面にセットして保存
+  function setLine(id, k) {
+    const l = AV.clean(Object.assign({}, myLook(), { ln: Object.assign({}, myLook().ln, { [k]: id }) }));
+    look.ln = l.ln; wear(l);
+  }
   function buyLine(id) {
     const tm = AV.TAMA['line:' + id], price = AV.PRICE['line:' + id];
     if (tm ? (S.tama | 0) < tm : (S.zeni || 0) < price) { hinata('poor'); P.toast(tm ? `勾玉が足りません（勾玉 ${tm}）。勾玉は骨董屋で手に入ります` : `銭が足りません（${price} 銭）`); return; }
     P.confirmBox(`台詞「${AV.LINE_TEXT[id]}」を ${linePrice(id)} で買いますか？`, () => {
       P.buy({ av: 'line:' + id }, tm ? 0 : price, res => {
         if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
-        hinata('buy'); lineJust = id; render();
-        window.FANFARE.celebrate({ items: [{ thumb: `<div class="ln-thumb">${esc(AV.LINE_TEXT[id])}</div>`, name: '台詞' }] });
+        const where = lineWhere; lineTry = null; lineWhere = ''; render();
+        // 場面を決めていなければ、お礼の前に店員さんが聞く
+        window.FANFARE.thanks({
+          who: 'hinata', items: [{ thumb: `<div class="ln-thumb">${esc(AV.LINE_TEXT[id])}</div>`, name: '台詞' }],
+          ask: where ? null : { opts: AV.LINE_SLOTS.concat([['', 'あとで決める']]), pick: k => { if (k) setLine(id, k); } },
+          then: () => { if (where) setLine(id, where); else if (!(myLook().ln && Object.values(myLook().ln).includes(id))) P.toast('台詞はクロークの「台詞」でセットできます'); }
+        });
       });
     });
   }
@@ -148,11 +156,6 @@
       if (again) buyLine(id); else hinata('pick');
       return;
     }
-    if (b.dataset.lnset) {   // 買ったばかりの台詞を、その場面にセット（すぐ保存）
-      const l = AV.clean(Object.assign({}, myLook(), { ln: Object.assign({}, myLook().ln, { [b.dataset.lnset]: lineJust }) }));
-      lineJust = null; look.ln = l.ln; wear(l); return;
-    }
-    if (b.dataset.lnlater) { lineJust = null; P.toast('台詞はクロークの「台詞」でセットできます'); render(); }
   });
   $('#avGrid2').addEventListener('change', e => {
     const s = e.target.closest('[data-lnsel]'); if (!s) return;
@@ -196,17 +199,24 @@
   const entryOf = sl => AV.CATALOG[sl].find(x => x[0] === look[sl]);
   function renderTry(need) {
     const box = $('#avTry');
-    $('#avLead').hidden = !!need.length; box.hidden = !need.length;
-    if (!need.length) { box.innerHTML = ''; return; }
+    const ln = mode === 'shop' && lineTry && !lineOwned(lineTry) ? lineTry : null;   // 試し聞き中の台詞（まだ持っていない）
+    $('#avLead').hidden = !!(need.length || ln); box.hidden = !(need.length || ln);
+    if (!need.length && !ln) { box.innerHTML = ''; return; }
     const total = need.reduce((a, sl) => a + entryOf(sl)[2], 0), short = total > (S.zeni || 0);
-    box.innerHTML = `<b class="av-try-h">試着中</b><ul>${need.map(sl => { const e = entryOf(sl); return `<li><span><small>${SLOT_NAME[sl]}</small>${e[1]}</span><em>${e[2].toLocaleString()}</em><button type="button" class="btn primary small" data-tbuy="${sl}" ${e[2] > (S.zeni || 0) ? 'disabled' : ''}>買う</button><button type="button" class="sc-x" data-tundo="${sl}" aria-label="試着をやめる">×</button></li>`; }).join('')}</ul>
-      <div class="av-try-sum"><span>合計</span><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b></div>
+    const ltm = ln && AV.TAMA['line:' + ln], lp = ln && AV.PRICE['line:' + ln], lok = ln && (ltm ? (S.tama | 0) >= ltm : (S.zeni || 0) >= lp);
+    box.innerHTML = `<b class="av-try-h">試着中</b><ul>${need.map(sl => { const e = entryOf(sl); return `<li><span><small>${SLOT_NAME[sl]}</small>${e[1]}</span><em>${e[2].toLocaleString()}</em><button type="button" class="btn primary small" data-tbuy="${sl}" ${e[2] > (S.zeni || 0) ? 'disabled' : ''}>買う</button><button type="button" class="sc-x" data-tundo="${sl}" aria-label="試着をやめる">×</button></li>`; }).join('')}` +
+      (ln ? `<li class="ln-try"><span><small>台詞</small>「${esc(AV.LINE_TEXT[ln])}」</span><em>${ltm ? `勾玉 ${ltm}` : lp.toLocaleString()}</em><button type="button" class="btn primary small" data-lbuy="1" ${lok ? '' : 'disabled'}>買う</button><button type="button" class="sc-x" data-lundo="1" aria-label="試し聞きをやめる">×</button>
+        <label class="ln-where">使う場面<select data-lnwhere="1"><option value="">買ったあとで選ぶ</option>${AV.LINE_SLOTS.map(([k, n]) => `<option value="${k}" ${lineWhere === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label></li>` : '') + `</ul>
+      ${need.length ? `<div class="av-try-sum"><span>服の合計</span><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b></div>` : ''}
       ${need.length > 1 ? `<button type="button" class="btn primary small" data-tall="1" ${short ? 'disabled' : ''}>まとめて買う（${total.toLocaleString()} 銭）</button>` : ''}
-      ${short ? `<small class="av-try-short">あと ${(total - (S.zeni || 0)).toLocaleString()} 銭たりません</small>` : ''}`;
+      ${need.length && short ? `<small class="av-try-short">あと ${(total - (S.zeni || 0)).toLocaleString()} 銭たりません</small>` : ''}`;
   }
+  $('#avTry').addEventListener('change', e => { if (e.target.dataset.lnwhere) lineWhere = e.target.value; });
   $('#avTry').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.tbuy) { askBuy(b.dataset.tbuy, look[b.dataset.tbuy]); return; }
+    if (b.dataset.lbuy) { buyLine(lineTry); return; }
+    if (b.dataset.lundo) { lineTry = null; lineWhere = ''; P.sound('tap'); render(); return; }
     if (b.dataset.tundo) { const sl = b.dataset.tundo, mine = myLook()[sl]; const ml = myLook(), boy = ml.head === 'h32' || ml.body === 'b32' || look.head === 'h32' || look.body === 'b32'; look[sl] = owned(sl, mine) ? mine : (boy ? AV.PRESETS.boy : AV.PRESETS.girl)[sl]; P.sound('tap'); render(); return; }
     if (b.dataset.tall) {
       const need = unowned(), total = need.reduce((a, sl) => a + entryOf(sl)[2], 0);
@@ -214,7 +224,7 @@
         const bought = [];
         const next = () => {
           const sl = unowned()[0];
-          if (!sl) { hinata('buy'); render(); window.FANFARE.celebrate({ items: bought.map(s => ({ thumb: AV.thumb(look, s), name: entryOf(s)[1] })), then: () => askWear(bought, 'まとめて買いました！') }); return; }
+          if (!sl) { hinata('buy'); render(); window.FANFARE.thanks({ who: 'hinata', items: bought.map(s => ({ thumb: AV.thumb(look, s), name: entryOf(s)[1] })), then: () => askWear(bought, 'まとめて買いました！') }); return; }
           bought.push(sl);
           const id = look[sl];
           P.buy({ av: sl + ':' + id }, entryOf(sl)[2], res => { if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); render(); return; } next(); });
@@ -232,7 +242,7 @@
     P.confirmBox(`${entry[1]}を ${price} 銭で買いますか？`, () => {
       P.buy({ av: sl + ':' + id }, price, res => {
         if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); return; }
-        hinata('buy'); render(); window.FANFARE.celebrate({ items: [{ thumb: AV.thumb(look, sl), name: entry[1] }], then: () => askWear([sl], `${entry[1]}を買いました！`) });
+        hinata('buy'); render(); window.FANFARE.thanks({ who: 'hinata', items: [{ thumb: AV.thumb(look, sl), name: entry[1] }], then: () => askWear([sl], `${entry[1]}を買いました！`) });
       });
     });
   }

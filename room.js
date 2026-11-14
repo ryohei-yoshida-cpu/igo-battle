@@ -190,7 +190,7 @@
   const editing = () => mode === 'edit' || mode === 'shop';   // 家具を動かせるとき（もようがえ・ショップ）
   // 画面の部品を、いまの状態（見る・もようがえ・ショップ・ほかの人の部屋）に合わせる
   function uiSync() {
-    $('#roomZeni').textContent = guest ? `部屋番号 ${guest.pid}` : `${S.zeni.toLocaleString()} 銭`;
+    if (guest) $('#roomZeni').textContent = `部屋番号 ${guest.pid}`; else $('#roomZeni').innerHTML = `${S.zeni.toLocaleString()} 銭<i class="chip-tama">勾玉 ${(S.tama | 0).toLocaleString()}</i>`;
     $('#roomTitle').textContent = guest ? `${guest.name}さんの部屋` : 'マイルーム';
     const info = guest || mySoc;
     $('#roomHito').hidden = !(info && info.hito); $('#roomHito').textContent = info && info.hito ? info.hito : '';
@@ -304,7 +304,7 @@
         addMode = false;
         const n = base().extra.length;
         pickRoom(n, true); renderPanel();
-        window.FANFARE.celebrate({ items: [{ thumb: '<span class="ff-emoji">🏠</span>', name: `部屋${n + 1}` }], title: '部屋が増えました！', then: () => P.toast(`部屋${n + 1}ができました！ もようがえしてみましょう`) });
+        window.FANFARE.thanks({ who: 'shima',  items: [{ thumb: '<span class="ff-emoji">🏠</span>', name: `部屋${n + 1}` }], title: '部屋が増えました！', then: () => P.toast(`部屋${n + 1}ができました！ もようがえしてみましょう`) });
       });
     });
   }
@@ -317,7 +317,7 @@
       P.buy({ roomBig: cur }, BIG_PRICE, res => {
         if (!res.ok) { P.toast(BUY_NG[res.reason] || '広くできませんでした'); return; }
         room().n = BIG_N; viewKey = 'x'; render(); renderPanel();
-        window.FANFARE.celebrate({ items: [{ thumb: '<span class="ff-emoji">📐</span>', name: '17×17マス' }], title: '部屋が広くなりました！' });
+        window.FANFARE.thanks({ who: 'shima',  items: [{ thumb: '<span class="ff-emoji">📐</span>', name: '17×17マス' }], title: '部屋が広くなりました！' });
       });
     });
   }
@@ -697,7 +697,7 @@
       const done = () => {
         if (!bought.length) { render(); renderPanel(); return; }
         shima('buy');
-        window.FANFARE.celebrate({ items: bought.map(it => ({ thumb: thumb(it.k), name: cat(it.k).name })), then: () => P.confirmBox(`${bought.length === 1 ? cat(bought[0].k).name : bought.length + ' 点'}を買いました！ そのまま部屋に置きますか？`, () => {
+        window.FANFARE.thanks({ who: 'shima',  items: bought.map(it => ({ thumb: thumb(it.k), name: cat(it.k).name })), then: () => P.confirmBox(`${bought.length === 1 ? cat(bought[0].k).name : bought.length + ' 点'}を買いました！ そのまま部屋に置きますか？`, () => {
           for (const it of bought) delete it.trial;
           touch(); flush(); P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
         }, () => {
@@ -887,7 +887,7 @@
         if (!got.length) { renderPanel(); return; }
         shima('buy');
         for (const c of got) { if (c.kind === 'item') delete c.it.trial; const t = tryInts[c.ri]; if (t && c.kind === 'floor') t.floor = null; if (t && c.kind === 'wall') t.wall = null; }
-        window.FANFARE.celebrate({ items: got.filter(c => !c.dup).map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
+        window.FANFARE.thanks({ who: 'shima',  items: got.filter(c => !c.dup).map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
           touch(); flush();
           const rooms = allRooms(); for (const i of Object.keys(snaps)) if (rooms[i]) snaps[i] = copyRoom(rooms[i]);
           P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
@@ -1065,7 +1065,7 @@
   // サーバーから銭・持ち物・部屋が届いたとき（もようがえ中は配置を上書きしない）
   function refresh() {
     if ($('#myroom').hidden || guest) return;
-    if (mode !== 'view') { $('#roomZeni').textContent = `${S.zeni.toLocaleString()} 銭`; renderPanel(); return; }
+    if (mode !== 'view') { $('#roomZeni').innerHTML = `${S.zeni.toLocaleString()} 銭<i class="chip-tama">勾玉 ${(S.tama | 0).toLocaleString()}</i>`; renderPanel(); return; }
     sel = null; render(); renderPanel();
   }
 

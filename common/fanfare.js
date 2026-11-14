@@ -55,13 +55,14 @@
   function celebrate(o) {
     o = o || {};
     if (halves.length) { const h = halves.shift(); clerk({ who: h.who, line: HALF_LINE[h.who], tag: `半額サービス！ ${h.saved.toLocaleString()} 銭 おトク`, then: () => celebrate(o) }); return; }
-    const items = (o.items || []).slice(0, 6), more = (o.items || []).length - items.length;
+    const items = (o.items || []).slice(0, 9), more = (o.items || []).length - items.length;
     const el = layer('ff-buy');
     el.innerHTML = `<canvas class="ff-cv"></canvas><div class="ff-rays"></div>
       <div class="ff-card">
         <div class="ff-ribbon">お買い上げ</div>
         <div class="ff-title">${esc(o.title || 'ありがとうございます！')}</div>
         <div class="ff-items">${items.map((it, i) => `<figure style="--i:${i}"><div class="ff-thumb">${it.thumb || ''}</div><figcaption>${esc(it.name || '')}</figcaption></figure>`).join('')}${more > 0 ? `<span class="ff-more">ほか ${more} 点</span>` : ''}</div>
+        ${o.note ? `<div class="ff-note">${esc(o.note)}</div>` : ''}
         <div class="ff-tap">タップで閉じる</div>
       </div>`;
     const stop = confetti(el.querySelector('canvas'), 2200);
@@ -71,7 +72,7 @@
     let done = false;
     const close = () => { if (done) return; done = true; el.classList.remove('on'); el.classList.add('off'); setTimeout(() => { stop(); el.remove(); if (o.then) o.then(); }, 320); };
     setTimeout(() => el.addEventListener('click', close), 350);
-    setTimeout(close, 3200);
+    setTimeout(close, o.note ? 6000 : 3200);
   }
 
   // 店員さん（ソロモードと同じ絵）のセリフ。yes があれば はい／いいえ を出す
@@ -104,5 +105,66 @@
     });
   }
 
-  window.FANFARE = { celebrate, clerk, noteHalf(who, saved) { halves.push({ who, saved }); }, HALF_LINE };
+  /* ---------- 買ったあとのお礼：店員さんが奥からズームアップして、順番にしゃべる ----------
+   *   thanks({ who, items:[{thumb,name}], ask:{ opts:[[k,label]], pick(k) }, then })
+   *   順番：（台詞なら）どの場面で使う？ →（半額なら）「その…あのね」→ 半額の宣言 → お礼（品物と紙ふぶき）
+   */
+  const ASK = { hinata: '良いの買ったねー。どのシーンで使う？', shima: '…いい台詞だ。どの場面で使う？', gensai: 'いい台詞じゃねえか。どこで使うんだい？' };
+  const PRE = { hinata: 'その…あのね', shima: 'その、なんだ…あの…', gensai: 'それとな…' };
+  const THANKS = {
+    hinata: ['買ってくれてありがとう♪ 大事にしてね！', 'お買い上げ、ありがとうございまーす♪ 似合うといいな！'],
+    shima: ['…感謝する。大事に使ってくれ。', '…ありがとう。いい買い物だったと思うぞ。'],
+    gensai: ['毎度。……ありがとよ。', 'ありがとよ。そいつを大事にしてやってくれ。']
+  };
+  function thanks(o) {
+    const who = o.who || 'hinata', steps = [];
+    if (o.ask) steps.push({ text: ASK[who], opts: o.ask.opts, pick: o.ask.pick });
+    while (halves.length) {
+      const h = halves.shift();
+      steps.push({ text: PRE[who] || PRE.hinata });
+      steps.push({ text: HALF_LINE[who] || HALF_LINE.hinata, tag: `半額サービス！ ${h.saved.toLocaleString()} 銭 おトク`, coin: true });
+    }
+    steps.push({ text: (THANKS[who] || THANKS.hinata)[Math.floor(Math.random() * 2)], items: o.items || [], party: true, title: o.title });
+    const el = document.createElement('div'); el.className = 'sj thx ' + who;
+    el.innerHTML = `<canvas class="ff-cv"></canvas><div class="sj-room"><img class="sj-clerk" src="img/bust_${who}.webp" alt=""></div>
+      <div class="sj-say thx-say"><div class="ff-tag" hidden></div><b>${NAME[who]}</b><span class="thx-t"></span><div class="thx-items"></div><div class="thx-opts"></div><small class="thx-next">タップで次へ ▶</small></div><div class="sj-flash"></div>`;
+    document.body.append(el);
+    let i = -1, typing = 0, full = '', stop = null, busy = false;
+    const t = el.querySelector('.thx-t'), opts = el.querySelector('.thx-opts'), tag = el.querySelector('.ff-tag'), itemsEl = el.querySelector('.thx-items');
+    function show(st) {
+      clearInterval(typing); full = st.text; let n = 0; t.textContent = '';
+      typing = setInterval(() => { n++; t.textContent = full.slice(0, n); if (n >= full.length) clearInterval(typing); }, 40);
+      tag.hidden = !st.tag; tag.textContent = st.tag || '';
+      opts.innerHTML = (st.opts || []).map(([k, l]) => `<button type="button" class="btn ${k ? 'primary' : 'lac'} small" data-k="${k}">${esc(l)}</button>`).join('');
+      el.classList.toggle('asking', !!st.opts);
+      itemsEl.innerHTML = st.items ? `${st.title ? `<div class="thx-title">${esc(st.title)}</div>` : ''}<div class="ff-items">${st.items.slice(0, 6).map((it, j) => `<figure style="--i:${j}"><div class="ff-thumb">${it.thumb || ''}</div><figcaption>${esc(it.name || '')}</figcaption></figure>`).join('')}</div>` : '';
+      if (st.coin && P) { P.sound('coin'); setTimeout(() => P.sound('coin'), 200); }
+      if (st.party) { stop = confetti(el.querySelector('canvas'), 2400); if (P) { P.sound('fanfare'); setTimeout(() => P.sound('coin'), 420); } if (navigator.vibrate) try { navigator.vibrate([30, 40, 60]); } catch (e) {} }
+      else if (P) P.sound('tap');
+      const b = el.querySelector('.thx-say'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+    }
+    function next() {
+      if (busy) return;
+      if (t.textContent.length < full.length) { clearInterval(typing); t.textContent = full; return; }   // まず全部表示
+      if (steps[i] && steps[i].opts) return;   // えらぶまで進まない
+      i++;
+      if (i >= steps.length) { end(); return; }
+      show(steps[i]);
+    }
+    function end() {
+      busy = true; el.classList.add('flash');
+      setTimeout(() => { el.classList.add('fade'); }, 500);
+      setTimeout(() => { if (stop) stop(); el.remove(); if (o.then) o.then(); }, 1100);
+    }
+    el.addEventListener('click', e => {
+      const b = e.target.closest('[data-k]');
+      if (b) { const st = steps[i]; st.opts = null; if (st.pick) st.pick(b.dataset.k); el.classList.remove('asking'); next(); return; }
+      next();
+    });
+    requestAnimationFrame(() => el.classList.add('on'));
+    setTimeout(() => el.classList.add('zoom'), 150);
+    setTimeout(() => { el.classList.add('say'); next(); }, 1000);
+  }
+
+  window.FANFARE = { celebrate, clerk, thanks, noteHalf(who, saved) { halves.push({ who, saved }); }, HALF_LINE };
 })();

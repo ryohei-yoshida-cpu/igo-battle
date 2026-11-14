@@ -25,7 +25,7 @@
   const GIFT_LINE = '店の奥にしまってあったんだが…誰も貰っちゃくれねえから、こいつが寂しがっているように見えてな。お前さん、貰っちゃくれねえかい？';
   function bubble(id, textId, t) { $(textId).textContent = t; const b = $(id); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
   function open() {
-    $('#shopZeni').textContent = `${(S.zeni || 0).toLocaleString()} 銭`;
+    $('#shopZeni').innerHTML = `${(S.zeni || 0).toLocaleString()} 銭<i class="chip-tama">勾玉 ${(S.tama | 0).toLocaleString()}</i>`;
     P.showScreen('shop');
     bubble('#shopBubbleH', '#shopTalkH', (S.zeni || 0) < 300 ? '銭が少なくても、見るだけでも楽しいよ♪' : pick(H_HELLO));
     bubble('#shopBubbleS', '#shopTalkS', pick(S_HELLO));
@@ -57,7 +57,7 @@
   }
   function kTalk(t) { $('#kottoTalk').textContent = t; const b = $('.kt-say'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
   function renderKotto() {
-    $('#kottoZeni').textContent = `${(S.zeni || 0).toLocaleString()} 銭`;
+    $('#kottoZeni').innerHTML = `${(S.zeni || 0).toLocaleString()} 銭<i class="chip-tama">勾玉 ${(S.tama | 0).toLocaleString()}</i>`;
     $('#kottoTabs').innerHTML = [['item', '家具'], ['av', '服など'], ['tama', '勾玉']].map(([k, n]) => `<button type="button" data-kt="${k}" aria-pressed="${ktTab === k}">${n}</button>`).join('');
     let g = '';
     $('.kt-note').hidden = ktTab === 'tama';
@@ -152,15 +152,15 @@
     const flash = () => {
       if (done) return; done = true; T.forEach(clearTimeout);
       el.classList.add('flash'); P.sound('chord');
-      setTimeout(() => { then(); el.classList.add('fade'); }, 420);
-      setTimeout(() => el.remove(), 1000);
+      setTimeout(() => { then(); el.classList.add('fade'); }, 700);
+      setTimeout(() => el.remove(), 1600);
     };
     P.sound('stone');
-    at(60, () => el.classList.add('on'));
-    at(380, () => { el.classList.add('open'); P.sound('n784'); });
-    at(780, () => el.classList.add('zoom'));
-    at(1250, () => { el.querySelector('.sj-say span').textContent = pick(WELCOME[who]); el.classList.add('say'); P.sound('coin'); });
-    at(2700, flash);
+    at(80, () => el.classList.add('on'));
+    at(650, () => { el.classList.add('open'); P.sound('n784'); });
+    at(1300, () => el.classList.add('zoom'));
+    at(2300, () => { el.querySelector('.sj-say span').textContent = pick(WELCOME[who]); el.classList.add('say'); P.sound('coin'); });
+    at(4600, flash);
     el.addEventListener('click', flash);
   }
   $('#shopKotto').onclick = () => { bubble('#shopBubbleK', '#shopTalkK', '……こっちだ。奥へ入んな。'); enterShop('gensai', openKotto); };
