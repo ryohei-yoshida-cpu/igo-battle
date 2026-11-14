@@ -120,7 +120,7 @@
     sel.value = String(S.solo.bot);
 
     const list = $('#storyList'); list.innerHTML = '';
-    let userHead = false, epHead = false;
+    let userHead = false, epHead = false, prevDone = true;
     for (const st of STORIES) {
       if (st.chara && !epHead) {
         epHead = true;
@@ -134,6 +134,16 @@
       }
       const n = st.parts.length, op = opened(st.id), done = S.solo.read && S.solo.read[st.id];
       const b = document.createElement('button'); b.className = 'story'; b.type = 'button';
+      // 上から順番に：前のお話を読み終えていないと読めない（もう読みはじめていたお話は、そのまま）
+      const seqLock = !prevDone && !done && !op;
+      prevDone = !!done;
+      if (seqLock) {
+        b.disabled = true; b.classList.add('locked');
+        b.innerHTML = '<b></b><small></small><span class="st-state">前のお話を読み終えると読めます</span>';
+        b.querySelector('b').textContent = '🔒 ' + st.title;
+        b.querySelector('small').textContent = st.sub;
+        list.append(b); continue;
+      }
       if (st.need && P.displayRank() < st.need) {
         b.disabled = true; b.classList.add('locked');
         b.innerHTML = '<b></b><small></small><span class="st-state"></span>';
@@ -327,6 +337,7 @@
       const first = !S.solo.read[st.id];
       if (first) P.claim('episode', st.id, 500);   // エピソードを初めて読み終えたら 500銭
       S.solo.read[st.id] = true; P.save();
+      if (st.id === 'haru' && window.PROG) setTimeout(() => window.PROG.haruDone(), 2600);   // 対人戦が開く
       if (window.FX) window.FX.stamp({ kicker: 'エピソードクリア', stamp: '読了', title: st.title, sub: '最後まで読んでくれて、ありがとうございました！', rewards: first ? ['ごほうび 500銭'] : [], chara: st.chara || (st.user ? null : 'koharu'), kind: 'clear' });
       const r = $('#rdStage').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win'); P.sound('ok');
       for (const el of document.querySelectorAll('.rd-actor')) el.classList.remove('speak');

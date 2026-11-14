@@ -408,8 +408,9 @@
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
       passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1,
       online: opts.online || null, oppAway: 0,
-      hc: opts.hc || null, friend: !!opts.hc, komi: opts.hc ? opts.hc.komi : KOMI, size: BN
+      hc: opts.hc || null, friend: !!opts.hc, komi: opts.hc ? opts.hc.komi : KOMI, size: BN, atari: !!opts.atari
     };
+    if (opts.atari) G.clock = { 1: 60 * 60000, 2: 60 * 60000 };   // アタリ碁（はじめての一局）は時間を気にしない
     if (BN === 13) G.clock = { 1: MAIN_MS * 2, 2: MAIN_MS * 2 };   // 13路は10分
     // フレンド戦のハンデ：置き石を先に並べて、白から打つ
     if (G.hc) {
@@ -417,7 +418,7 @@
       for (const p of hcStones(G.hc.h, BN)) G.board[p] = 1;
       if (G.hc.h >= 2) G.toPlay = 2;
     }
-    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo, size: BN }); }
+    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.nyumon ? -1 : bot.level, solo: !!G.solo, size: BN }); }
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined, size: BN })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setPb($('#meAvatar'), S.av || (window.AVATAR && window.AVATAR.PRESETS.girl), charaIdx()); $('#meName').textContent = S.name; $('#meRank').textContent = `${BN === 13 ? '13路 ' : ''}${RANKS[displayRank(BN)]} ${RS(BN).rating}`;
@@ -533,9 +534,37 @@
     render();
     stoneFx($('#board'), p, c, $('#boardWrap'));
     if (tech) fx(tech[0], tech[1], p, c === G.me);
+    // アタリ碁：石を1つでも取ったら勝ち
+    if (G.atari && r.cap.length) { endGame(c, 'アタリ碁'); return true; }
     nextTurn();
     ponder();
+    if (G.bot && G.bot.nyumon && c !== G.me) setTimeout(() => hint(), 350);   // 入門：取れる石があれば教える
     return true;
+  }
+  // 入門の小春：取れる石があっても、たいてい見のがす。石の近くに打つ
+  function nyumonMove(g) {
+    const c = g.toPlay, cands = [];
+    for (let p = 0; p < BN * BN; p++) {
+      if (g.board[p]) continue;
+      const r = E.play(g.board, p, c, g.ko); if (!r) continue;
+      if (r.cap.length && Math.random() < 0.9) continue;   // 取れるのに取らない
+      // 自分の石がアタリになる手は、少しだけ選びにくく
+      let near = 0; for (const q of E.NB[p]) if (g.board[q]) near++;
+      cands.push([p, Math.random() + near * 0.35]);
+    }
+    if (!cands.length) return -1;
+    cands.sort((a, b) => b[1] - a[1]);
+    return cands[Math.floor(Math.random() * Math.min(4, cands.length))][0];
+  }
+  // ヒント：取れる相手の石があれば、その場所を光らせる
+  function hint() {
+    if (!G || G.over || G.toPlay !== G.me) return;
+    const pts = [];
+    for (let p = 0; p < BN * BN; p++) { if (G.board[p]) continue; const r = E.play(G.board, p, G.me, G.ko); if (r && r.cap.length) pts.push(p); }
+    if (!pts.length) return;
+    const ns = 'http://www.w3.org/2000/svg', mk = $('#marks');
+    for (const p of pts) { const c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', p % BN); c.setAttribute('cy', Math.floor(p / BN)); c.setAttribute('r', '.42'); c.setAttribute('class', 'hint-ring'); mk.append(c); }
+    toast(G.atari ? 'アタリ！ 光っているところに打つと、石が取れます！' : '取れる石があります。光っているところを見てみて！', 3500);
   }
 
   function doPass(c, remote) {
@@ -555,6 +584,13 @@
     const g = G, id = G.id, mv = G.moveNo;
     g.thinking = true;
     const t0 = performance.now();
+    if (g.bot && g.bot.nyumon) {   // 入門の小春（エンジンを使わない、やさしい手）
+      await new Promise(res => setTimeout(res, 700 + Math.random() * 700));
+      if (!G || G.id !== id || G.over || G.moveNo !== mv) return;
+      g.thinking = false;
+      const p = nyumonMove(g); if (p < 0 || !doMove(p, g.toPlay)) doPass(g.toPlay);
+      return;
+    }
     const r = await ask({ type: 'think', size: BN, board: g.board, toPlay: g.toPlay, ko: g.ko, level: g.bot.level, timeLeft: clockOf(g.toPlay), komi: g.komi, moveNum: g.moveNo, oppPassed: g.passes === 1, last: g.last, rec: g.hc ? null : g.record.slice() });
     const wait = Math.max(0, Math.min(4800 - (performance.now() - t0), 500 + Math.random() * 600 - (performance.now() - t0)));
     await new Promise(res => setTimeout(res, wait));
@@ -656,6 +692,9 @@
     if (reason === '中押し') label = win ? '中押し勝ち' : '中押し負け';
     if (reason === '時間切れ') label = win ? '時間切れ勝ち' : '時間切れ負け';
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
+    if (reason === 'アタリ碁') label = win ? '石を取って勝ち！' : '石を取られた…';
+    // 開放のための対局数（負けもBot戦も数える。すぐ終わった対局は数えない。アタリ碁は数える）
+    if (G.record.length >= 10 || G.atari) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
     const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
@@ -767,8 +806,8 @@
     if (!r) {
       // ソロモードのミッション対局（レートは変わらない）
       const solo = G.solo, cleared = win > 0;
-      pr.hidden = false; pr.textContent = cleared ? 'ミッションクリア！' : 'ミッション失敗……もう一度挑戦しよう';
-      $('#resAgain').textContent = cleared ? '続きを読む' : 'もう一度挑戦';
+      pr.hidden = false; pr.textContent = cleared ? (solo.clearText || 'ミッションクリア！') : (solo.failText || 'ミッション失敗……もう一度挑戦しよう');
+      $('#resAgain').textContent = cleared ? (solo.nextText || '続きを読む') : 'もう一度挑戦';
       $('#resAgain').onclick = () => { $('#result').hidden = true; const g = G; G = null; solo.done(cleared, g); };
       // 勝ったら、どのボタンで閉じても続きが読めるようにする（✕や「もどる」で閉じても、ミッションはクリア）
       G.soloCleared = cleared;
@@ -802,6 +841,7 @@
     G = null; renderHome();
     openPvp();
     if (size && window.FRIEND && window.FRIEND.setSize) window.FRIEND.setSize(size);
+    if (window.PROG) setTimeout(() => window.PROG.check(), 500);   // 対局数で、新しい場所が開く
   }
 
   /* ---------- 通信切断（3分で負け） ---------- */
@@ -1130,7 +1170,7 @@
     stopMatch();
     size = size === 13 ? 13 : 9;
     const myRank = rankFromRating(RS(size).rating);
-    M = { t0: Date.now(), fixed: S.botLevel !== 'auto' && S.botLevel !== 'up', myRank, found: false, timer: 0, size };
+    M = { t0: Date.now(), fixed: S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon', myRank, found: false, timer: 0, size };
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
@@ -1146,6 +1186,7 @@
     if (NET.ok) return `オンライン ${NET.online}人・対戦待ち ${NET.seeking}人`;
     if (S.noBot) return `${RANKS[Math.max(0, M.myRank - 1)]}〜${RANKS[Math.min(RANKS.length - 1, M.myRank + 1)]} のプレイヤー`;
     if (M.fixed) return `${RANKS[S.botLevel]} の相手`;
+    if (S.botLevel === 'nyumon') return '入門（小春）の相手';
     if (S.botLevel === 'up') { const lv = upLevels(); return `${RANKS[lv[0]]}${lv.length > 1 ? '〜' + RANKS[lv[lv.length - 1]] : ''} の相手`; }
     return `${RANKS[Math.max(0, Math.min(BOT_MAX, M.myRank) - 1)]}〜${RANKS[Math.min(BOT_MAX, M.myRank + 1)]} の相手`;
   }
@@ -1181,6 +1222,8 @@
     M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc, size: m.size }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
   }
   // 「自分と同じ以上の強さ」：レートが自分以上の Bot のうち、弱いほうから2つ（いなければ いちばん強い Bot）
+  // 入門：10級より下。小春が、わざとアタリを見のがしてくれる
+  const nyumonBot = () => ({ level: 0, rating: 1000, name: 'Bot 入門', nyumon: true, chara: Math.max(0, A.VARIANTS.findIndex(v => v.key === 'koharu')) });
   function upLevels() {
     const out = [];
     const my = RS(M && M.size).rating;
@@ -1190,10 +1233,10 @@
   function matchFound() {
     M.found = true; clearInterval(M.timer);
     const up = upLevels();
-    const lv = M.fixed ? Math.min(BOT_MAX, S.botLevel) : S.botLevel === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
-    const bot = { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
+    const lv = S.botLevel === 'nyumon' ? 0 : M.fixed ? Math.min(BOT_MAX, S.botLevel) : S.botLevel === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
+    const bot = S.botLevel === 'nyumon' ? nyumonBot() : { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
     const myColor = Math.random() < 0.5 ? 1 : 2;
-    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, M.fixed ? '指定した強さのBotとマッチしました' : S.botLevel === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
+    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, M.fixed || S.botLevel === 'nyumon' ? '指定した強さのBotとマッチしました' : S.botLevel === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
     const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz }); }, 2200);
   }
   function stopMatch() {
@@ -1435,12 +1478,13 @@
       const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
       add('auto', k ? '近い強さ' : '自動（近い強さ）');
       add('up', k ? '同じ以上' : '自分と同じ以上の強さ');
+      add('nyumon', k ? '入門' : '入門（10級より下・小春）');
       RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => add(String(i), k ? r : `${r}（レート ${botRating(i)}）`));
     });
-    if (S.botLevel !== 'auto' && S.botLevel !== 'up') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
+    if (S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
     const sync = () => sels.forEach(s => { s.value = String(S.botLevel); });
     sync();
-    sels.forEach(sel => sel.addEventListener('change', () => { S.botLevel = sel.value === 'auto' || sel.value === 'up' ? sel.value : +sel.value; save(); sync(); }));
+    sels.forEach(sel => sel.addEventListener('change', () => { S.botLevel = ['auto', 'up', 'nyumon'].includes(sel.value) ? sel.value : +sel.value; save(); sync(); }));
   })();
 
   /* ---------- 起動：前回の対局が途中で切れていたら負け ---------- */
@@ -1475,7 +1519,7 @@
     $('#title').hidden = true; document.body.classList.remove('on-title');
     if (G && !G.over) { showScreen('game'); return; }   // 中断していた対局が再開済み
     showScreen('home'); renderHome();
-    if (!S.tut) setTimeout(() => window.TUTORIAL && window.TUTORIAL.start(true), 900);   // はじめての人には、小春が案内
+    if (window.PROG) setTimeout(() => window.PROG.start(), 900);   // はじめての人には小春が登場。対局数で開く場所のたしかめ
   }
   // タイトル：キャラクター総出演（扇のように並べる）
   (() => {
@@ -1534,6 +1578,20 @@
       else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p: what.p | 0, d: what.d === 'y' ? 'y' : 'x' }, n: 12 }); }
       else if (what.roomBig != null) { const rm = what.roomBig ? (r.extra || [])[what.roomBig - 1] : r; if (rm) rm.n = 17; }
       save(); cb({ ok: true });
+    },
+    // はじめての一局：小春とアタリ碁（石を1つ取ったら勝ち）。done(勝った？) でもどる
+    startAtari(done) {
+      // 勝ったら done(true)。負けて「もう一度挑戦」ならもう一局、「もどる」なら done(false)
+      const solo = { clearText: 'はじめての勝利！ おめでとう！', failText: 'おしい！ もう一度やってみよう', nextText: 'つぎへ', done: c => { if (c) { if (done) done(true); } else window.APP.startAtari(done); }, back: () => done && done(false) };
+      newGame(Object.assign(nyumonBot(), { name: 'アタリ碁' }), 1, { solo, atari: true });
+    },
+    // 開放のおくりもの（id：rec / av / room / kotto）。つながっていないときは、この端末で受け取る
+    claimUnlock(id) {
+      if (econOn()) { netSend({ t: 'claim', kind: 'unlock', id }); return; }
+      const G2 = { rec: { av: ['tool:t13'] }, av: { av: ['body:b05'] }, room: { items: ['goban'] }, kotto: { items: ['tsubo'] } }[id]; if (!G2) return;
+      for (const k of G2.av || []) if (!(S.avOwned || []).includes(k)) S.avOwned = (S.avOwned || []).concat(k);
+      for (const k of G2.items || []) if (S.room && S.room.ownedItems) S.room.ownedItems[k] = (S.room.ownedItems[k] || 0) + 1;
+      save();
     },
     claimTutorial() { netSend({ t: 'claim', kind: 'tutorial', id: 'go' }); },
     // 勾玉：op 'swap'（n こを銭に）／ 'chara'（key のキャラを開放）。cb({ ok, reason })

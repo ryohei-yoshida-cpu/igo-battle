@@ -282,7 +282,7 @@ export class Core {
 
   async rateBot(id, bg, score, gid) {
     const key = 'go' + (bg.size || 9); let t = null, d = 0;
-    await this.withAcct(id, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, botRating(bg.lv), score, true); rankGift(r, key, b, t, this.now()); });
+    await this.withAcct(id, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, bg.lv < 0 ? 1000 : botRating(bg.lv), score, true); rankGift(r, key, b, t, this.now()); });
     if (t) this.sendRate(id, key, t, d, gid ? gid.split(':').slice(1).join(':') : null);
   }
   /* ---------- 銭・ショップ・部屋（サーバーが正） ---------- */
@@ -298,7 +298,7 @@ export class Core {
       this.botOpen = this.botOpen || new Map();
       const prev = this.botOpen.get(id), pg = prev && this.botGames.get(prev);
       if (pg && !pg.solo) { this.botGames.delete(prev); await this.rateBot(id, pg, 0); }
-      this.botGames.set(id + ':' + gid, { t0: this.now(), lv: Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9 });
+      this.botGames.set(id + ':' + gid, { t0: this.now(), lv: m.lv === -1 ? -1 : Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9 });
       if (!m.solo) this.botOpen.set(id, id + ':' + gid);
       if (this.botGames.size > 5000) this.botGames.delete(this.botGames.keys().next().value);
     } else if (m.t === 'botend') {
@@ -321,15 +321,16 @@ export class Core {
       if (rec) out({ t: 'zeni', zeni: rec.zeni, gained: amount, why: amount ? 'bot' : 'cap' });
     } else if (m.t === 'claim') {
       // レクチャー初クリア 20 銭、ドリル（1問1回まで）3 銭、ソロのエピソードを読み終えたら 500 銭（1話1回）
-      const kind = ['lesson', 'drill', 'episode', 'tutorial'].includes(m.kind) ? m.kind : null;
+      const kind = ['lesson', 'drill', 'episode', 'tutorial', 'unlock'].includes(m.kind) ? m.kind : null;
       const cid = String(m.id || '').slice(0, 24); if (!kind || !/^[\w:.-]+$/.test(cid)) return;
-      const amount = { lesson: 20, drill: 3, episode: EPISODE_ZENI, tutorial: 1000 }[kind], limit = { lesson: 80, drill: 400, episode: 40, tutorial: 5 }[kind];
+      const amount = { lesson: 20, drill: 3, episode: EPISODE_ZENI, tutorial: 1000, unlock: 0 }[kind], limit = { lesson: 80, drill: 400, episode: 40, tutorial: 5, unlock: 20 }[kind];
       let gained = 0;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         const list = r.claims[kind] = r.claims[kind] || [];
         if (list.includes(cid) || list.length >= limit) return;
         list.push(cid);
+        if (kind === 'unlock') { const u = UNLOCK_GIFT[cid]; if (!u) return false; addGift(r, 'pack', 0, u.label, this.now(), { av: u.av, items: u.items }); gained = -1; return; }   // 新しい場所が開いたときの、キャラからのおくりもの
         if (kind === 'tutorial') { addGift(r, 'welcome', amount, 'チュートリアルを最後まで受けたお礼（小春より）', this.now()); gained = -1; return; }   // チュートリアル完走（ゲームごとに1回）はプレゼントボックスへ
         r.zeni += amount; gained = amount;
       });
@@ -805,6 +806,13 @@ function cleanStats(s) {
   }
   return out;
 }
+// 新しい場所が開いたとき（対局数）に、キャラからもらえるもの
+const UNLOCK_GIFT = {
+  rec: { label: '巴からのおくりもの（扇子）', av: ['tool:t13'] },
+  av: { label: 'ひなたのお近づきキャンペーン品（ネオンパーカー）', av: ['body:b05'] },
+  room: { label: '静馬からのおわびの品（碁盤）', items: ['goban'] },
+  kotto: { label: '玄斎からの近づきのしるし（青磁の壺）', items: ['tsubo'] }
+};
 // はじめてそのゲームのアプリに入ったら、そのゲームの記念品（ほかのゲームでも使える）をプレゼントボックスへ
 const GAME_PACK = {
   go: { label: '囲碁BLITZ 記念品（碁打ちのアバターと碁盤）', av: ['head:h40', 'body:b13', 'tool:t13', 'bg:bg08'], items: ['goban', 'goke', 'igostatue', 'gobanrug'] }

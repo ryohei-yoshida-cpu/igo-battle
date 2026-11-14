@@ -1846,3 +1846,12 @@ body.fx-shake #app { animation: fxShake .35s; }
 .tut-skip { border: 1px solid rgba(255, 255, 255, .5); background: rgba(0, 0, 0, .5); color: #fff; font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 99px; cursor: pointer; }
 body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 .set-links a.btn, .set-links a.btn:visited { color: var(--text); }
+.hint-ring { fill: none; stroke: #ffd24a; stroke-width: .09; animation: hintPulse .9s ease-in-out infinite alternate; } @keyframes hintPulse { from { stroke-opacity: .35; r: .3; } to { stroke-opacity: 1; r: .46; } }
+.sj.koharu .sj-room { background: radial-gradient(ellipse at 50% 60%, #f6e2b8, #3a2a4a 70%); }
+.sj.tomoe .sj-room { background: radial-gradient(ellipse at 50% 60%, #e8a0a0, #3a1414 70%); }
+.sj.thx .sj-door { z-index: 2; }
+
+/* まだ開いていない場所 */
+.plock { position: relative; }
+.plock > * { filter: grayscale(.85) brightness(.55); }
+.plock::after { content: "🔒 " attr(data-lock); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: max-content; max-width: 92%; padding: 4px 10px; border-radius: 99px; background: rgba(0, 0, 0, .78); color: #ffe7b0; font-size: 11px; font-weight: 800; line-height: 1.35; text-align: center; white-space: normal; pointer-events: none; }

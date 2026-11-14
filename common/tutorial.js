@@ -13,25 +13,25 @@
   const home = () => { P.showScreen('home'); P.renderHome(); };
   const STEPS = [
     { go: home, say: 'はじめまして！ 小春です。これから、囲碁BLITZの中を案内しますね。ついてきてください！' },
-    { at: '#startMatch', say: 'ここは「対人戦」。全国のみんなと、真剣勝負ができるんです。ドキドキしますね！' },
-    { go: () => $('#startMatch').click(), at: '#goRandom', say: '「ランダムマッチ」なら、同じくらいの強さの人と打てます。勝てばレートが上がりますよ！' },
-    { at: '#goFriend', say: '「フレンドマッチ」は、合言葉で友だちと一局。おしゃべりしながら打つのも楽しいです♪' },
-    { at: '.bot-row', say: 'すぐ打ちたいときは「キャラクターと対局」。私と一緒に対局してくれると、嬉しいです！' },
+    { need: 'pvp', at: '#startMatch', say: 'ここは「対人戦」。全国のみんなと、真剣勝負ができるんです。ドキドキしますね！' },
+    { need: 'pvp', go: () => $('#startMatch').click(), at: '#goRandom', say: '「ランダムマッチ」なら、同じくらいの強さの人と打てます。勝てばレートが上がりますよ！' },
+    { need: 'pvp', at: '#goFriend', say: '「フレンドマッチ」は、合言葉で友だちと一局。おしゃべりしながら打つのも楽しいです♪' },
+    { need: 'pvp', at: '.bot-row', say: 'すぐ打ちたいときは「キャラクターと対局」。私と一緒に対局してくれると、嬉しいです！' },
     { go: home, at: '#openSolo', say: 'こちらは「ソロモード」。私たちの物語を読みながら、囲碁を覚えられます。' },
     { go: () => window.SOLO.open(), at: '#storyList', say: '物語の続きは、ミッションをクリアすると読めます。……ちょっと恥ずかしい話もあるかも。えへへ。' },
-    { go: home, at: '#openHub', say: '「ルーム」には、あなたのアバターとお部屋があります。行ってみましょう！' },
-    { go: () => window.AVATAR_UI.openHub(), at: '#openAvShop', say: 'ここでアバターの服を買えるんです。ひなたちゃんのお店、かわいい服がいっぱいですよ♪' },
-    { at: '#openAvatar', say: 'こっちは「クローク」。買った服に着がえられます。' },
-    { go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avBig', say: 'ここで着がえられるよ！ あなたに似合う服、私も見てみたいです！' },
-    { go: () => window.ROOM.open(), say: 'ここが、あなたのマイルーム！ 好きなものをかざって、自分だけのお部屋にしてくださいね。' },
-    { at: '#roomDock [data-dock="social"]', say: '「交流」では、フレンドや、遊びに来てくれた人とお話しできます。' },
-    { at: '#roomDock [data-dock="chara"]', say: '「キャラ」から、私たちをお部屋に呼べます。……呼んでくれたら、すぐ行きますね！' },
-    { at: '#roomDock [data-dock="shop"]', say: '家具は「ショップ」で。静馬さんのお店です。無口だけど、とってもやさしい人ですよ。' },
-    { at: '#roomDock [data-dock="edit"]', say: '「もようがえ」で、家具を好きな場所に並べられます。お部屋づくり、楽しみです！' },
-    { go: () => { window.AVATAR_UI.openHub(); $('#openChara').click(); }, at: '#avGrid', say: 'ここは「キャラクター」。段級位が上がると、仲間がどんどん増えていきます。早くみんなに会いたいな！' },
-    { go: () => window.FRIENDS.explore(), at: '#exList', say: '「ルーム探訪」では、ほかの人のお部屋をのぞけます。すてきなお部屋、たくさんありますよ！' },
-    { go: () => window.FRIENDS.open(), at: '.frs-me', say: 'これがあなたの部屋番号。友だちに教えて、フレンドになってくださいね。' },
-    { go: () => $('#openDiary').click(), at: '#dyWrite', say: 'ここで日記をつけられるよ。あなたの日記、楽しみです！' },
+    { need: 'av', go: home, at: '#openHub', say: '「ルーム」には、あなたのアバターとお部屋があります。行ってみましょう！' },
+    { need: 'av', go: () => window.AVATAR_UI.openHub(), at: '#openAvShop', say: 'ここでアバターの服を買えるんです。ひなたちゃんのお店、かわいい服がいっぱいですよ♪' },
+    { need: 'av', at: '#openAvatar', say: 'こっちは「クローク」。買った服に着がえられます。' },
+    { need: 'av', go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avBig', say: 'ここで着がえられるよ！ あなたに似合う服、私も見てみたいです！' },
+    { need: 'room', go: () => window.ROOM.open(), say: 'ここが、あなたのマイルーム！ 好きなものをかざって、自分だけのお部屋にしてくださいね。' },
+    { need: 'room', at: '#roomDock [data-dock="social"]', say: '「交流」では、フレンドや、遊びに来てくれた人とお話しできます。' },
+    { need: 'room', at: '#roomDock [data-dock="chara"]', say: '「キャラ」から、私たちをお部屋に呼べます。……呼んでくれたら、すぐ行きますね！' },
+    { need: 'room', at: '#roomDock [data-dock="shop"]', say: '家具は「ショップ」で。静馬さんのお店です。無口だけど、とってもやさしい人ですよ。' },
+    { need: 'room', at: '#roomDock [data-dock="edit"]', say: '「もようがえ」で、家具を好きな場所に並べられます。お部屋づくり、楽しみです！' },
+    { need: 'room', go: () => { window.AVATAR_UI.openHub(); $('#openChara').click(); }, at: '#avGrid', say: 'ここは「キャラクター」。段級位が上がると、仲間がどんどん増えていきます。早くみんなに会いたいな！' },
+    { need: 'room', go: () => window.FRIENDS.explore(), at: '#exList', say: '「ルーム探訪」では、ほかの人のお部屋をのぞけます。すてきなお部屋、たくさんありますよ！' },
+    { need: 'room', go: () => window.FRIENDS.open(), at: '.frs-me', say: 'これがあなたの部屋番号。友だちに教えて、フレンドになってくださいね。' },
+    { need: 'room', go: () => $('#openDiary').click(), at: '#dyWrite', say: 'ここで日記をつけられるよ。あなたの日記、楽しみです！' },
     { go: home, say: 'これで案内はおしまいです！ 最後まで聞いてくれて、ありがとうございました。これから、よろしくお願いしますね！', last: true }
   ];
 
@@ -117,6 +117,7 @@
   async function show(n) {
     busy = true;
     const st = STEPS[n];
+    if (st.need && window.PROG && !window.PROG.isOpen(st.need)) { busy = false; i = n; if (n + 1 < STEPS.length) { i = n; next2(); } return; }
     el.querySelector('.tut-n').textContent = `${n + 1} / ${STEPS.length}`;
     el.querySelector('.tut-say').classList.remove('in');
     el.querySelector('.tut-hole').hidden = true;
@@ -133,6 +134,7 @@
     if (n > 0) P.sound('tap');
     busy = false;
   }
+  function next2() { i++; if (i >= STEPS.length) { finish(); return; } show(i); }
   const wait = ms => new Promise(r => setTimeout(r, ms));
   function next() {
     if (busy || !el) return;
@@ -156,14 +158,8 @@
     }, null, { yes: 'スキップ', no: 'つづける' });
   }
   function finish() {
-    const first = S.tut !== 'done';
     S.tut = 'done'; P.save(); close(); home();
-    if (!first && S.tutPaid) { P.toast('おつかれさまでした！'); return; }
-    // 最後まで受けたお礼：1000銭（はじめの1回だけ。サーバーでも1回だけ）
-    S.tutPaid = 1; P.save();
-    if (P.online()) P.claimTutorial();
-    else if (window.GIFT) window.GIFT.add('welcome', 1000, 'チュートリアルを最後まで受けたお礼（小春より）');
-    setTimeout(() => window.FANFARE.celebrate({ items: [{ thumb: '<span class="ff-emoji">💰</span>', name: '1000銭' }], title: '小春からのお礼です！', note: 'プレゼントボックスに入れておきました' }), 500);
+    P.toast('案内はおしまいです。おつかれさまでした！');
   }
   function start(auto) {
     if (el) return;

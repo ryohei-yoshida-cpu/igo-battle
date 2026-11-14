@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   const P = window.APP;
-  const NAME = { hinata: 'ひなた', shima: '静馬', gensai: '玄斎' };
+  const NAME = { hinata: 'ひなた', shima: '静馬', gensai: '玄斎', koharu: '小春', tomoe: '巴', mike: 'みけ＆こむぎ', tono: '殿', dgensai: 'ダーク玄斎' };
   const HALF_LINE = {
     hinata: 'いっつも来てくれるから、今日はナイショでサービスしちゃおっかなって。ふふふ、ありがとね♪',
     shima: '…礼だ。こいつは半額でいいぞ。その、なんだ…いつも買いに来てくれて、感謝している。'
@@ -125,8 +125,16 @@
       steps.push({ text: HALF_LINE[who] || HALF_LINE.hinata, tag: `半額サービス！ ${h.saved.toLocaleString()} 銭 おトク`, coin: true });
     }
     steps.push({ text: (THANKS[who] || THANKS.hinata)[Math.floor(Math.random() * 2)], items: o.items || [], party: true, title: o.title });
-    const el = document.createElement('div'); el.className = 'sj thx ' + who;
+    run(who, steps, o);
+  }
+  /* ---------- キャラクターの登場シーン（障子が開いて、奥からズームアップ → セリフを順番に）----------
+   *   scene({ who, doors:true, steps:[{ text, opts:[[k,label]], pick(k) → 追加のセリフ（配列）を返してもよい, items, title, party }], then })
+   */
+  function scene(o) { run(o.who || 'koharu', o.steps.slice(), o); }
+  function run(who, steps, o) {
+    const el = document.createElement('div'); el.className = 'sj thx ' + who + (o.doors ? ' doors' : '');
     el.innerHTML = `<canvas class="ff-cv"></canvas><div class="sj-room"><img class="sj-clerk" src="img/bust_${who}.webp" alt=""></div>
+      ${o.doors ? '<div class="sj-door l"><div class="sj-lat"></div></div><div class="sj-door r"><div class="sj-lat"></div></div>' : ''}
       <div class="sj-say thx-say"><div class="ff-tag" hidden></div><b>${NAME[who]}</b><span class="thx-t"></span><div class="thx-items"></div><div class="thx-opts"></div><small class="thx-next">タップで次へ ▶</small></div><div class="sj-flash"></div>`;
     document.body.append(el);
     let i = -1, typing = 0, full = '', stop = null, busy = false;
@@ -158,13 +166,15 @@
     }
     el.addEventListener('click', e => {
       const b = e.target.closest('[data-k]');
-      if (b) { const st = steps[i]; st.opts = null; if (st.pick) st.pick(b.dataset.k); el.classList.remove('asking'); next(); return; }
+      if (b) { const st = steps[i]; st.opts = null; const more = st.pick ? st.pick(b.dataset.k) : null; if (Array.isArray(more)) steps.splice(i + 1, 0, ...more); el.classList.remove('asking'); next(); return; }
       next();
     });
     requestAnimationFrame(() => el.classList.add('on'));
-    setTimeout(() => el.classList.add('zoom'), 150);
-    setTimeout(() => { el.classList.add('say'); next(); }, 1000);
+    const d = o.doors ? 1300 : 0;   // 障子が開いてから、ズームアップ
+    if (o.doors) setTimeout(() => { el.classList.add('open'); if (P) P.sound('n784'); }, 600);
+    setTimeout(() => el.classList.add('zoom'), 150 + d);
+    setTimeout(() => { el.classList.add('say'); next(); }, 1000 + d);
   }
 
-  window.FANFARE = { celebrate, clerk, thanks, noteHalf(who, saved) { halves.push({ who, saved }); }, HALF_LINE };
+  window.FANFARE = { celebrate, clerk, thanks, scene, noteHalf(who, saved) { halves.push({ who, saved }); }, HALF_LINE };
 })();
