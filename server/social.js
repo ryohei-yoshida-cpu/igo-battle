@@ -58,6 +58,7 @@ function cleanKifu(k) {
 }
 
 // アカウントの名前（全ゲーム共通。前の形は data.name）
+const ADMIN_PID = '561149';   // 運営（通報を見られる人）の部屋番号
 const acctName = a => { const n = a && (a.name || (a.data && a.data.name)); return n ? cleanName(n) : ''; };
 export class Social {
   constructor(core) { this.core = core; this.active = []; this.posts = new Map(); }
@@ -166,6 +167,13 @@ export class Social {
     // 相手の部屋に書きこめるか（ブロック・コメント設定）
     const canWrite = (s, pid) => pid === me || (!has(s.blocks, me) && (s.cset === 'all' || (s.cset === 'friends' && has(s.friends, me))));
 
+    // 運営：通報の一覧（ADMIN の部屋番号の人だけ）
+    if (op === 'reports') {
+      if (me !== ADMIN_PID) { out({ ok: false, reason: 'admin' }); return; }
+      if (m.clear) await this.withKey('reports', list => { list.length = 0; }, null);
+      out({ ok: true, list: (await this.store.get('reports')) || [] });
+      return;
+    }
     if (op === 'me') {
       const s = await this.readSoc(id);
       out({ ok: true, pid: me, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
@@ -381,6 +389,28 @@ export class Social {
       out({ ok: true, entry, chat: s.chat });
       // 部屋の持ち主がつながっていたら、新しい一言コメントをすぐ知らせる（画面上の流れる一行）
       if (op === 'chat') for (const p of this.core.players.values()) if (p.acct === oid && p.sock) { try { p.sock.send(JSON.stringify({ t: 'soc', op: 'push', item: s.chat[0] })); } catch (e) {} }
+      return;
+    }
+    // 通報：運営（ADMIN の部屋番号の人）が一覧で見られる。中身はサーバーが写しをとる（あとで消されても分かるように）
+    if (op === 'report') {
+      this.repDay = this.repDay || new Map();
+      const key = id + ':' + this.day(), n = this.repDay.get(key) || 0;
+      if (n >= 20) { out({ ok: false, reason: 'many' }); return; }
+      this.repDay.set(key, n + 1); if (this.repDay.size > 5000) this.repDay.delete(this.repDay.keys().next().value);
+      const kind = ['prof', 'chat', 'diary', 'comment'].includes(m.kind) ? m.kind : 'prof';
+      const reason = text(m.reason).slice(0, 20), note = text(m.note).slice(0, 200);
+      // 書かれた場所（owner）の中から、問題の文章を探す
+      const ownerPid = String(m.owner || pid).replace(/\D/g, '').slice(0, 6), ownerId = ownerPid === pid ? oid : await this.idOf(ownerPid);
+      let excerpt = '';
+      const acct = await this.store.get('acct:' + oid), ts = await this.readSoc(oid);
+      if (kind === 'prof') excerpt = `名前：${acctName(acct) || '—'} / ひとこと：${ts.hito || '—'}`;
+      else if (ownerId) {
+        const os = await this.readSoc(ownerId);
+        if (kind === 'chat') { const c = os.chat.find(c => c.id === (m.id | 0)); excerpt = c ? c.text : '（見つかりません）'; }
+        else { const b = await this.store.get(`dia:${ownerId}:${m.did | 0}`); if (kind === 'diary') excerpt = b ? `${b.title || ''}：${b.text || ''}`.slice(0, 300) : '（見つかりません）'; else { const c = b && (b.c || []).find(c => c.id === (m.id | 0)); excerpt = c ? c.text : '（見つかりません）'; } }
+      }
+      await this.pushList('reports', { t: this.core.now(), from: me, pid, name: acctName(acct) || '', kind, reason, note, excerpt, owner: ownerPid, did: m.did | 0 }, () => false, 500);
+      out({ ok: true });
       return;
     }
     if (op === 'del') {

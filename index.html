@@ -107,7 +107,6 @@
     </nav>
     <button class="diary-bar" id="homeDiary" type="button"><span aria-hidden="true">✒</span>日記を書く<i aria-hidden="true">›</i></button>
 
-    <p class="credit home-credit">音楽：魔王魂</p>
     <button class="gift-fab" id="openGift" type="button" aria-label="プレゼントボックス"><span aria-hidden="true">🎁</span><b>プレゼント</b><i class="gift-badge" id="giftBadge" hidden>0</i></button>
     <button class="icon-btn gear-fab" id="openSettings" type="button" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm8.6-2.3.1-1.2-.1-1.2 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.1-1.2L15.8 3h-3.9l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2.1 1.6-.1 1.2.1 1.2-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2l.4 2.6h3.9l.3-2.6a8 8 0 0 0 2.1-1.2l2.4 1 2-3.4-2-1.6Z"/></svg></button>
   </section>
@@ -297,6 +296,15 @@
       <h2>フレンド</h2>
       <span class="zeni-chip" id="frsCount"></span>
     </header>
+    <div class="frs-me">
+      <div><small>あなたの部屋番号（フレンドになるためのID）</small><b id="frsMyId">—</b></div>
+      <button type="button" class="btn lac small" id="frsCopy">コピー</button>
+      <button type="button" class="btn primary small" id="frsFind">フレンドを探す</button>
+    </div>
+    <div class="ex-find" id="frsFindBox" hidden>
+      <input type="text" id="frsPid" inputmode="numeric" maxlength="6" placeholder="相手の部屋番号（6けた）">
+      <button type="button" class="btn primary small" id="frsGo">さがす</button>
+    </div>
     <p class="rm-help">フレンドの部屋・アバター・最近の日記が見られます。一言は、すぐ相手に届きます（フレンドは100人まで）。</p>
     <div class="frs-list" id="frsList"></div>
     <button type="button" class="btn lac small" id="frsMore" hidden>もっと見る</button>
@@ -736,8 +744,6 @@
         <label class="toggle"><input type="checkbox" id="optTickerMine"><i></i>自分のお知らせも出す（日記を書いた・着がえた など）</label>
         <label class="toggle"><input type="checkbox" id="optSound"><i></i>効果音</label>
         <label class="toggle"><input type="checkbox" id="optBgm"><i></i>BGM</label>
-        <p class="credit">音楽：魔王魂（<a href="https://maou.audio/" target="_blank" rel="noopener">maou.audio</a>）</p>
-        <p class="credit">囲碁AI（初段より上のBot・検討・整地）：<a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener">KataGo</a> のニューラルネット（g170, CC0）</p>
       </div>
 
       <div class="field"><span>アカウント（データの保存と引き継ぎ）</span>
@@ -762,6 +768,17 @@
       <div class="field danger-zone"><span>レート</span>
         <p class="note">レートを1050（10級）に戻し、成績と対局履歴を消します。</p>
         <button class="btn danger" id="resetRate">レートをリセット</button>
+      </div>
+
+      <div class="field"><span>ヘルプ・そのほか</span>
+        <div class="set-links">
+          <button type="button" class="btn primary small" id="startTut">チュートリアルを受ける</button>
+          <a class="btn lac small" href="help.html">ヘルプ</a>
+          <a class="btn lac small" href="terms.html">利用規約</a>
+          <a class="btn lac small" href="privacy.html">プライバシーポリシー</a>
+          <button type="button" class="btn lac small" id="adminRep" hidden>運営：通報の一覧</button>
+        </div>
+        <p class="credit">音楽・囲碁AIのクレジットは、ヘルプのいちばん下にあります。</p>
       </div>
     </div>
   </div>
@@ -811,6 +828,8 @@
 <script src="room.js"></script>
 <script src="common/avatar.js"></script>
 <script src="common/friends.js"></script>
+<script src="common/report.js"></script>
+<script src="common/tutorial.js"></script>
 <script src="diary.js"></script>
 <script src="common/ticker.js"></script>
 <script src="common/fanfare.js"></script>

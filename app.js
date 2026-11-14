@@ -417,7 +417,7 @@
       for (const p of hcStones(G.hc.h, BN)) G.board[p] = 1;
       if (G.hc.h >= 2) G.toPlay = 2;
     }
-    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo }); }
+    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.level, solo: !!G.solo, size: BN }); }
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined, size: BN })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setPb($('#meAvatar'), S.av || (window.AVATAR && window.AVATAR.PRESETS.girl), charaIdx()); $('#meName').textContent = S.name; $('#meRank').textContent = `${BN === 13 ? '13路 ' : ''}${RANKS[displayRank(BN)]} ${RS(BN).rating}`;
@@ -931,7 +931,8 @@
     }
     if (e.tama) S.tama = e.tama[GAME] | 0;          // 勾玉（このアプリのぶん）
     if (e.charas) S.charaBuy = (e.charas[GAME] || []).slice();
-    if (e.stats) S.statsAll = e.stats;               // 全ゲームの戦績のまとめ（戦績のタブ）
+    if (e.stats) S.statsAll = e.stats;
+    if (e.rates) { for (const k of ['go9', 'go13']) if (e.rates[k]) setRate(k, e.rates[k]); }               // 全ゲームの戦績のまとめ（戦績のタブ）
     if (layout === false && e.rooms2 && e.rooms2.length > (r.extra = r.extra || []).length) {   // 部屋を買った：新しい部屋だけ足す
       for (const x of e.rooms2.slice(r.extra.length)) r.extra.push({ floor: x.floor, wall: x.wall, items: x.items || [], walls: x.walls || [], at: x.at, n: x.n });
     }
@@ -971,6 +972,23 @@
     if (!$('#settings').hidden) renderAccount();
     applyEcon(m.econ);
     netHello();
+  }
+  // サーバーが計算したレート（対局のあと・つないだとき）。アプリの数字をサーバーに合わせる
+  function setRate(key, t) {
+    const T = RS(key === 'go13' ? 13 : 9);
+    for (const f of ['rating', 'games', 'wins', 'draws', 'streak', 'earnedDan']) if (typeof t[f] === 'number') T[f] = t[f];
+  }
+  function onRate(m) {
+    if (m.key !== 'go9' && m.key !== 'go13') return;
+    setRate(m.key, m);
+    const size = m.key === 'go13' ? 13 : 9;
+    const h = S.history.find(x => (x.size === 13 ? 13 : 9) === size && !x.friend);
+    if (h && m.g && typeof m.d === 'number') h.delta = m.d;
+    saveLocal(); renderHome();
+    // 結果の画面が出ていれば、数字をサーバーのものに
+    if (!$('#result').hidden && !$('#resRate').hidden && typeof m.d === 'number' && m.g) {
+      $('#resNew').textContent = m.rating; const de = $('#resDelta'); de.textContent = (m.d >= 0 ? '+' : '') + m.d; de.className = m.d >= 0 ? 'up' : 'down';
+    }
   }
   function onAuthFail(m) {
     if (m.restore) { NET.pendingPass = null; toast('IDかパスワードがちがいます'); return; }
@@ -1025,6 +1043,7 @@
       case 'end': onlineEnd(m); break;
       case 'account': onAccount(m); break;
       case 'pid': if (m.pid) applyEcon({ pid: m.pid }); break;
+      case 'rate': onRate(m); break;
       case 'zeni': onZeni(m); break;
       case 'sold': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
@@ -1244,7 +1263,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false;
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false; $('#adminRep').hidden = !(window.REPORT && window.REPORT.isAdmin());
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1278,6 +1297,8 @@
     S.name = v || defName(); save(); renderHome();
   });
   $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
+  $('#adminRep').onclick = () => window.REPORT.admin();
+  $('#startTut').onclick = () => { $('#settings').hidden = true; window.TUTORIAL.start(false); };
   $('#optTickerMine').addEventListener('change', e => { S.settings.tickerMine = e.target.checked; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
@@ -1286,6 +1307,7 @@
   }
   $('#resetRate').onclick = () => confirmBox('レートを1050（10級）に戻し、成績と履歴を消します。元に戻せません。', () => {
     Object.assign(S, { rating: START_RATE, games: 0, wins: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, history: [], r13: fresh13() });
+    if (econOn()) netSend({ t: 'ratereset' });
     save(); renderHome(); $('#settings').hidden = true; toast('レートをリセットしました');
   });
 
@@ -1453,6 +1475,7 @@
     $('#title').hidden = true; document.body.classList.remove('on-title');
     if (G && !G.over) { showScreen('game'); return; }   // 中断していた対局が再開済み
     showScreen('home'); renderHome();
+    if (!S.tut) setTimeout(() => window.TUTORIAL && window.TUTORIAL.start(true), 900);   // はじめての人には、小春が案内
   }
   // タイトル：キャラクター総出演（扇のように並べる）
   (() => {
@@ -1512,6 +1535,7 @@
       else if (what.roomBig != null) { const rm = what.roomBig ? (r.extra || [])[what.roomBig - 1] : r; if (rm) rm.n = 17; }
       save(); cb({ ok: true });
     },
+    claimTutorial() { netSend({ t: 'claim', kind: 'tutorial', id: 'go' }); },
     // 勾玉：op 'swap'（n こを銭に）／ 'chara'（key のキャラを開放）。cb({ ok, reason })
     TAMA_ZENI: 10, TAMA_CHARA: 300,
     tama(op, data, cb) {

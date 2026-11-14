@@ -25,6 +25,7 @@
   const ctrl = (it, ctx, kind, did) => {
     let s = '';
     if (ctx.mine || it.pid === ctx.me.pid) s += `<button type="button" class="sc-x" data-del="${kind}" data-id="${it.id}" ${did ? `data-did="${did}"` : ''}>消す</button>`;
+    if (it.pid !== ctx.me.pid) s += `<button type="button" class="sc-x" data-report="${kind}" data-rpid="${esc(it.pid)}" data-id="${it.id}" ${did ? `data-did="${did}"` : ''}>通報</button>`;
     if (ctx.mine && it.pid !== ctx.me.pid) s += `<button type="button" class="sc-x warn" data-block="${esc(it.pid)}" data-name="${esc(it.name)}">ブロック</button>`;
     return s;
   };
@@ -89,6 +90,7 @@
     }
     if (ds.del) { P.confirmBox('消しますか？', () => P.soc('del', { pid: ctx.pid, kind: ds.del, id: +ds.id, did: +ds.did || 0 }, after)); return true; }
     if (ds.block) { P.confirmBox(`${ds.name}さんをブロックしますか？ あなたの部屋に入れなくなり、書きこみも消えます。`, () => P.soc('block', { pid: ds.block, name: ds.name }, res => { if (res.ok) P.toast('ブロックしました'); if (ctx.mine) after(res); else ctx.home(); })); return true; }
+    if (ds.report) { window.REPORT.open({ pid: ds.rpid, kind: ds.report, owner: ctx.pid, id: +ds.id, did: +ds.did || 0 }); return true; }
     if (ds.unblock) { P.soc('unblock', { pid: ds.unblock }, after); return true; }
     if (ds.cset) { P.soc('cset', { v: ds.cset }, after); return true; }
     if (ds.fa) { P.soc('faccept', { pid: ds.fa }, res => { if (res.ok) P.toast('フレンドになりました'); after(res); }); return true; }

@@ -131,7 +131,7 @@ export class Core {
       case 'fjoin': this.fjoin(pl, m); break;
       case 'fcancel': this.closeRoom(pl); break;
       case 'rematch': this.rematch(pl, m); break;
-      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; if (m.rating) pl.rating = Math.max(0, Math.min(4000, m.rating | 0)); pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
+      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; { const k = 'go' + pl.size; pl.rating = pl.rates && pl.rates[k] ? pl.rates[k] : m.rating ? Math.max(0, Math.min(4000, m.rating | 0)) : pl.rating; } pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
       case 'cancel': pl.seekAt = 0; this.lobby(); break;
       case 'move': this.move(pl, m); break;
       case 'resign': { const g = this.gameOf(pl, m.g); if (g && !g.over) this.finish(g, 3 - g.colorOf[pl.cid], '中押し'); break; }
@@ -147,8 +147,8 @@ export class Core {
     if (old && old.sock && old.sock !== sock) { this.socks.delete(old.sock); try { old.sock.close(); } catch (e) {} }
     const pl = old || { cid, seekAt: 0, game: null };
     pl.name = String(m.name || 'プレイヤー').slice(0, 12);
-    const si = this.sockInfo.get(sock); if (si && si.acct) { pl.acct = si.acct; pl.pid = si.pid || pl.pid; pl.av = si.av || pl.av; }
-    pl.rating = Math.max(0, Math.min(4000, m.rating | 0));
+    const si = this.sockInfo.get(sock); if (si && si.acct) { pl.acct = si.acct; pl.pid = si.pid || pl.pid; pl.av = si.av || pl.av; pl.rates = si.rates || pl.rates; }
+    pl.rating = pl.rates && pl.rates.go9 ? pl.rates.go9 : Math.max(0, Math.min(4000, m.rating | 0));   // アカウントがあれば、サーバーのレート
     pl.ava = Math.max(0, Math.min(20, m.ava | 0));
     pl.sock = sock;
     this.players.set(cid, pl); this.socks.set(sock, cid);
@@ -212,7 +212,9 @@ export class Core {
         await this.store.put(key, { data, at });
         if (game === 'go' && r.data !== undefined) { delete r.data; delete r.at; }   // 前の保存場所（囲碁だけだったころ）は片づける
         r.name = cleanName(data.name);
-        r.stats = r.stats || {}; const st = cleanStats(m.stats); if (st) r.stats[game] = st;
+        r.stats = r.stats || {}; const st = cleanStats(m.stats);
+        if (st && game === 'go') for (const k of ['go9', 'go13']) { const t = rateOf(r, k); st[k] = Object.assign(st[k] || {}, { rating: t.rating, games: t.games, wins: t.wins, draws: t.draws, streak: t.streak, rank: dispRank(t) }); }   // レートはサーバーの数字で
+        if (st) r.stats[game] = st;
         ok = true;
       });
       out({ t: 'synced', at, stale: !rec || !ok });
@@ -235,7 +237,8 @@ export class Core {
       info.pid = pid;
       try { sock.send(JSON.stringify({ t: 'pid', pid })); } catch (e) {}   // 新しく作った部屋番号をアプリへ（名前のかわりにも使う）
       const rec = await this.store.get('acct:' + id); info.av = rec && rec.av || null;   // 対局相手に見せるアバター
-      const p = cid && this.players.get(cid); if (p && p.acct === id) { p.pid = pid; p.av = info.av; }
+      info.rates = rec ? { go9: rateOf(rec, 'go9').rating, go13: rateOf(rec, 'go13').rating } : null;
+      const p = cid && this.players.get(cid); if (p && p.acct === id) { p.pid = pid; p.av = info.av; p.rates = info.rates; if (info.rates) p.rating = info.rates.go9; }
     }).catch(() => {});
   }
   // 同じアカウントの読み書きが重ならないよう、順番に処理する
@@ -277,6 +280,11 @@ export class Core {
     else for (const p of this.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify(msg)); } catch (e) {} }
   }
 
+  async rateBot(id, bg, score, gid) {
+    const key = 'go' + (bg.size || 9); let t = null, d = 0;
+    await this.withAcct(id, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, botRating(bg.lv), score, true); rankGift(r, key, b, t, this.now()); });
+    if (t) this.sendRate(id, key, t, d, gid ? gid.split(':').slice(1).join(':') : null);
+  }
   /* ---------- 銭・ショップ・部屋（サーバーが正） ---------- */
   async econ(sock, m) {
     const info = this.sockInfo.get(sock); if (!info || !info.acct) return;
@@ -286,15 +294,23 @@ export class Core {
       // Bot 戦の開始を記録（勝ったときに「早すぎないか」を確かめるため）
       const gid = String(m.g || '').slice(0, 40); if (!gid) return;
       this.botGames = this.botGames || new Map();
-      this.botGames.set(id + ':' + gid, { t0: this.now(), lv: Math.max(0, Math.min(9, m.lv | 0)), solo: !!m.solo });
+      // 前の Bot 戦が終わらないまま新しく始めた（アプリを閉じた など）→ 前のは負けとして数える
+      this.botOpen = this.botOpen || new Map();
+      const prev = this.botOpen.get(id), pg = prev && this.botGames.get(prev);
+      if (pg && !pg.solo) { this.botGames.delete(prev); await this.rateBot(id, pg, 0); }
+      this.botGames.set(id + ':' + gid, { t0: this.now(), lv: Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9 });
+      if (!m.solo) this.botOpen.set(id, id + ':' + gid);
       if (this.botGames.size > 5000) this.botGames.delete(this.botGames.keys().next().value);
     } else if (m.t === 'botend') {
       const key = id + ':' + String(m.g || '').slice(0, 40), bg = this.botGames && this.botGames.get(key);
       if (!bg) return;
-      this.botGames.delete(key);
+      this.botGames.delete(key); if (this.botOpen && this.botOpen.get(id) === key) this.botOpen.delete(id);
       const sec = (this.now() - bg.t0) / 1000, moves = m.moves | 0;
       if (!['win', 'draw', 'loss'].includes(m.result)) return;
-      if (sec < 30 || moves < 16) { out({ t: 'zeni', gained: 0, why: 'short' }); return; }   // 早すぎる・短すぎる対局は数えない
+      const short = sec < 30 || moves < 16;
+      // レート：負けはいつでも数える。勝ち・引き分けは、早すぎる・短すぎる対局なら数えない
+      if (!bg.solo && (m.result === 'loss' || !short)) await this.rateBot(id, bg, m.result === 'win' ? 1 : m.result === 'draw' ? 0.5 : 0, key);
+      if (short) { out({ t: 'zeni', gained: 0, why: 'short' }); return; }   // 早すぎる・短すぎる対局は数えない
       let amount = GAME_ZENI;   // 対局1回につき100銭（勝ち負けに関係なく）
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
@@ -305,17 +321,20 @@ export class Core {
       if (rec) out({ t: 'zeni', zeni: rec.zeni, gained: amount, why: amount ? 'bot' : 'cap' });
     } else if (m.t === 'claim') {
       // レクチャー初クリア 20 銭、ドリル（1問1回まで）3 銭、ソロのエピソードを読み終えたら 500 銭（1話1回）
-      const kind = ['lesson', 'drill', 'episode'].includes(m.kind) ? m.kind : null;
+      const kind = ['lesson', 'drill', 'episode', 'tutorial'].includes(m.kind) ? m.kind : null;
       const cid = String(m.id || '').slice(0, 24); if (!kind || !/^[\w:.-]+$/.test(cid)) return;
-      const amount = { lesson: 20, drill: 3, episode: EPISODE_ZENI }[kind], limit = { lesson: 80, drill: 400, episode: 40 }[kind];
+      const amount = { lesson: 20, drill: 3, episode: EPISODE_ZENI, tutorial: 1000 }[kind], limit = { lesson: 80, drill: 400, episode: 40, tutorial: 5 }[kind];
       let gained = 0;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         const list = r.claims[kind] = r.claims[kind] || [];
         if (list.includes(cid) || list.length >= limit) return;
-        list.push(cid); r.zeni += amount; gained = amount;
+        list.push(cid);
+        if (kind === 'tutorial') { addGift(r, 'welcome', amount, 'チュートリアルを最後まで受けたお礼（小春より）', this.now()); gained = -1; return; }   // チュートリアル完走（ゲームごとに1回）はプレゼントボックスへ
+        r.zeni += amount; gained = amount;
       });
-      if (rec) out({ t: 'zeni', zeni: rec.zeni, gained, why: kind });
+      if (rec && gained === -1) out({ t: 'gifts', gifts: rec.gifts || [], zeni: rec.zeni });
+      else if (rec) out({ t: 'zeni', zeni: rec.zeni, gained, why: kind });
     } else if (m.t === 'gifts') {
       const rec = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); });
       if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni });
@@ -345,6 +364,7 @@ export class Core {
       if (rank < 1 || rank > 30) return;
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
+        if (rank > dispRank(rateOf(r, key === 'rank' ? 'go9' : key.slice(5)))) return false;   // サーバーのレートで、その段級位に届いているときだけ
         const list = r.claims[key] = r.claims[key] || [];
         if (list.includes(rank)) return false;
         list.push(rank); addGift(r, 'rank', RANKUP, `${name}昇格のごほうび`, this.now());
@@ -413,6 +433,10 @@ export class Core {
         offer = r.offer = antiqueGift(r, this.rand());
       });
       if (rec) out({ t: 'sold', ok, reason, got, offer, req: m.req, econ: pubEcon(rec) });
+    } else if (m.t === 'ratereset') {
+      // レートをリセット（設定から）：9路・13路とも 1050 に
+      const rec = await this.withAcct(id, async r => { r.rate = r.rate || {}; for (const k of ['go9', 'go13']) r.rate[k] = { rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1 }; });
+      if (rec) for (const k of ['go9', 'go13']) this.sendRate(id, k, rec.rate[k], 0, null);
     } else if (m.t === 'tama') {
       // 勾玉：銭と交換（勾玉→銭の一方通行）・キャラクター開放。勾玉はアプリ（ゲーム）ごと
       const g = info.game || 'go';
@@ -609,6 +633,23 @@ export class Core {
     this.create(host, guest, g.hc, black);
   }
 
+  // 対人戦のレート：両方のアカウントのサーバーのレートで計算して、それぞれに知らせる
+  async rateOnline(g, winner) {
+    const key = 'go' + (g.size === 13 ? 13 : 9), ps = [1, 2].map(c => this.players.get(g.players[c]));
+    if (ps.some(p => !p || !p.acct) || ps[0].acct === ps[1].acct) return;
+    const before = [];
+    for (const p of ps) { const r = await this.store.get('acct:' + p.acct); before.push(r ? rateOf(r, key).rating : START_RATE); }
+    for (const [i, p] of ps.entries()) {
+      const c = i + 1, score = winner === 0 ? 0.5 : winner === c ? 1 : 0;
+      let d = 0, t = null;
+      await this.withAcct(p.acct, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, before[1 - i], score, false); rankGift(r, key, b, t, this.now()); });
+      if (t) this.sendRate(p.acct, key, t, d, g.id);
+    }
+  }
+  sendRate(acct, key, t, d, gid) {
+    const msg = Object.assign({ t: 'rate', key, d, g: gid, rank: dispRank(t) }, t);
+    for (const p of this.players.values()) if (p.acct === acct) { p.rates = Object.assign(p.rates || {}, { [key]: t.rating }); if (key === 'go' + (p.size || 9)) p.rating = t.rating; if (p.sock) { try { p.sock.send(JSON.stringify(msg)); } catch (e) {} } }
+  }
   finish(g, winner, reason, res) {
     if (g.over) return;
     g.over = true; this.clearTimeout(g.timer);
@@ -621,6 +662,7 @@ export class Core {
       if (p && p.acct && amount) this.give(p.acct, amount, 'online').catch(() => {});
     }
     for (const c of [1, 2]) this.send(g.players[c], g.endMsg);
+    if (!g.hc) this.rateOnline(g, winner).catch(() => {});
     for (const c of [1, 2]) {
       const p = this.players.get(g.players[c]);
       if (p) { p.game = p.sock ? null : g.id; if (p.sock) g.acked[p.cid] = true; }
@@ -633,8 +675,48 @@ export class Core {
   }
 }
 
+/* ---------- レート（サーバーが計算する。アプリから送られてきた数字は使わない） ---------- */
+const TH = [1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1500, 1600, 1700, 1800, 1900, 2000], DAN_FROM = 10, DAN_STREAK = 4, START_RATE = 1050;
+const rankFrom = v => { let i = 0; for (let k = 0; k < TH.length; k++) if (v >= TH[k]) i = k; return i; };
+const botRating = i => i < TH.length - 1 ? Math.round((TH[i] + TH[i + 1]) / 2) : TH[i] + 50;
+function eloD(my, op, score, games) {
+  const exp = 1 / (1 + Math.pow(10, (op - my) / 400));
+  let d = Math.round((games < 20 ? 32 : 16) * (score - exp));
+  if (d === 0 && score !== 0.5) d = score ? 1 : -1;
+  return d;
+}
+// その盤の戦績（はじめてなら、前のデータから引きつぐ。上限 2050）
+function rateOf(r, key) {
+  r.rate = r.rate || {};
+  if (!r.rate[key]) {
+    const st = r.stats && r.stats.go && r.stats.go[key], legacy = key === 'go9' && r.data && r.data.rating;
+    const v = Math.max(800, Math.min(2050, (st && st.rating) || legacy || START_RATE) | 0), rr = rankFrom(v);
+    r.rate[key] = { rating: v, games: (st && st.games) | 0, wins: (st && st.wins) | 0, draws: (st && st.draws) | 0, streak: 0, earnedDan: rr >= DAN_FROM ? rr : -1 };
+  }
+  return r.rate[key];
+}
+const dispRank = t => { const r = rankFrom(t.rating); return r < DAN_FROM ? r : Math.max(DAN_FROM - 1, Math.min(r, t.earnedDan)); };
+// 1局ぶん反映して、変わったレートを返す。vsBot：自分よりレートの低い Bot に勝っても上がらない
+// 段級位が上がったら、ごほうび 1000銭（段級位ごとに1回だけ）。アプリからの rankup を待たずにサーバーが入れる
+const RANK_NAMES = ['10級', '9級', '8級', '7級', '6級', '5級', '4級', '3級', '2級', '1級', '初段', '二段', '三段', '四段'];
+function rankGift(r, key, before, t, now) {
+  const nr = dispRank(t); if (nr <= before) return;
+  ensureEcon(r);
+  const ck = key === 'go9' ? 'rank' : 'rank_' + key, list = r.claims[ck] = r.claims[ck] || [];
+  if (list.includes(nr)) return;
+  list.push(nr); addGift(r, 'rank', RANKUP, `${key === 'go13' ? '13路' : ''}${RANK_NAMES[nr] || ''}昇格のごほうび`, now);
+}
+function applyRate(t, op, score, vsBot) {
+  let d = eloD(t.rating, op, score, t.games);
+  if (vsBot && d > 0 && op < t.rating) d = 0;
+  t.rating = Math.max(800, t.rating + d); t.games++;
+  if (score === 1) { t.wins++; t.streak++; } else if (score === 0.5) t.draws++; else t.streak = 0;
+  const rr = rankFrom(t.rating); if (rr >= DAN_FROM && t.streak >= DAN_STREAK && rr > t.earnedDan) t.earnedDan = rr;
+  return d;
+}
+
 /* ---------- 銭まわりの決まり ---------- */
-const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'tama', 'room', 'gifts', 'gifttake', 'rankup'];
+const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'tama', 'ratereset', 'room', 'gifts', 'gifttake', 'rankup'];
 const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000, RANKUP = 1000, DAILY = 100;
 // プレゼントボックス：受け取るまで銭にならない。{ id, kind, amount, label, t }
 function addGift(r, kind, amount, label, t, extra) {
@@ -706,7 +788,7 @@ function antiqueGift(r, x) {
 }
 // 足もとのないアバターの服（2026/11/14 取りやめ）。持っていた人には、銭をおかえし
 const AV_RM = { 'body:b02': 1800, 'body:b06': 1800, 'body:b24': 1800, 'body:b25': 1200, 'body:b26': 1200, 'body:b27': 1800, 'body:b29': 1800, 'body:b30': 300, 'body:b31': 300 };
-function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {} }; }
+function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {}, rates: { go9: rateOf(r, 'go9'), go13: rateOf(r, 'go13') } }; }
 /* ---------- 勾玉（課金石）：アプリ（ゲーム）ごとに持つ。お金で買った分は、そのアプリの中だけで使う（Google Play のきまり） ---------- */
 const TAMA = globalThis.AVATAR.TAMA || {}, TAMA_ZENI = 10, TAMA_CHARA = 300;
 const tamaOf = (r, g) => (r.tama && r.tama[g]) | 0;

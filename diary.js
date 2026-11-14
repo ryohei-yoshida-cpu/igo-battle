@@ -172,11 +172,11 @@
       <button type="button" class="bk-who" data-visit="${esc(cur.pid)}">${cur.av ? `<span class="bk-av">${AV.svg(cur.av)}</span>` : ''}${esc(cur.name)}${cur.mine ? '' : 'さんの日記'}</button>
       <p class="bk-text">${esc(e.text)}</p>`;
     if (e.kifu) h += kifuBlock(e.kifu, 'r');
-    h += `<div class="bk-cm"><b>コメント（${c.length}）</b><ul>${c.map(x => `<li><button type="button" class="sc-name" data-visit="${esc(x.pid)}">${esc(x.name)}</button><span>${esc(x.text)}</span>${cur.mine || x.pid === S.pid ? `<button type="button" class="sc-x" data-delc="${x.id}">消す</button>` : ''}</li>`).join('')}</ul>`;
+    h += `<div class="bk-cm"><b>コメント（${c.length}）</b><ul>${c.map(x => `<li><button type="button" class="sc-name" data-visit="${esc(x.pid)}">${esc(x.name)}</button><span>${esc(x.text)}</span>${cur.mine || x.pid === S.pid ? `<button type="button" class="sc-x" data-delc="${x.id}">消す</button>` : ''}${x.pid !== S.pid ? `<button type="button" class="sc-x" data-repc="${x.id}" data-rpid="${esc(x.pid)}">通報</button>` : ''}</li>`).join('')}</ul>`;
     if (cur.canWrite) h += `<div class="sc-line"><input type="text" id="bkCm" maxlength="60" placeholder="コメント（60字まで）"><button type="button" class="btn lac small" data-cm="1">送る</button></div>`;
     h += '</div>';
     if (cur.mine) h += `<div class="rm-seg bk-pub">${PUB.map(([k, n]) => `<button type="button" data-repub="${k}" aria-pressed="${e.pub === k}">${n}</button>`).join('')}</div>`;
-    h += `<p class="bk-note">${NOTICE}</p><div class="bk-btns">${cur.mine ? '<button type="button" class="sc-x warn" data-deld="1">この日記を消す</button><button type="button" class="btn lac" data-edit="1">直す</button>' : ''}<button type="button" class="btn lac" data-close="1">とじる</button></div></div>`;
+    h += `<p class="bk-note">${NOTICE}</p><div class="bk-btns">${cur.mine ? '<button type="button" class="sc-x warn" data-deld="1">この日記を消す</button><button type="button" class="btn lac" data-edit="1">直す</button>' : ''}<button type="button" class="btn lac" data-close="1">とじる</button></div>${cur.mine ? '' : '<button type="button" class="prof-report" data-repd="1">この日記を通報する</button>'}</div>`;
     return h;
   }
   function read(pid, did) {
@@ -195,6 +195,8 @@
     const b = e.target.closest('button'); if (!b) return;
     const ds = b.dataset;
     if (ds.close) { closeBook(); return; }
+    if (ds.repd) { window.REPORT.open({ pid: cur.pid, kind: 'diary', owner: cur.pid, did: cur.entry.id }); return; }
+    if (ds.repc) { window.REPORT.open({ pid: ds.rpid, kind: 'comment', owner: cur.pid, did: cur.entry.id, id: +ds.repc }); return; }
     if (ds.save) { save(b); return; }
     if (ds.edit) { const e = cur.entry; kifu = e.kifu || null; cur = { edit: e }; turnPage(writePage(e)); return; }
     if (ds.pick) { pickKifu(); return; }

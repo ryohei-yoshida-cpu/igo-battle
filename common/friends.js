@@ -44,16 +44,32 @@
       list = list.concat(res.list); total = res.total; fsent = res.fsent || []; renderFriends();
     });
   }
+  function showMyId() { $('#frsMyId').textContent = S.pid || '—'; }
   function openFriends() {
-    P.showScreen('friends');
+    P.showScreen('friends'); showMyId();
     if (window.DIARY) window.DIARY.setBack(openFriends);
     if (!P.online()) { offline($('#frsList')); $('#frsCount').textContent = ''; return; }
     if (!list.length) $('#frsList').innerHTML = '<p class="rm-help">読みこみ中……</p>';
-    P.soc('me', {}, res => { if (res.ok) { freq = res.freq || []; S.pid = res.pid; } loadFriends(false); });
+    P.soc('me', {}, res => { if (res.ok) { freq = res.freq || []; S.pid = res.pid; showMyId(); } loadFriends(false); });
   }
   $('#openFriends').onclick = () => { P.sound('stone'); openFriends(); };
   $('#frsBack').onclick = () => window.AVATAR_UI.openHub();
   $('#frsMore').onclick = () => { page++; loadFriends(true); };
+  // フレンドを探す：部屋番号を入れると、その人の戦績（プロフィール）→ フレンド申請
+  $('#frsFind').onclick = () => { P.sound('tap'); const b = $('#frsFindBox'); b.hidden = !b.hidden; if (!b.hidden) $('#frsPid').focus(); };
+  const findFriend = () => {
+    const v = $('#frsPid').value.replace(/\D/g, '');
+    if (v.length !== 6) { P.toast('部屋番号は6けたの数字です'); return; }
+    if (v === String(S.pid)) { P.toast('それは、あなたの部屋番号です'); return; }
+    window.PROFILE.open(v);
+  };
+  $('#frsGo').onclick = findFriend;
+  $('#frsPid').addEventListener('keydown', e => { if (e.key === 'Enter') findFriend(); });
+  $('#frsCopy').onclick = () => {
+    const t = String(S.pid || ''); if (!t) return;
+    const ok = () => P.toast('部屋番号をコピーしました。友だちに伝えてね');
+    try { navigator.clipboard.writeText(t).then(ok, () => P.toast(`部屋番号は ${t} です`)); } catch (e) { P.toast(`部屋番号は ${t} です`); }
+  };
   $('#frsList').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const ds = b.dataset;
@@ -131,6 +147,7 @@
       const b = e.target.closest('button[data-act]'); if (!b) return;
       const pid = box.dataset.pid;
       if (b.dataset.act === 'room') { box.hidden = true; window.ROOM.visit(pid); return; }
+      if (b.dataset.act === 'report') { window.REPORT.open({ pid, kind: 'prof' }); return; }
       if (b.dataset.act === 'freq') {
         b.disabled = true;
         P.soc('freq', { pid }, res => {
@@ -141,20 +158,32 @@
     });
     return box;
   }
+  // ほかのゲームの段級位（遊んでいれば）
+  const GN = { go: '囲碁', shogi: '将棋', othello: 'オセロ', mahjong: '麻雀', backgammon: 'バックギャモン', daifugo: '大富豪', chess: 'チェス' };
+  function otherGames(stats) {
+    const rows = [];
+    for (const [g, sub] of Object.entries(stats || {})) for (const [k, v] of Object.entries(sub || {})) {
+      if (!v || !v.games || (g === 'go' && k === 'go9')) continue;
+      rows.push(`<span>${esc(GN[g] || g)}${k === 'go13' ? '13路' : ''}：${esc(v.rn || '—')}（${v.rating}）</span>`);
+    }
+    return rows.length ? `<div class="prof-games">${rows.join('')}</div>` : '';
+  }
   function open(pid, fallback) {
     const b = ensure(), body = b.querySelector('.prof-body');
     b.dataset.pid = pid; b.hidden = false;
     body.innerHTML = '<p class="rm-help">読みこみ中……</p>';
     if (!P.online()) { body.innerHTML = '<p class="rm-help">サーバーにつながっているときに見られます。</p>'; return; }
     P.soc('prof', { pid }, res => {
-      if (!res.ok) { body.innerHTML = `<p class="rm-help">${esc((fallback && fallback.name) || '')}さんの戦績は見られませんでした。</p>`; return; }
+      if (!res.ok) { body.innerHTML = res.reason === 'nobody' ? '<p class="rm-help">その部屋番号の人は見つかりませんでした。</p>' : `<p class="rm-help">${esc((fallback && fallback.name) || '')}さんの戦績は見られませんでした。</p>`; return; }
       const rank = P.RANKS[Math.min(P.RANKS.length - 1, P.rankOf ? P.rankOf(res.rating) : 0)] || '';
       const wr = res.games ? Math.round(res.wins / res.games * 100) + '%' : '—';
       const btn = res.mine ? '' : res.friend ? '<span class="prof-tag">フレンド</span>' : res.asked ? '<button type="button" class="btn lac" disabled>申請中</button>' : '<button type="button" class="btn primary" data-act="freq">フレンド申請</button>';
       body.innerHTML = `<div class="prof-top"><div class="prof-fig">${window.AVATAR ? window.AVATAR.svg(res.av || window.AVATAR.PRESETS.girl) : ''}</div>
         <div class="prof-name"><b>${esc(res.name)}</b><small>部屋番号 ${esc(res.pid)}</small>${res.hito ? `<p>「${esc(res.hito)}」</p>` : ''}</div></div>
         <dl class="prof-stats"><div><dt>段級位</dt><dd>${esc(rank)}</dd></div><div><dt>レート</dt><dd>${res.rating}</dd></div><div><dt>対局</dt><dd>${res.games}</dd></div><div><dt>勝率</dt><dd>${wr}</dd></div></dl>
-        <div class="prof-btns">${btn}<button type="button" class="btn lac" data-act="room">部屋をたずねる</button></div>`;
+        ${otherGames(res.stats)}
+        <div class="prof-btns">${btn}<button type="button" class="btn lac" data-act="room">部屋をたずねる</button></div>
+        ${res.mine ? '' : '<button type="button" class="prof-report" data-act="report">この人を通報する</button>'}`;
     });
   }
   window.PROFILE = { open };
