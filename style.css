@@ -367,8 +367,8 @@ body.washi .bd-grain { display: none; }
 .grid .gl { stroke: var(--bd-grid); }
 .grid .hoshi { fill: var(--bd-star); }
 .stone { transform-box: fill-box; transform-origin: center; }
-.stone.drop { animation: drop .26s cubic-bezier(.3, 1.7, .5, 1); }
-@keyframes drop { 0% { transform: scale(1.35); opacity: .2; } 60% { transform: scale(.96); opacity: 1; } 100% { transform: scale(1); } }
+.stone.drop { animation: drop .12s ease-out; }   /* 静かにパチリ（はねない） */
+@keyframes drop { 0% { transform: scale(1.06); opacity: .5; } 100% { transform: scale(1); opacity: 1; } }
 .stone.dead { opacity: .4; }
 
 .actions { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }

@@ -199,9 +199,7 @@
     return [r.left + (p % n + .65) / (n + .3) * r.width, r.top + (((p / n) | 0) + .65) / (n + .3) * r.height];
   }
   function stoneFx(svg, p, color, wrap) {
-    const [x, y] = pointXY(svg, p);
-    A.burst(x, y, color === 1 ? 'black' : 'white');
-    if (wrap) { wrap.classList.remove('thump'); void wrap.offsetWidth; wrap.classList.add('thump'); }
+    // 対局中は、静かにパチリ（盤はゆらさない・石のまわりに粒も出さない。音と、ほんの少しの振動だけ）
     buzz(12);
   }
 
@@ -275,7 +273,6 @@
     el.querySelector('.chara').src = mine ? myCharaSrc() : A.charaUri(oppChara(G.bot));
     el.querySelector('.name').textContent = name;
     layer.append(el);
-    if (tier === 2) { const bw = $('#boardWrap'); bw.classList.remove('shake'); void bw.offsetWidth; bw.classList.add('shake'); }
     setTimeout(() => el.remove(), tier === 2 ? 1400 : 1000);
   }
   function banner(big, small) {
