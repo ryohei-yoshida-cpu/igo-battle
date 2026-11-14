@@ -1855,3 +1855,4 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 .plock { position: relative; }
 .plock > * { filter: grayscale(.85) brightness(.55); }
 .plock::after { content: "🔒 " attr(data-lock); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: max-content; max-width: 92%; padding: 4px 10px; border-radius: 99px; background: rgba(0, 0, 0, .78); color: #ffe7b0; font-size: 11px; font-weight: 800; line-height: 1.35; text-align: center; white-space: normal; pointer-events: none; }
+.coord { fill: rgba(60, 35, 10, .62); font-family: system-ui, sans-serif; font-weight: 700; pointer-events: none; }

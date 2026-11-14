@@ -170,6 +170,12 @@
       s += `<line class="gl" x1="0.5" y1="${v}" x2="${n - .5}" y2="${v}" stroke-width="${w}"/><line class="gl" x1="${v}" y1="0.5" x2="${v}" y2="${n - .5}" stroke-width="${w}"/>`;
     }
     for (const [x, y] of HOSHI[n]) s += `<circle class="hoshi" cx="${x + .5}" cy="${y + .5}" r="${.09 * k}"/>`;
+    // 座標（上に A〜、左に数字。I は使わない）。レクチャーや検討の「E5」がどこか分かるように
+    const L = 'ABCDEFGHJKLMNOPQRST', fs = (.22 * Math.max(1, k * .8)).toFixed(3);
+    for (let i = 0; i < n; i++) {
+      s += `<text class="coord" x="${i + .5}" y="0.2" font-size="${fs}" text-anchor="middle" dominant-baseline="middle">${L[i]}</text>`;
+      s += `<text class="coord" x="0.16" y="${i + .5}" font-size="${fs}" text-anchor="middle" dominant-baseline="middle">${n - i}</text>`;
+    }
     g.innerHTML = s;
   }
   // 対局・検討の盤を 9路／13路 に切りかえる
