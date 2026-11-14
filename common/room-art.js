@@ -286,21 +286,94 @@
   const BY_ID = {}; CATALOG.forEach(c => BY_ID[c.id] = c);
 
   /* 床と壁紙 */
+  // 床：pat（もよう）と c（色）で描く。sw はショップの見本（CSS）
+  //   plank 板張り / checker 市松 / solid じゅうたん（ふちの色つき）/ grid 線の入った床 / herring ヘリンボーン / var まだら / stars 星
   const FLOORS = {
     wood: { name: 'フローリング', style: 'yo', price: 0 },
     tatami: { name: '畳', style: 'wa', price: 400 },
-    tile: { name: '中華タイル', style: 'chu', price: 400 }
+    tile: { name: '中華タイル', style: 'chu', price: 400 },
+    oak: { name: '明るいオーク', style: 'yo', price: 300, pat: 'plank', c: ['#e3c494', '#d9b884', '#b8925e'] },
+    walnut: { name: 'ウォールナット', style: 'yo', price: 400, pat: 'plank', c: ['#6e4a30', '#634229', '#3e2716'] },
+    herring: { name: 'ヘリンボーン', style: 'yo', price: 600, pat: 'herring', c: ['#c99b66', '#b0824f', '#8a6238'] },
+    ryukyu: { name: '縁なし琉球畳', style: 'wa', price: 600, pat: 'checker', c: ['#d6cc8e', '#c2b673', '#8f8450'], line: true },
+    gobanfl: { name: '碁盤の床', style: 'wa', price: 800, pat: 'grid', c: ['#e2b866', '#d9ad59', '#3a2a14'] },
+    stone: { name: '石だたみ', style: 'wa', price: 400, pat: 'var', c: ['#a9a59c', '#8f8b82', '#6d6a63'], line: true },
+    marble: { name: '大理石', style: 'yo', price: 800, pat: 'var', c: ['#f2efe9', '#e2ded6', '#c9c4ba'], line: true },
+    checker: { name: '白黒チェック', style: 'yo', price: 600, pat: 'checker', c: ['#f4f1ea', '#2e2b28'] },
+    pastel: { name: 'パステルタイル', style: 'yo', price: 400, pat: 'checker', c: ['#f6d3dc', '#cdeee0'] },
+    redcarpet: { name: '赤じゅうたん', style: 'chu', price: 600, pat: 'solid', c: ['#a3262c', '#d9a93a'] },
+    bluecarpet: { name: '青いカーペット', style: 'yo', price: 400, pat: 'solid', c: ['#4f6fa8', '#3b5585'] },
+    grass: { name: '芝生', style: 'yo', price: 400, pat: 'var', c: ['#7fb85a', '#6fa84c', '#8cc466'] },
+    starry: { name: '星空の床', style: 'yo', price: 800, pat: 'stars', c: ['#1c2350', '#252d63', '#fff6c8'] }
   };
+  // 壁紙：c は [左の壁, 右の壁]。pat：stripe / plank 板張り / brick レンガ / waist 腰板 / dots 水玉 / lattice 格子 / stars 星 / fold 屏風
   const WALLS = {
     plain: { name: '白い壁', style: 'yo', price: 0 },
     shikkui: { name: '漆喰と柱', style: 'wa', price: 400 },
     beni: { name: '紅の壁', style: 'chu', price: 400 },
-    stripe: { name: 'ストライプ', style: 'yo', price: 400 }
+    stripe: { name: 'ストライプ', style: 'yo', price: 400 },
+    cream: { name: 'クリーム', style: 'yo', price: 200, c: ['#f3e6c8', '#e8d9b6'] },
+    mint: { name: 'ミント', style: 'yo', price: 300, c: ['#cfeadf', '#bfdfd2'] },
+    sakurairo: { name: 'さくら色', style: 'yo', price: 300, c: ['#f6d6de', '#ecc6d0'] },
+    navy: { name: '紺の壁', style: 'yo', price: 400, c: ['#2f3f66', '#273657'] },
+    planks: { name: '板張り', style: 'wa', price: 400, c: ['#b98a5a', '#a87b4e'], pat: 'plank', a: '#7a5534' },
+    brick: { name: 'レンガ', style: 'yo', price: 600, c: ['#b5573f', '#a24c36'], pat: 'brick', a: '#e8d6c4' },
+    waist: { name: '腰板と白壁', style: 'yo', price: 600, c: ['#f2ede4', '#e6e0d5'], pat: 'waist', a: '#6e4a30' },
+    dots: { name: '水玉', style: 'yo', price: 400, c: ['#fdf3e2', '#f5e8d2'], pat: 'dots', a: '#f2a3b4' },
+    washi: { name: '和紙と格子', style: 'wa', price: 600, c: ['#f7f1e3', '#ede5d2'], pat: 'lattice', a: '#7a5534' },
+    sakura: { name: '桜もよう', style: 'wa', price: 600, c: ['#f9e3ea', '#f1d5de'], pat: 'dots', a: '#e889a3', big: true },
+    night: { name: '夜空', style: 'yo', price: 800, c: ['#1c2350', '#161c42'], pat: 'stars', a: '#fff6c8' },
+    gold: { name: '金屏風', style: 'wa', price: 800, c: ['#e2b84e', '#d1a63e'], pat: 'fold', a: '#a07a22' }
   };
+  // ショップの見本（CSS の background）
+  function swatch(kind, id) {
+    const d = (kind === 'floors' || kind === 'floor' ? FLOORS : WALLS)[id]; if (!d || !d.c) return '';
+    const [a, b, c] = d.c;
+    if (kind === 'floors' || kind === 'floor') {
+      if (d.pat === 'plank') return `background: repeating-linear-gradient(90deg, ${a} 0 14px, ${b} 14px 27px, ${c} 27px 28px)`;
+      if (d.pat === 'checker' || d.pat === 'herring') return `background: conic-gradient(${a} 25%, ${b} 0 50%, ${a} 0 75%, ${b} 0) 0 0 / 22px 22px`;
+      if (d.pat === 'grid') return `background: ${a}; background-image: linear-gradient(${c} 1px, transparent 1px), linear-gradient(90deg, ${c} 1px, transparent 1px); background-size: 14px 14px`;
+      if (d.pat === 'solid') return `background: ${a}; box-shadow: inset 0 0 0 5px ${b}`;
+      if (d.pat === 'stars') return `background: radial-gradient(${c} 1px, transparent 1.5px) 0 0 / 12px 12px, ${a}`;
+      return `background: radial-gradient(circle at 30% 30%, ${c}, transparent 40%), linear-gradient(135deg, ${a}, ${b})`;
+    }
+    const ac = d.a || b;
+    if (d.pat === 'plank') return `background: repeating-linear-gradient(90deg, ${a} 0 10px, ${ac} 10px 11px)`;
+    if (d.pat === 'brick') return `background: repeating-linear-gradient(0deg, ${a} 0 8px, ${ac} 8px 9px)`;
+    if (d.pat === 'waist') return `background: linear-gradient(${a} 0 55%, ${ac} 55%)`;
+    if (d.pat === 'dots') return `background: radial-gradient(${ac} ${d.big ? 3 : 2}px, transparent ${d.big ? 3.5 : 2.5}px) 0 0 / 14px 14px, ${a}`;
+    if (d.pat === 'lattice') return `background: ${a}; background-image: linear-gradient(${ac} 1.5px, transparent 1.5px), linear-gradient(90deg, ${ac} 1.5px, transparent 1.5px); background-size: 16px 20px`;
+    if (d.pat === 'stars') return `background: radial-gradient(${ac} 1px, transparent 1.5px) 0 0 / 11px 13px, ${a}`;
+    if (d.pat === 'fold') return `background: repeating-linear-gradient(90deg, ${a} 0 18px, ${ac} 18px 19px, ${b} 19px 37px, ${ac} 37px 38px)`;
+    return `background: ${a}`;
+  }
+  const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
   function drawFloor(type, n) {
     n = n || N;
     let s = '';
+    const d = FLOORS[type];
+    if (d && d.pat) {   // 新しい床（もようと色で描く）
+      const [a, b, c] = d.c;
+      for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) {
+        let col = a;
+        if (d.pat === 'plank') col = y % 2 ? a : b;
+        else if (d.pat === 'checker') col = (x + y) % 2 ? a : b;
+        else if (d.pat === 'herring') col = ((x + (y >> 1)) % 2) ? a : b;
+        else if (d.pat === 'grid') col = a;
+        else if (d.pat === 'solid') col = x === 0 || y === 0 || x === n - 1 || y === n - 1 ? b : a;
+        else if (d.pat === 'var') { const h = hash(x, y); col = h < .4 ? a : h < .75 ? b : c; }
+        else if (d.pat === 'stars') col = (x + y) % 2 ? a : b;
+        const q = [proj(x, y, 0), proj(x + 1, y, 0), proj(x + 1, y + 1, 0), proj(x, y + 1, 0)];
+        s += `<polygon points="${P(q)}" fill="${col}"/>`;
+        if (d.pat === 'stars' && hash(x, y) < .35) { const [px, py] = proj(x + .2 + hash(y, x) * .6, y + .2 + hash(x + 7, y) * .6, 0); s += `<circle cx="${px}" cy="${py}" r="${hash(x, y + 3) < .2 ? 1.6 : .9}" fill="${c}"/>`; }
+      }
+      const ln = (x1, y1, x2, y2, col, w) => { const p = proj(x1, y1, 0), q = proj(x2, y2, 0); return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${col}" stroke-width="${w}"/>`; };
+      if (d.pat === 'plank' || d.pat === 'herring') for (let y = 0; y <= n; y++) s += ln(0, y, n, y, c, .6);
+      if (d.pat === 'grid') for (let k = 0; k <= n; k++) { s += ln(k, 0, k, n, c, .7); s += ln(0, k, n, k, c, .7); }
+      if (d.line) for (let k = 0; k <= n; k++) { s += ln(k, 0, k, n, c, .5); s += ln(0, k, n, k, c, .5); }
+      return s;
+    }
     for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) {
       let c;
       if (type === 'tatami') c = ((Math.floor(x / 2) + y) % 2 ? '#cfc58a' : '#c6bc7e');
@@ -319,8 +392,10 @@
     const hL = cut.L ? LOW : WH, hR = cut.R ? LOW : WH;
     const L = [proj(0, 0, 0), proj(0, n, 0), proj(0, n, hL), proj(0, 0, hL)];
     const R = [proj(0, 0, 0), proj(n, 0, 0), proj(n, 0, hR), proj(0, 0, hR)];
-    const col = { plain: ['#efe9df', '#e2dace'], shikkui: ['#ece2c8', '#e0d4b6'], beni: ['#a8352c', '#922c25'], stripe: ['#dfe7e3', '#d2ddd8'] }[type] || ['#efe9df', '#e2dace'];
+    const wd = WALLS[type] && WALLS[type].c ? WALLS[type] : null;
+    const col = wd ? wd.c : { plain: ['#efe9df', '#e2dace'], shikkui: ['#ece2c8', '#e0d4b6'], beni: ['#a8352c', '#922c25'], stripe: ['#dfe7e3', '#d2ddd8'] }[type] || ['#efe9df', '#e2dace'];
     let s = `<polygon points="${P(L)}" fill="${col[0]}"/><polygon points="${P(R)}" fill="${col[1]}"/>`;
+    if (wd && wd.pat) s += wallPat(wd, n, hL, hR);
     if (type === 'stripe') for (let u = 0; u < n; u += 1) {
       s += `<polygon points="${P([proj(0, u + .5, 0), proj(0, u + 1, 0), proj(0, u + 1, hL), proj(0, u + .5, hL)])}" fill="#c9d8d1"/>`;
       s += `<polygon points="${P([proj(u + .5, 0, 0), proj(u + 1, 0, 0), proj(u + 1, 0, hR), proj(u + .5, 0, hR)])}" fill="#bccdc6"/>`;
@@ -340,6 +415,24 @@
     // 低くした壁の上のふち
     if (cut.L) s += `<polygon points="${P([proj(0, 0, hL), proj(0, n, hL), proj(-.25, n, hL), proj(-.25, 0, hL)])}" fill="#8a6a45"/>`;
     if (cut.R) s += `<polygon points="${P([proj(0, 0, hR), proj(n, 0, hR), proj(n, -.25, hR), proj(0, -.25, hR)])}" fill="#7a5a3a"/>`;
+    return s;
+  }
+  // 新しい壁紙のもよう（左の壁 x=0・右の壁 y=0 の両方に）
+  function wallPat(d, n, hL, hR) {
+    const a = d.a || '#888';
+    let s = '';
+    const quadL = (u0, u1, z0, z1, f) => `<polygon points="${P([proj(0, u0, z0), proj(0, u1, z0), proj(0, u1, z1), proj(0, u0, z1)])}" fill="${f}"/>`;
+    const quadR = (u0, u1, z0, z1, f) => `<polygon points="${P([proj(u0, 0, z0), proj(u1, 0, z0), proj(u1, 0, z1), proj(u0, 0, z1)])}" fill="${f}"/>`;
+    const both = (u0, u1, z0, z1, f, f2) => { let t = ''; if (z0 < hL) t += quadL(u0, u1, z0, Math.min(z1, hL), f); if (z0 < hR) t += quadR(u0, u1, z0, Math.min(z1, hR), f2 || shade(f, -0.08)); return t; };
+    const dot = (u, z, r, f) => { let t = ''; if (z < hL) { const [x, y] = proj(0, u, z); t += `<ellipse cx="${x}" cy="${y}" rx="${r * .8}" ry="${r}" fill="${f}"/>`; } if (z < hR) { const [x, y] = proj(u, 0, z); t += `<ellipse cx="${x}" cy="${y}" rx="${r * .8}" ry="${r}" fill="${shade(f, -0.08)}"/>`; } return t; };
+    const top = Math.max(hL, hR);
+    if (d.pat === 'plank') for (let u = 0; u < n; u += .5) s += both(u, u + .04, 0, top, a);
+    if (d.pat === 'brick') for (let z = 0, row = 0; z < top; z += .45, row++) { s += both(0, n, z, z + .05, a); for (let u = row % 2 ? .5 : 0; u < n; u += 1) s += both(u, u + .05, z, z + .45, a); }
+    if (d.pat === 'waist') { s += both(0, n, 0, 1.3, a); s += both(0, n, 1.3, 1.42, shade(a, .25)); for (let u = .7; u < n; u += 1.4) s += both(u, u + .05, .15, 1.2, shade(a, -0.2)); }
+    if (d.pat === 'dots') for (let u = .5; u < n; u += 1) for (let z = .6; z < top; z += .9) { const off = Math.round(z / .9) % 2 ? .5 : 0; s += dot(u + off, z, d.big ? 3 : 1.8, a); if (d.big) { s += dot(u + off + .12, z + .08, 1.4, '#fff'); } }
+    if (d.pat === 'lattice') { for (let u = 0; u < n; u += 1) s += both(u, u + .06, 0, top, a); for (let z = .8; z < top; z += .8) s += both(0, n, z, z + .06, a); }
+    if (d.pat === 'stars') for (let u = 0; u < n; u++) for (let z = .3; z < top; z += .7) if (hash(u * 3, Math.round(z * 10)) < .45) s += dot(u + hash(u, Math.round(z * 10)), z + hash(Math.round(z * 10), u) * .4, hash(u + 1, Math.round(z * 7)) < .2 ? 1.6 : .9, a);
+    if (d.pat === 'fold') for (let u = 0; u < n; u += 2) { s += both(u + 1, u + 2, 0, top, shade(d.c[0], -0.07)); s += both(u, u + .05, 0, top, a); }
     return s;
   }
   /* ---------- 家（部屋どうしを廊下と扉でつなぐ） ---------- */
@@ -466,5 +559,5 @@
     <radialGradient id="rmGlowR"><stop offset="0" stop-color="#ffb05a" stop-opacity=".7"/><stop offset="1" stop-color="#ff8a3a" stop-opacity="0"/></radialGradient>
   </defs>`;
 
-  window.ROOMART = { LOW, HALL, HALLW, drawHall, drawDoor, roomBox, layout, canAttach, defAt, hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
+  window.ROOMART = { swatch, LOW, HALL, HALLW, drawHall, drawDoor, roomBox, layout, canAttach, defAt, hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
 })();

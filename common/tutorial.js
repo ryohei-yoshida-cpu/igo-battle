@@ -67,7 +67,7 @@
     }
     const x = side === 'left' ? 4 : W - kw - 4;
     const y = vert === 'bottom' ? H - kh - Math.max(8, H * 0.02) : Math.max(54, H * 0.07);
-    return { x, y, kw, kh, side, vert, flip: r ? (side === 'right') : false };
+    return { x, y, kw, kh, side, vert, flip: side === 'left' };   // 元の絵は左向き。広いほう（画面のまん中のほう）を向く
   }
   function moveTo(p) {
     if (!el) return Promise.resolve();

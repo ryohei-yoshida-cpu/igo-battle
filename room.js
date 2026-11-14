@@ -816,7 +816,7 @@
     if (shopKind === 'interior') {
       for (const [kind, table] of [['floors', R.FLOORS], ['walls', R.WALLS]]) for (const [id, it] of Object.entries(table)) {
         const own = base().owned[kind].includes(id), using = (kind === 'floors' ? r.floor : r.wall) === id;
-        g += `<button type="button" class="rm-card rs-card${using ? ' on' : ''}" data-int="${kind}:${id}"><div class="rm-swatch ${kind === 'floors' ? 'f-' : 'w-'}${id}"></div><b>${it.name}</b><span class="rm-price">${own ? '持っている' : `${it.price.toLocaleString()} 銭`}</span></button>`;
+        g += `<button type="button" class="rm-card rs-card${using ? ' on' : ''}" data-int="${kind}:${id}"><div class="rm-swatch ${kind === 'floors' ? 'f-' : 'w-'}${id}" style="${R.swatch(kind, id)}"></div><b>${it.name}</b><span class="rm-price">${own ? '持っている' : `${it.price.toLocaleString()} 銭`}</span></button>`;
       }
     } else {
       for (const c of R.CATALOG) {
@@ -887,7 +887,7 @@
         if (!got.length) { renderPanel(); return; }
         shima('buy');
         for (const c of got) { if (c.kind === 'item') delete c.it.trial; const t = tryInts[c.ri]; if (t && c.kind === 'floor') t.floor = null; if (t && c.kind === 'wall') t.wall = null; }
-        window.FANFARE.thanks({ who: 'shima',  items: got.filter(c => !c.dup).map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
+        window.FANFARE.thanks({ who: 'shima',  items: got.filter(c => !c.dup).map(c => ({ thumb: c.kind === 'item' ? thumb(c.it.k) : `<div class="rm-swatch ${c.kind === 'floor' ? 'f-' : 'w-'}${c.id}" style="${R.swatch(c.kind, c.id)}"></div>`, name: c.name })), then: () => P.confirmBox('買いました！ 今の模様替えを反映しますか？', () => {
           touch(); flush();
           const rooms = allRooms(); for (const i of Object.keys(snaps)) if (rooms[i]) snaps[i] = copyRoom(rooms[i]);
           P.toast(`静馬「${clerkLine}」`); render(); renderPanel();
