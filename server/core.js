@@ -191,7 +191,7 @@ export class Core {
       if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
       info.game = game; this.bindAcct(sock, info, id);
       let welcome = false;
-      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } return true; });
+      const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } await this.testReset(id, r, game); return true; });
       const gd = await this.gameData(id, rec2 || rec, game);
       out({ t: 'account', id, data: gd.data, at: gd.at, name: (rec2 || rec).name || '', restore: !!m.restore, econ: Object.assign(pubEcon(rec2 || rec), { welcome }) });
     } else if (m.t === 'sync') {
@@ -221,6 +221,18 @@ export class Core {
     }
   }
 
+  // テスト用（2026/11/14）：部屋番号 561149 の「はじめての人の流れ」を1回だけ最初から（銭・持ち物・レートはそのまま）
+  async testReset(id, r, game) {
+    if (game !== 'go' || String(r.pid || '') !== '561149' || r.progReset1) return;
+    r.progReset1 = 1;
+    const gd = await this.gameData(id, r, game), d = Object.assign({}, gd.data || {});
+    d.prog = { games: 0, seen: {}, all: false, intro: false };
+    d.solo = Object.assign({}, d.solo || {}, { mode: 'beginner', open: {}, read: {}, lessons: [] });
+    delete d.tut;
+    await this.store.put('gd:' + id + ':' + game, { data: d, at: this.now() });
+    if (r.data !== undefined) { delete r.data; delete r.at; }
+    if (r.claims) { delete r.claims.unlock; if (Array.isArray(r.claims.tutorial)) r.claims.tutorial = r.claims.tutorial.filter(x => x !== 'go'); }
+  }
   // ゲームのセーブデータ（前の形：acct の data は囲碁のもの）
   async gameData(id, r, game) {
     const gd = await this.store.get('gd:' + id + ':' + game);

@@ -952,6 +952,7 @@
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     document.body.classList.toggle('washi', S.settings.board === 'washi');
     renderHome();
+    if (window.PROG && !document.body.classList.contains('on-title')) setTimeout(() => window.PROG.start(), 600);   // 開放の状態が変わっていたら
     if (!$('#settings').hidden) renderSettings();
   }
   /* ---------- 銭・持ち物・部屋（サーバーが正） ---------- */
