@@ -685,12 +685,17 @@
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
     const nr = displayRank(size), rname = (size === 13 ? '13路' : '') + RANKS[nr];
-    if (nr > oldRank) {
+    // 一度とどいた段級位（下がってまた上がったときは、お知らせ・ごほうびの演出を出さない）
+    S.rankAnn = S.rankAnn || {}; const ak = 'go' + size;
+    if (!S.rankAnn[ak]) S.rankAnn[ak] = Array.from({ length: oldRank + 1 }, (_, i) => i);
+    const first = nr > oldRank && !S.rankAnn[ak].includes(nr);
+    if (first) { for (let i = 0; i <= nr; i++) if (!S.rankAnn[ak].includes(i)) S.rankAnn[ak].push(i); save(); }
+    if (first) {
       if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: rname });
       if (econOn()) { APP_SOC('rank', { rank: rname }); netSend({ t: 'rankup', rank: nr, name: rname, key: 'go' + size }); }   // ごほうび1000銭はプレゼントボックスへ（9路・13路それぞれ）
       else { T.rankGift = T.rankGift || []; if (!T.rankGift.includes(nr) && window.GIFT) { T.rankGift.push(nr); window.GIFT.add('rank', 1000, `${rname}昇格のごほうび`); } }
     }
-    return { old, d, oldRank, newRank: nr, capped, size };
+    return { old, d, oldRank, newRank: nr, capped, size, first };
   }
 
   // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
@@ -725,7 +730,7 @@
     G.zeni = zeni;
     if (econOn()) {
       // 銭はサーバーが決める（対人戦はサーバーが結果を知っている。Bot戦は時間と手数を確かめてから）
-      if (!G.online && G.botId) netSend({ t: 'botend', g: G.botId, result: win ? 'win' : draw ? 'draw' : 'loss', moves: G.record.length });
+      if (!G.online && G.botId) sendBotEnd({ t: 'botend', g: G.botId, result: win ? 'win' : draw ? 'draw' : 'loss', moves: G.record.length });
     } else if (zeni) S.zeni += zeni;   // サーバーにつながっていないとき（お試し版など）は、この端末で数える
     save();
     render();
@@ -843,11 +848,13 @@
     $('#resOld').textContent = r.old; $('#resNew').textContent = RS(r.size).rating;
     const de = $('#resDelta'); de.textContent = (r.d >= 0 ? '+' : '') + r.d; de.className = r.d >= 0 ? 'up' : 'down';
     if (r.newRank > r.oldRank) {
-      pr.hidden = false; pr.textContent = `${r.size === 13 ? '13路 ' : ''}${RANKS[r.newRank]}に昇${r.newRank >= DAN_FROM ? '段' : '級'}！`;
+      pr.hidden = false; pr.textContent = `${r.size === 13 ? '13路 ' : ''}${RANKS[r.newRank]}に${r.first ? '昇' + (r.newRank >= DAN_FROM ? '段' : '級') + '！' : 'もどりました'}`;
+      if (r.first) {
       // 盛大に：ハンコがとんできて「〇級昇格」。ごほうびと、使えるようになったキャラ
       const nu = A.VARIANTS.map((v, i) => i).filter(i => UNLOCK[A.VARIANTS[i].key] > r.oldRank && UNLOCK[A.VARIANTS[i].key] <= r.newRank);
       const rw = ['ごほうび 1000銭（プレゼントボックスに届きました）'].concat(nu.map(i => `「${A.VARIANTS[i].name}」をキャラクターに選べるようになりました！`));
       setTimeout(() => window.FX && window.FX.stamp({ kicker: r.newRank >= DAN_FROM ? '昇段' : '昇級', stamp: RANKS[r.newRank] + '昇格', title: `${RANKS[r.newRank]}に昇格しました！`, rewards: rw, chara: nu.length ? nu[nu.length - 1] : charaIdx(), kind: 'rank' }), 700);
+      }
     }
     else if (r.newRank < r.oldRank) { pr.hidden = false; pr.textContent = `${RANKS[r.newRank]}に降${r.newRank >= DAN_FROM ? '段' : '級'}`; }
     else if (r.capped) { pr.hidden = false; pr.textContent = '自分よりレートの低い相手（Bot）に勝っても、レートは上がりません。強い相手に挑戦しよう！'; }
@@ -910,7 +917,7 @@
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } netMsg(m); };
     ws.onclose = () => {
       if (NET.ws !== ws) return;
-      NET.ok = false; NET.ws = null; clearInterval(NET.pingT);
+      NET.ok = false; NET.authed = false; NET.ws = null; clearInterval(NET.pingT);
       if (G && G.online && !G.over) netDown();
       if (NET.paused) return;   // 裏に回して休んでいるときはつなぎ直さない
       // つなぎ直しは少しずつ間をあける（最大60秒・ばらつきあり）。サーバーが止まっても一斉に押しよせないように
@@ -919,13 +926,23 @@
     };
   }
   function netSend(m) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(m)); }
+  // Bot 戦の結果は、つながっていなくても失くさない（つながり直したら送る）
+  function sendBotEnd(m) {
+    if (NET.ws && NET.ws.readyState === 1 && NET.authed) { netSend(m); return; }
+    S.pendBotEnd = (S.pendBotEnd || []).filter(x => x.g !== m.g).concat([m]).slice(-5); saveLocal();
+  }
+  function flushBotEnd() {
+    const list = S.pendBotEnd; if (!list || !list.length) return;
+    delete S.pendBotEnd; saveLocal();
+    for (const m of list) netSend(m);
+  }
   const defName = () => S.pid ? String(S.pid) : 'あなた';
   function netHello() { netSend({ t: 'hello', cid: S.cid, name: S.name, rating: S.rating, ava: charaIdx() }); }
 
   /* ---------- アカウント：保存データをサーバーにも置く ----------
    * はじめて開いたとき、サーバーが ID とパスワード（各8文字）を作る。
    * 以後、保存のたびにサーバーへ送る。別の端末では ID とパスワードで引き継げる。 */
-  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost', 'gifts', 'loginDay', 'rankGift', 'tama', 'charaBuy', 'statsAll', 'offer'];   // 銭と部屋はサーバーが別に管理する
+  const LOCAL_ONLY = ['acct', 'cid', '_at', 'zeni', 'room', 'av', 'avOwned', 'pid', 'myNotes', 'visitDay', 'visitGhost', 'gifts', 'loginDay', 'rankGift', 'tama', 'charaBuy', 'statsAll', 'offer', 'pendBotEnd'];   // 銭と部屋はサーバーが別に管理する
   const fmtCode = c => c ? String(c).replace(/(.{4})(?=.)/g, '$1-') : '';
   const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   function syncData() {
@@ -1035,6 +1052,7 @@
     if (!$('#settings').hidden) renderAccount();
     applyEcon(m.econ);
     netHello();
+    NET.authed = true; flushBotEnd();
   }
   // サーバーが計算したレート（対局のあと・つないだとき）。アプリの数字をサーバーに合わせる
   function setRate(key, t) {

@@ -304,20 +304,19 @@ export class Core {
     if (m.t === 'botstart') {
       // Bot 戦の開始を記録（勝ったときに「早すぎないか」を確かめるため）
       const gid = String(m.g || '').slice(0, 40); if (!gid) return;
-      this.botGames = this.botGames || new Map();
+      // 始まりはアカウントに保存する（サーバーが入れかわっても、勝ち負けが消えないように）
+      const bg = { gid, t0: this.now(), lv: m.lv === -1 ? -1 : Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9 };
+      let prev = null;
+      await this.withAcct(id, async r => { prev = r.botg || null; r.botg = bg; });
       // 前の Bot 戦が終わらないまま新しく始めた（アプリを閉じた など）→ 前のは負けとして数える
-      this.botOpen = this.botOpen || new Map();
-      const prev = this.botOpen.get(id), pg = prev && this.botGames.get(prev);
-      if (pg && !pg.solo) { this.botGames.delete(prev); await this.rateBot(id, pg, 0); }
-      this.botGames.set(id + ':' + gid, { t0: this.now(), lv: m.lv === -1 ? -1 : Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9 });
-      if (!m.solo) this.botOpen.set(id, id + ':' + gid);
-      if (this.botGames.size > 5000) this.botGames.delete(this.botGames.keys().next().value);
+      if (prev && !prev.solo && prev.gid !== gid) await this.rateBot(id, prev, 0);
     } else if (m.t === 'botend') {
-      const key = id + ':' + String(m.g || '').slice(0, 40), bg = this.botGames && this.botGames.get(key);
-      if (!bg) return;
-      this.botGames.delete(key); if (this.botOpen && this.botOpen.get(id) === key) this.botOpen.delete(id);
-      const sec = (this.now() - bg.t0) / 1000, moves = m.moves | 0;
+      const gid = String(m.g || '').slice(0, 40), key = id + ':' + gid;
       if (!['win', 'draw', 'loss'].includes(m.result)) return;
+      let bg = null;
+      await this.withAcct(id, async r => { if (!r.botg || r.botg.gid !== gid) return false; bg = r.botg; delete r.botg; });
+      if (!bg) return;
+      const sec = (this.now() - bg.t0) / 1000, moves = m.moves | 0;
       const short = sec < 30 || moves < 16;
       // レート：負けはいつでも数える。勝ち・引き分けは、早すぎる・短すぎる対局なら数えない
       if (!bg.solo && (m.result === 'loss' || !short)) await this.rateBot(id, bg, m.result === 'win' ? 1 : m.result === 'draw' ? 0.5 : 0, key);
