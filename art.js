@@ -200,8 +200,12 @@
     fx.fillStyle = `rgba(255,255,255,${alpha * .35})`; fx.beginPath(); fx.ellipse(-r * .2, -r * .2, r * .25, r * .5, 0, 0, 6.3); fx.fill();
     fx.restore();
   }
+  let avoidFn = null, avoidRect = null, avoidT = 0;
+  function setAvoid(fn) { avoidFn = fn; avoidRect = null; avoidT = 0; }
   function loop() {
     if (!fxCv) return;
+    if (avoidFn && ++avoidT % 15 === 1) { try { avoidRect = avoidFn(); } catch (e) { avoidRect = null; } }   // 位置は、ときどき測りなおす
+    if (!avoidFn) avoidRect = null;
     fx.clearRect(0, 0, W, H);
     gust = Math.sin(Date.now() / 2300) * .8 + Math.sin(Date.now() / 900) * .3;
     if (!reduce) {
@@ -211,7 +215,10 @@
         const p = petals[i];
         p.x += p.vx + gust; p.y += p.vy + Math.sin(p.f) * .3; p.a += p.va; p.f += p.vf;
         if (p.x > W + 30 || p.y > H + 30 || (petals.length > petalTarget && Math.random() < .02)) { petals.splice(i, 1); continue; }
-        drawPetal(p, .85);
+        // よける場所（対局中の盤など）の上では、ふっと消える
+        let al = .85;
+        if (avoidRect) { const R = avoidRect, dx = Math.max(R.left - p.x, 0, p.x - R.right), dy = Math.max(R.top - p.y, 0, p.y - R.bottom), d = Math.max(dx, dy); if (d < 24) al *= d / 24; }
+        if (al > .02) drawPetal(p, al);
       }
     }
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -276,5 +283,5 @@
     if (kind === 'win') for (let i = 0; i < 30; i++) { const a = Math.random() * 6.3, v = 3 + Math.random() * 5; parts.push(Object.assign(newPetal(true), { type: 'petal', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, t: 0, life: 80 })); }
   }
 
-  window.ART = { VARIANTS, charaUri, faceUri, rivalOf, startRoom, startFx, setPetals, burst };
+  window.ART = { VARIANTS, charaUri, faceUri, rivalOf, startRoom, startFx, setPetals, setAvoid, burst };
 })();

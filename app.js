@@ -409,6 +409,9 @@
     }
     document.dispatchEvent(new CustomEvent('kuro9screen', { detail: id }));
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
+    // 対局中・レッスン中は、花びらが盤の上を通らない
+    const bd = id === 'game' ? '#boardWrap' : id === 'lesson' ? '#lsWrap' : null;
+    if (A.setAvoid) A.setAvoid(bd ? () => { const e = $(bd); if (!e || !e.offsetParent) return null; const r = e.getBoundingClientRect(); return r.width ? { left: r.left - 6, top: r.top - 6, right: r.right + 6, bottom: r.bottom + 6 } : null; } : null);
   }
 
   /* ---------- 対局 ---------- */
@@ -1548,7 +1551,7 @@
   document.body.classList.add('on-title');
   // どこをタップしても、光と花びらと小さな音
   document.addEventListener('pointerdown', e => {
-    A.burst(e.clientX, e.clientY, 'tap');
+    if (!(e.target.closest && e.target.closest('#board, #lboard'))) A.burst(e.clientX, e.clientY, 'tap');   // 盤の上は、静かにパチリ
     // 盤のタップは着手の音を鳴らすので、ここでは鳴らさない
     if (!(e.target.closest && e.target.closest('#board, #lboard'))) sound('tap');
   }, { passive: true });
