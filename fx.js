@@ -21,7 +21,7 @@
     el.innerHTML = `<div class="fx-rays"></div>
       ${ci >= 0 ? `<img class="fx-chara" src="${A.charaUri(ci)}" alt="">` : ''}
       <div class="fx-kicker">${esc(o.kicker || '')}</div>
-      <div class="fx-seal"><span>${esc(o.stamp)}</span></div>
+      <div class="fx-seal"><span>${esc(o.stamp).replace(/[0-9０-９]+/g, d => `<b class="tcy">${d.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))}</b>`)}</span></div>
       <div class="fx-title">${esc(o.title || '')}</div>
       ${o.sub ? `<div class="fx-sub">${esc(o.sub)}</div>` : ''}
       ${(o.rewards || []).length ? `<ul class="fx-rewards">${o.rewards.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
