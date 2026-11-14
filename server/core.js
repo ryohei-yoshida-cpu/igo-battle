@@ -233,6 +233,7 @@ export class Core {
     // 部屋番号（対局相手の部屋をたずねられるように、相手に見せる番号）
     this.social.ensurePid(id).then(async pid => {
       info.pid = pid;
+      try { sock.send(JSON.stringify({ t: 'pid', pid })); } catch (e) {}   // 新しく作った部屋番号をアプリへ（名前のかわりにも使う）
       const rec = await this.store.get('acct:' + id); info.av = rec && rec.av || null;   // 対局相手に見せるアバター
       const p = cid && this.players.get(cid); if (p && p.acct === id) { p.pid = pid; p.av = info.av; }
     }).catch(() => {});

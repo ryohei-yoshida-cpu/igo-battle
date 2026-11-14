@@ -857,6 +857,7 @@
     };
   }
   function netSend(m) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(m)); }
+  const defName = () => S.pid ? String(S.pid) : 'あなた';
   function netHello() { netSend({ t: 'hello', cid: S.cid, name: S.name, rating: S.rating, ava: charaIdx() }); }
 
   /* ---------- アカウント：保存データをサーバーにも置く ----------
@@ -923,7 +924,11 @@
     const r = S.room = S.room || {};
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
     if (e.av) S.av = e.av;
-    if (e.pid) S.pid = e.pid;
+    if (e.pid) {
+      S.pid = e.pid;
+      // 名前を決めていない人は、部屋番号（だれにでも見せてよいID）を名前に
+      if (!S.name || S.name === 'あなた') { S.name = String(e.pid); save(); if (NET.ok) netHello(); }
+    }
     if (e.tama) S.tama = e.tama[GAME] | 0;          // 勾玉（このアプリのぶん）
     if (e.charas) S.charaBuy = (e.charas[GAME] || []).slice();
     if (e.stats) S.statsAll = e.stats;               // 全ゲームの戦績のまとめ（戦績のタブ）
@@ -1019,6 +1024,7 @@
       case 'back': if (isMine(m.g)) { G.oppAway = 0; toast('相手が戻ってきました'); render(); } break;
       case 'end': onlineEnd(m); break;
       case 'account': onAccount(m); break;
+      case 'pid': if (m.pid) applyEcon({ pid: m.pid }); break;
       case 'zeni': onZeni(m); break;
       case 'sold': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
@@ -1269,7 +1275,7 @@
   $('#settings').addEventListener('click', e => { if (e.target.id === 'settings') $('#settings').hidden = true; });
   $('#nameInput').addEventListener('input', e => {
     const v = e.target.value.trim().slice(0, 12);
-    S.name = v || 'あなた'; save(); renderHome();
+    S.name = v || defName(); save(); renderHome();
   });
   $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
