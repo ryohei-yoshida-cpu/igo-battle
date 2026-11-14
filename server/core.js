@@ -221,17 +221,15 @@ export class Core {
     }
   }
 
-  // テスト用（2026/11/14）：部屋番号 561149 の「はじめての人の流れ」を1回だけ最初から（銭・持ち物・レートはそのまま）
+  // テスト用（2026/11/14）：部屋番号 561149 のアカウントを1回だけ初期化（ID・パスワード・部屋番号・交流はそのまま。銭・持ち物・部屋・アバター・レート・セーブデータは新しく）
   async testReset(id, r, game) {
-    if (game !== 'go' || String(r.pid || '') !== '561149' || r.progReset1) return;
-    r.progReset1 = 1;
-    const gd = await this.gameData(id, r, game), d = Object.assign({}, gd.data || {});
-    d.prog = { games: 0, seen: {}, all: false, intro: false };
-    d.solo = Object.assign({}, d.solo || {}, { mode: 'beginner', open: {}, read: {}, lessons: [] });
-    delete d.tut;
-    await this.store.put('gd:' + id + ':' + game, { data: d, at: this.now() });
-    if (r.data !== undefined) { delete r.data; delete r.at; }
-    if (r.claims) { delete r.claims.unlock; if (Array.isArray(r.claims.tutorial)) r.claims.tutorial = r.claims.tutorial.filter(x => x !== 'go'); }
+    if (game !== 'go' || String(r.pid || '') !== '561149' || r.fullReset1) return;
+    r.fullReset1 = 1; r.progReset1 = 1;
+    for (const k of ['owned', 'room', 'rooms2', 'av', 'zeni', 'gifts', 'giftSeq', 'econV', 'avV', 'avG', 'avRm1', 'daily', 'claims', 'tama', 'charas', 'rate', 'stats', 'packs', 'offer', 'welcome', 'loginDay', 'data', 'at']) delete r[k];
+    ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); delete r.welcome;
+    r.name = String(r.pid);
+    await this.store.put('gd:' + id + ':' + game, { data: { name: String(r.pid), prog: { games: 0, seen: {}, all: false, intro: false } }, at: this.now() });
+    for (const p of this.players.values()) if (p.acct === id) { p.rates = null; p.rating = START_RATE; p.av = null; }
   }
   // ゲームのセーブデータ（前の形：acct の data は囲碁のもの）
   async gameData(id, r, game) {

@@ -964,7 +964,7 @@
     if (e.welcome) setTimeout(() => toast('ようこそ！ プレゼントボックスに3000銭が届いています', 5000), 1200);
     const r = S.room = S.room || {};
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
-    if (e.av) S.av = e.av;
+    if (e.av !== undefined) S.av = e.av || null;   // サーバーにアバターがなければ、最初の姿
     if (e.pid) {
       S.pid = e.pid;
       // 名前を決めていない人は、部屋番号（だれにでも見せてよいID）を名前に
