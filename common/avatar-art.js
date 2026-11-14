@@ -49,6 +49,8 @@
       ['t04', 'シャボン玉マシン', 1200], ['t05', 'バナナ電話', 1200], ['t06', 'クラッカー', 300], ['t07', 'ミラーボール', 1800],
       ['t08', '竹かご', 300], ['t09', 'ふろしき', 300], ['t10', 'あんどん', 1200], ['t11', '茶釜', 1800],
       ['t12', '手おけ', 300], ['t13', '扇子', 1200], ['t14', '漆の箱', 1800], ['t15', '和傘立て', 1200]],
+    // オールセット：頭と身体をまとめた全身の絵（頭身も自由）。着ている間は頭・身体・道具は使わない。銭が -1 なら勾玉限定
+    full: [['none', 'なし', 0], ['f01', '桜の袴（凛々しい若武者）', -1], ['f02', '桜の振袖（はんなり令嬢）', -1]],
     bg: [['none', 'なし', 0]].concat(['白いスタジオ', '草原', '桜並木', '南の海', '雪の森', 'お城', '魔法の門', '夜の街', '神社', 'ネオン街', 'カフェ', '教室', '子ども部屋', '図書館', 'ステージ', '夏祭り', 'ハロウィン', '海の底', '宇宙', '雲の上のお城']
       .map((name, i) => ['bg' + String(i).padStart(2, '0'), name, [1200, 1200, 1200, 1200, 1200, 1800, 2400, 1800, 1200, 1800, 1200, 1200, 1200, 1200, 1800, 1800, 1800, 2400, 2400, 2400][i]]))
   };
@@ -88,17 +90,19 @@
     ['l123', '余は満足じゃ！', -1], ['l124', 'くっ…ここまでか…！', -1], ['l125', '我が碁に一片の悔いなし！', -1], ['l126', 'これが…愛の一手…', -1],
     ['l127', '天下布石じゃ！', -1]
   ];
-  const TAMA = { 'line:l08': 50, 'line:l17': 50, 'line:l18': 50, 'line:l19': 80, 'line:l20': 80, 'line:l22': 80, 'line:l113': 50, 'line:l114': 50, 'line:l115': 50, 'line:l116': 50, 'line:l117': 80, 'line:l118': 50, 'line:l119': 80, 'line:l120': 80, 'line:l121': 50, 'line:l122': 80, 'line:l123': 80, 'line:l124': 80, 'line:l125': 80, 'line:l126': 80, 'line:l127': 80 };
+  // オールセットの顔の位置（アイコン用）：[中心x, 中心y, 大きさ]
+  const FULL_FACE = { f01: [203, 76, 84], f02: [201, 96, 84] };
+  const TAMA = { 'full:f01': 250, 'full:f02': 250, 'line:l08': 50, 'line:l17': 50, 'line:l18': 50, 'line:l19': 80, 'line:l20': 80, 'line:l22': 80, 'line:l113': 50, 'line:l114': 50, 'line:l115': 50, 'line:l116': 50, 'line:l117': 80, 'line:l118': 50, 'line:l119': 80, 'line:l120': 80, 'line:l121': 50, 'line:l122': 80, 'line:l123': 80, 'line:l124': 80, 'line:l125': 80, 'line:l126': 80, 'line:l127': 80 };
   const LINE_SLOTS = [['s', '対局のはじめ'], ['w', '勝ったとき'], ['l', '負けたとき'], ['e', '対局のおわり']];
-  const SLOTS = [['head', '頭'], ['body', '身体'], ['pet', 'ペット'], ['tool', '道具'], ['bg', '背景']];
+  const SLOTS = [['head', '頭'], ['body', '身体'], ['full', 'オールセット'], ['pet', 'ペット'], ['tool', '道具'], ['bg', '背景']];
   const TABS = SLOTS;
   const PRICE = {}, COLOR = {};
   for (const [slot, list] of Object.entries(CATALOG)) for (const [id, , price] of list) PRICE[slot + ':' + id] = price;
   for (const [id, , price] of LINES) PRICE['line:' + id] = price;
   const LINE_TEXT = {}; for (const [id, t] of LINES) LINE_TEXT[id] = t;
   const PRESETS = {
-    girl: { head: 'h33', body: 'b33', pet: 'none', tool: 'none', bg: 'none' },
-    boy: { head: 'h32', body: 'b32', pet: 'none', tool: 'none', bg: 'none' }
+    girl: { head: 'h33', body: 'b33', full: 'none', pet: 'none', tool: 'none', bg: 'none' },
+    boy: { head: 'h32', body: 'b32', full: 'none', pet: 'none', tool: 'none', bg: 'none' }
   };
   const DEFAULT = PRESETS.girl;
   function clean(look) {
@@ -111,6 +115,7 @@
     const l = Object.assign({}, DEFAULT, look);
     for (const [slot] of SLOTS) if (PRICE[slot + ':' + l[slot]] == null) l[slot] = DEFAULT[slot];
     const out = { head: l.head, body: l.body, pet: l.pet, tool: l.tool, bg: l.bg };
+    if (l.full !== 'none') out.full = l.full;   // オールセット（ないときは書かない＝前の形と同じ）
     // 台詞：{ s: はじめ, w: 勝ち, l: 負け, e: おわり }
     if (look.ln && typeof look.ln === 'object') { const ln = {}; for (const [k] of LINE_SLOTS) if (LINE_TEXT[look.ln[k]]) ln[k] = look.ln[k]; if (Object.keys(ln).length) out.ln = ln; }
     return out;
@@ -119,6 +124,7 @@
   const img = f => `<image href="${base}${f}.webp" x="0" y="0" width="${W}" height="${H}"/>`;
   function inner(look) {
     const l = clean(look);
+    if (l.full) return `<ellipse cx="200" cy="620" rx="74" ry="10" fill="rgba(0,0,0,.16)"/>` + img(l.full) + (l.pet !== 'none' ? img(l.pet) : '');   // オールセット：道具はつけない
     return `<ellipse cx="200" cy="620" rx="74" ry="10" fill="rgba(0,0,0,.16)"/>` + img(l.body) + img(l.head) +
       (l.tool !== 'none' ? img(l.tool) : '') + (l.pet !== 'none' ? img(l.pet) : '');
   }
@@ -130,11 +136,13 @@
   function thumb(look, tab) {
     const l = clean(look);
     if (tab === 'bg') return bgThumb(l.bg);
-    if (tab === 'head' || tab === 'body' || tab === 'pet' || tab === 'tool') {
-      const id = l[tab]; if (id === 'none') return noneThumb;
+    if (tab === 'head' || tab === 'body' || tab === 'pet' || tab === 'tool' || tab === 'full') {
+      const id = l[tab] || 'none'; if (id === 'none') return noneThumb;
       return `<img class="av-thumb" loading="lazy" decoding="async" src="${tbase}${id}.webp" alt="">`;
     }
-    return `<svg viewBox="${CROP[tab] || VB}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
+    let vb = CROP[tab] || VB;
+    if (l.full && FULL_FACE[l.full] && (tab === 'icon' || tab === 'face')) { const [x, y, s] = FULL_FACE[l.full], k = tab === 'face' ? 1.6 : 1; vb = `${x - s * k / 2} ${y - s * k * .45} ${s * k} ${s * k * (tab === 'face' ? 1.07 : 1)}`; }
+    return `<svg viewBox="${vb}" class="av-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner(look)}</svg>`;
   }
   root.AVATAR = { isSheet, W, H, VB, CATALOG, SLOTS, TABS, PRICE, COLOR, PRESETS, DEFAULT, clean, inner, svg, thumb, LINES, LINE_TEXT, LINE_SLOTS, TAMA };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -176,7 +176,7 @@ export class Social {
       const rec = await this.core.withAcct(id, async r => {
         const look = AV.clean(m.look);
         const owned = new Set((r.owned && r.owned.av) || []);
-        for (const [slot] of AV.SLOTS) if (AV.PRICE[slot + ':' + look[slot]] > 0 && !owned.has(slot + ':' + look[slot])) return false;
+        for (const [slot] of AV.SLOTS) { const k = slot + ':' + (look[slot] || 'none'); if (AV.PRICE[k] !== 0 && !owned.has(k)) return false; }   // 勾玉限定（-1）も持っているものだけ
         for (const v of Object.values(look.ln || {})) if (AV.PRICE['line:' + v] !== 0 && !owned.has('line:' + v)) return false;   // 台詞も持っているものだけ
         r.av = look; ok = true;
       });
