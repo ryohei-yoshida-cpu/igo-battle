@@ -773,14 +773,14 @@ function ensureEcon(r) {
   const d = r.data || {}, old = d.room || {};
   r.zeni = Math.min(3000, Math.max(0, d.zeni | 0));   // 前のデータの銭（3000まで）。はじめてのプレゼントはプレゼントボックスへ
   addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now());
-  r.owned = { items: { goban: 1 }, floors: ['wood'], walls: ['plain'], av: [] };
+  r.owned = { items: {}, floors: ['wood'], walls: ['plain'], av: [] };   // はじめは何も持たない（碁盤は静馬からもらう）
   let value = 0;
   const add = k => { if (ITEMS[k] && k !== 'goban' && value + ITEMS[k][0] <= 6000) { value += ITEMS[k][0]; r.owned.items[k] = (r.owned.items[k] || 0) + 1; } };
   for (const it of (old.items || []).concat(old.walls || [])) if (it) add(it.k);
   for (const [k, n] of Object.entries(old.inv || {})) for (let i = 0; i < Math.min(n | 0, 20); i++) add(k);
   for (const f of ((old.owned || {}).floors || [])) if (FLOORS[f] != null && !r.owned.floors.includes(f) && value + FLOORS[f] <= 6000) { value += FLOORS[f]; r.owned.floors.push(f); }
   for (const w of ((old.owned || {}).walls || [])) if (WALLS[w] != null && !r.owned.walls.includes(w) && value + WALLS[w] <= 6000) { value += WALLS[w]; r.owned.walls.push(w); }
-  const def = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0, on: false }], walls: [] };
+  const def = { floor: 'wood', wall: 'plain', items: [], walls: [] };   // はじめの部屋は空っぽ
   r.room = (Array.isArray(old.items) && old.items.length ? cleanRoom(old, r.owned) : null) || def;
   r.daily = { day: '', bot: 0 }; r.claims = {};
   r.econV = 2; r.welcome = true; r.avV = 3;
@@ -826,7 +826,7 @@ const UNLOCK_GIFT = {
 };
 // はじめてそのゲームのアプリに入ったら、そのゲームの記念品（ほかのゲームでも使える）をプレゼントボックスへ
 const GAME_PACK = {
-  go: { label: '囲碁BLITZ 記念品（碁打ちのアバターと碁盤）', av: ['head:h40', 'body:b13', 'tool:t13', 'bg:bg08'], items: ['goban', 'goke', 'igostatue', 'gobanrug'] }
+  go: { label: '囲碁BLITZ 記念品（碁打ちのアバターと囲碁の家具）', av: ['head:h40', 'body:b13', 'tool:t13', 'bg:bg08'], items: ['goke', 'igostatue', 'gobanrug'] }
 };
 function gamePack(r, game, now) {
   const pk = GAME_PACK[game]; if (!pk || !r.owned) return;

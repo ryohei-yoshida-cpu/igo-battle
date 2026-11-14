@@ -12,7 +12,7 @@
   /* ---------- データ ---------- */
   // ほかの人の部屋をたずねているときは guest に、その部屋の情報が入る（見るだけ）
   let guest = null, mySoc = null, meInfo = { pid: S.pid || null, foot: [], friends: [], freq: [], blocks: [], cset: 'all' };
-  const DEF_ROOM = () => ({ floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [] });
+  const DEF_ROOM = () => ({ floor: 'wood', wall: 'plain', items: [], walls: [] });
   // 部屋はいくつも持てる（廊下でつながる）。cur は、いま操作している部屋の番号（0 = はじめの部屋）
   let cur = 0;
   function guestRooms() {
@@ -40,7 +40,7 @@
   // 持ち物（家具の数・床・壁紙）や番号は、はじめの部屋にまとめて持つ
   function base() {
     if (!S.room) {
-      S.room = { floor: 'wood', wall: 'plain', items: [{ uid: 1, k: 'goban', x: 5, y: 5, rot: 0 }], walls: [], inv: {}, owned: { floors: ['wood'], walls: ['plain'] }, seq: 2, seen: [] };
+      S.room = { floor: 'wood', wall: 'plain', items: [], walls: [], inv: {}, owned: { floors: ['wood'], walls: ['plain'] }, seq: 2, seen: [] };
       touch();
     }
     const r = S.room;
