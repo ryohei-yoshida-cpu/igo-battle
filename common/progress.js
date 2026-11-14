@@ -71,7 +71,7 @@
       ],
       then: () => {
         playing = false; g.intro = true; S.solo.mode = mode; P.save();
-        if (window.SOLO) window.SOLO.open();
+        tour('base', () => { if (window.SOLO) window.SOLO.open(); });
       }
     });
   }
@@ -98,7 +98,7 @@
         playing = false; g.seen.haru = 1;   // 最後まで見たら「見た」にする（途中で落ちたら、また最初から）
         if (atari) g.atari = 'pending';
         P.save(); refresh();
-        if (atari) startAtari();
+        if (atari) startAtari(); else tour('pvp', check);
       }
     });
   }
@@ -109,7 +109,7 @@
     window.FANFARE.scene({
       who: 'koharu',
       steps: [{ text: 'おかえりなさい！ さっきのアタリ碁、もう一度やりましょうか？', opts: [['go', 'やる'], ['', 'またこんど']], pick: k => { g2 = k; return k ? [{ text: 'じゃあ、いきますよ！ 石をひとつ取ったら勝ちです！' }] : [{ text: 'わかりました！ 打ちたくなったら、「キャラクターと対局」で強さを「入門」にしてくださいね。' }]; } }],
-      then: () => { playing = false; const g = prog(); if (g2) startAtari(); else { delete g.atari; P.save(); check(); } }
+      then: () => { playing = false; const g = prog(); if (g2) startAtari(); else { delete g.atari; P.save(); tour('pvp', check); } }
     });
   }
   let g2 = '';
@@ -126,7 +126,7 @@
       steps: (won
         ? [{ text: 'やったー！ はじめての勝利、おめでとうございます！' }]
         : [{ text: 'おしかったですね！ でも、石を取る感じ、つかめたと思います。' }]).concat(tail),
-      then: () => { if (beginner && window.SOLO) window.SOLO.open(); check(); }
+      then: () => tour('pvp', () => { if (beginner && window.SOLO) window.SOLO.open(); check(); })
     });
   }
 
@@ -173,11 +173,25 @@
     const g = prog(); refresh();
     if (g.all || playing || !g.intro) return;
     const k = ['rec', 'av', 'room', 'kotto'].find(k => !g.seen[k] && (g.games | 0) >= NEED[k]);
-    if (!k) return;
+    if (!k) { const t = pendingTour(); if (t) tour(t, () => setTimeout(check, 600)); return; }
     P.claimUnlock(k);   // おくりものはサーバーで1回だけ（もう一度呼んでも二重にはならない）
     const sc = SCENES[k]();
     playing = true;
-    window.FANFARE.scene({ who: sc.who, doors: true, steps: sc.steps, then: () => { playing = false; g.seen[k] = 1; P.save(); refresh(); P.toast(sc.toast, 4500); setTimeout(check, 600); } });
+    window.FANFARE.scene({ who: sc.who, doors: true, steps: sc.steps, then: () => { playing = false; g.seen[k] = 1; P.save(); refresh(); P.toast(sc.toast, 4500); tour(k, () => setTimeout(check, 600)); } });
+  }
+  // 小春の案内（開いた場所の分だけ）。案内のあいだは、ほかの登場をまつ
+  function tour(sec, then) {
+    if (!window.TUTORIAL || prog().all) { if (then) then(); return; }
+    playing = true;
+    window.TUTORIAL.run(sec, () => { playing = false; if (then) then(); });
+  }
+  // 開いているのに、まだ案内していない場所（前の版で開いた人・とちゅうで落ちた人）
+  function pendingTour() {
+    const g = prog(); if (g.all || !g.intro) return null;
+    const done = S.tutDone || {};
+    if (!done.base) return 'base';
+    if (isOpen('pvp') && g.seen.haru && g.atari !== 'pending' && !done.pvp) return 'pvp';
+    return ['rec', 'av', 'room', 'kotto'].find(k => g.seen[k] && !done[k]) || null;
   }
   // アプリを開いたとき：はじめての人は小春の登場、そうでなければ開放のたしかめ
   // アプリを開いたとき・読みこみ直したとき：とちゅうだったところから
@@ -187,7 +201,7 @@
     if (!g.intro) { intro(); return; }
     if (!g.all && S.solo && S.solo.read && S.solo.read.haru && !g.seen.haru) { haruDone(); return; }   // 春告げを読んだあとの小春の話がとちゅうだった
     if (g.atari === 'pending') { atariAgain(); return; }
-    if (S.tutStep != null && window.TUTORIAL) { window.TUTORIAL.resume(S.tutStep); return; }   // メニューの案内がとちゅうだった
+    if (S.tutStep != null && window.TUTORIAL) { playing = true; window.TUTORIAL.resume(S.tutStep, () => { playing = false; setTimeout(check, 600); }); return; }   // メニューの案内がとちゅうだった
     check();
   }
 

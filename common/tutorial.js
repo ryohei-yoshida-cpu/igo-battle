@@ -1,7 +1,8 @@
 /* 囲碁BLITZ — 小春のチュートリアル
- *   はじめてアプリを開いたとき（タイトルのあと）に自動で始まる。設定の「チュートリアルを受ける」でもう一度。
+ *   場所が開くたびに、その場所の分だけ自動で案内する（はじめ／対人戦／戦歴／ルーム／マイルーム／骨董屋）。
+ *   設定の「チュートリアルを受ける」で、開いている場所をぜんぶもう一度。
  *   小春が画面の3分の1くらいの大きさで、説明する場所をよけて立つ（歩くようにフェードで移動・向きも変える）。
- *   どこをタップしても次へ。「スキップ」でいつでも終われる。最後まで受けたら、はじめの1回だけ 1000銭（プレゼントボックス）。
+ *   どこをタップしても次へ。「スキップ」でいつでも終われる。
  */
 (function () {
   'use strict';
@@ -11,32 +12,62 @@
 
   // 1歩ずつ：go（画面を開く）、at（光らせる場所）、say（小春のセリフ）
   const home = () => { P.showScreen('home'); P.renderHome(); };
-  const STEPS = [
-    { go: home, say: 'はじめまして！ 小春です。これから、囲碁BLITZの中を案内しますね。ついてきてください！' },
-    { need: 'pvp', at: '#startMatch', say: 'ここは「対人戦」。全国のみんなと、真剣勝負ができるんです。ドキドキしますね！' },
-    { need: 'pvp', go: () => $('#startMatch').click(), at: '#goRandom', say: '「ランダムマッチ」なら、同じくらいの強さの人と打てます。勝てばレートが上がりますよ！' },
-    { need: 'pvp', at: '#goFriend', say: '「フレンドマッチ」は、合言葉で友だちと一局。おしゃべりしながら打つのも楽しいです♪' },
-    { need: 'pvp', at: '.bot-row', say: 'すぐ打ちたいときは「キャラクターと対局」。私と一緒に対局してくれると、嬉しいです！' },
-    { go: home, at: '#openSolo', say: 'こちらは「ソロモード」。私たちの物語を読みながら、囲碁を覚えられます。' },
-    { go: () => window.SOLO.open(), at: '#storyList', say: '物語の続きは、ミッションをクリアすると読めます。……ちょっと恥ずかしい話もあるかも。えへへ。' },
-    { need: 'av', go: home, at: '#openHub', say: '「ルーム」には、あなたのアバターとお部屋があります。行ってみましょう！' },
-    { need: 'av', go: () => window.AVATAR_UI.openHub(), at: '#openAvShop', say: 'ここでアバターの服を買えるんです。ひなたちゃんのお店、かわいい服がいっぱいですよ♪' },
-    { need: 'av', at: '#openAvatar', say: 'こっちは「クローク」。買った服に着がえられます。' },
-    { need: 'av', go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avBig', say: 'ここで着がえられるよ！ あなたに似合う服、私も見てみたいです！' },
-    { need: 'room', go: () => window.ROOM.open(), say: 'ここが、あなたのマイルーム！ 好きなものをかざって、自分だけのお部屋にしてくださいね。' },
-    { need: 'room', at: '#roomDock [data-dock="social"]', say: '「交流」では、フレンドや、遊びに来てくれた人とお話しできます。' },
-    { need: 'room', at: '#roomDock [data-dock="chara"]', say: '「キャラ」から、私たちをお部屋に呼べます。……呼んでくれたら、すぐ行きますね！' },
-    { need: 'room', at: '#roomDock [data-dock="shop"]', say: '家具は「ショップ」で。静馬さんのお店です。無口だけど、とってもやさしい人ですよ。' },
-    { need: 'room', at: '#roomDock [data-dock="edit"]', say: '「もようがえ」で、家具を好きな場所に並べられます。お部屋づくり、楽しみです！' },
-    { need: 'room', go: () => { window.AVATAR_UI.openHub(); $('#openChara').click(); }, at: '#avGrid', say: 'ここは「キャラクター」。段級位が上がると、仲間がどんどん増えていきます。早くみんなに会いたいな！' },
-    { need: 'room', go: () => window.FRIENDS.explore(), at: '#exList', say: '「ルーム探訪」では、ほかの人のお部屋をのぞけます。すてきなお部屋、たくさんありますよ！' },
-    { need: 'room', go: () => window.FRIENDS.open(), at: '.frs-me', say: 'これがあなたの部屋番号。友だちに教えて、フレンドになってくださいね。' },
-    { need: 'room', go: () => $('#openDiary').click(), at: '#dyWrite', say: 'ここで日記をつけられるよ。あなたの日記、楽しみです！' },
-    { go: home, say: 'これで案内はおしまいです！ 最後まで聞いてくれて、ありがとうございました。これから、よろしくお願いしますね！', last: true }
-  ];
+  // 開いた場所ごとに区切る。sec の場所が開いたら、その区切りだけ案内する
+  const SECS = {
+    base: [
+      { go: home, say: 'ここが囲碁BLITZのホーム画面です。少しだけ、案内させてくださいね！' },
+      { go: home, at: '#openSolo', say: 'こちらは「ソロモード」。私たちの物語を読みながら、囲碁を覚えられます。' },
+      { go: () => window.SOLO.open(), at: '#storyList', say: '物語の続きは、ミッションをクリアすると読めます。……ちょっと恥ずかしい話もあるかも。えへへ。' },
+      { go: home, at: '#startMatch', say: 'ほかの場所は、まだカギがかかっています。物語を読んだり、対局を重ねたりすると、どんどん開いていきますよ！' }
+    ],
+    pvp: [
+      { go: home, at: '#startMatch', say: 'ここが「対人戦」。全国のみんなと、真剣勝負ができるんです。ドキドキしますね！' },
+      { go: () => $('#startMatch').click(), at: '#goRandom', say: '「ランダムマッチ」なら、同じくらいの強さの人と打てます。勝てばレートが上がりますよ！' },
+      { at: '#goFriend', say: '「フレンドマッチ」は、合言葉で友だちと一局。おしゃべりしながら打つのも楽しいです♪' },
+      { at: '.bot-row', say: 'すぐ打ちたいときは「キャラクターと対局」。強さを「入門」にすると、私とアタリ碁が打てますよ！' }
+    ],
+    rec: [
+      { go: home, at: '#openRecord', say: '「戦歴」では、あなたの成績や、打った碁をふり返れます。巴ちゃん、ああ見えてとっても努力家なんですよ。' },
+      { go: home, at: '#openReview', say: '「検討」では、打った碁をAIと一緒に見直せます。負けた碁ほど、宝物なんです！' }
+    ],
+    av: [
+      { go: home, at: '#openHub', say: '「ルーム」には、あなたのアバターがいます。行ってみましょう！' },
+      { go: () => window.AVATAR_UI.openHub(), at: '#openAvShop', say: 'ここでアバターの服を買えるんです。ひなたちゃんのお店、かわいい服がいっぱいですよ♪' },
+      { at: '#openAvatar', say: 'こっちは「クローク」。買った服に着がえられます。' },
+      { go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avBig', say: 'ここで着がえられるよ！ あなたに似合う服、私も見てみたいです！' },
+      { go: home, at: '#openShop', say: 'ホームの「ショップ」からも、ひなたちゃんのお店に行けますよ。' }
+    ],
+    room: [
+      { go: () => window.ROOM.open(), say: 'ここが、あなたのマイルーム！ 好きなものをかざって、自分だけのお部屋にしてくださいね。' },
+      { at: '#roomDock [data-dock="social"]', say: '「交流」では、フレンドや、遊びに来てくれた人とお話しできます。' },
+      { at: '#roomDock [data-dock="chara"]', say: '「キャラ」から、私たちをお部屋に呼べます。……呼んでくれたら、すぐ行きますね！' },
+      { at: '#roomDock [data-dock="shop"]', say: '家具は「ショップ」で。静馬さんのお店です。無口だけど、とってもやさしい人ですよ。' },
+      { at: '#roomDock [data-dock="edit"]', say: '「もようがえ」で、家具を好きな場所に並べられます。お部屋づくり、楽しみです！' },
+      { go: () => { window.AVATAR_UI.openHub(); $('#openChara').click(); }, at: '#avGrid', say: 'ここは「キャラクター」。段級位が上がると、仲間がどんどん増えていきます。早くみんなに会いたいな！' },
+      { go: () => window.FRIENDS.explore(), at: '#exList', say: '「ルーム探訪」では、ほかの人のお部屋をのぞけます。すてきなお部屋、たくさんありますよ！' },
+      { go: () => window.FRIENDS.open(), at: '.frs-me', say: 'これがあなたの部屋番号。友だちに教えて、フレンドになってくださいね。' },
+      { go: () => $('#openDiary').click(), at: '#dyWrite', say: 'ここで日記をつけられるよ。あなたの日記、楽しみです！' }
+    ],
+    kotto: [
+      { go: () => window.SHOP.open(), at: '#shopKotto', say: 'ショップの奥に「骨董屋」ができました！ 師匠のお店です。' },
+      { at: '#shopKotto', say: 'いらなくなった服や家具を引きとってくれたり、めずらしい掘り出し物があったり……のぞいてみてくださいね！' }
+    ]
+  };
+  const ORDER = ['base', 'pvp', 'rec', 'av', 'room', 'kotto'];
+  const END = { go: home, say: 'これで案内はおしまいです！ 最後まで聞いてくれて、ありがとうございました。これから、よろしくお願いしますね！', last: true };
+  const PART_END = { go: home, say: 'ここの案内はおしまいです。また新しい場所が開いたら、案内しますね！', last: true };
+  let STEPS = [], cur = null, onEnd = null;   // cur：いま案内している区切り（全部なら 'all'）
+  function build(sec) {
+    if (sec === 'all') {
+      const open = ORDER.filter(k => k === 'base' || !window.PROG || window.PROG.isOpen(k));
+      return [{ go: home, say: 'これから、囲碁BLITZの中を案内しますね。ついてきてください！' }].concat(...open.map(k => SECS[k].filter((st, j) => !(k === 'base' && (j === 0 || j === 3))))).concat([END]);
+    }
+    const last = sec === ORDER.filter(k => k !== 'base').slice(-1)[0] ? END : PART_END;
+    return SECS[sec].concat([last]);
+  }
 
   let el = null, i = -1, typing = 0, full = '', busy = false, done = null, pos = null;
-  function build() {
+  function buildEl() {
     el = document.createElement('div'); el.className = 'tut';
     el.innerHTML = `<div class="tut-hole" hidden></div>
       <div class="tut-k"><img src="img/visit_koharu.webp" alt="小春"></div>
@@ -116,10 +147,9 @@
   }
   async function show(n) {
     busy = true;
-    S.tutStep = n; P.saveLocal();   // 途中で落ちても、ここから再開できるように
+    S.tutStep = n; S.tutSec = cur; P.saveLocal();   // 途中で落ちても、ここから再開できるように
     const st = STEPS[n];
-    if (st.need && window.PROG && !window.PROG.isOpen(st.need)) { busy = false; i = n; if (n + 1 < STEPS.length) { i = n; next2(); } return; }
-    el.querySelector('.tut-n').textContent = `${n + 1} / ${STEPS.length}`;
+        el.querySelector('.tut-n').textContent = `${n + 1} / ${STEPS.length}`;
     el.querySelector('.tut-say').classList.remove('in');
     el.querySelector('.tut-hole').hidden = true;
     if (st.go) { try { st.go(); } catch (e) {} await wait(500); }
@@ -135,7 +165,6 @@
     if (n > 0) P.sound('tap');
     busy = false;
   }
-  function next2() { i++; if (i >= STEPS.length) { finish(); return; } show(i); }
   const wait = ms => new Promise(r => setTimeout(r, ms));
   function next() {
     if (busy || !el) return;
@@ -147,35 +176,45 @@
     show(i);
   }
   function close() {
-    clearInterval(typing); delete S.tutStep; P.saveLocal();
+    clearInterval(typing); delete S.tutStep; delete S.tutSec; P.saveLocal();
     if (!el) return;
     el.classList.add('out'); document.body.classList.remove('tut-on');
     const e = el; el = null; pos = null;
     setTimeout(() => e.remove(), 500);
   }
+  function markDone() {
+    S.tutDone = S.tutDone || {};
+    if (cur === 'all') ORDER.forEach(k => { if (k === 'base' || !window.PROG || window.PROG.isOpen(k)) S.tutDone[k] = 1; });
+    else if (cur) S.tutDone[cur] = 1;
+  }
+  function end() { const f = onEnd; onEnd = null; if (f) setTimeout(f, 400); }
   function skip() {
     P.confirmBox('案内をスキップしますか？（設定の「チュートリアルを受ける」で、いつでももう一度見られます）', () => {
-      if (!S.tut) S.tut = 'skip'; P.save(); close(); home();
+      markDone(); if (!S.tut) S.tut = 'skip'; P.save(); close(); home(); end();
     }, null, { yes: 'スキップ', no: 'つづける' });
   }
   function finish() {
-    S.tut = 'done'; P.save(); close(); home();
+    markDone(); if (cur === 'all' || cur === 'kotto') S.tut = 'done';
+    P.save(); close(); home();
     P.toast('案内はおしまいです。おつかれさまでした！');
+    end();
   }
-  function start(auto) {
-    if (el) return;
-    if (auto && S.tut) return;
-    build(); i = -1; full = ''; busy = false; document.body.classList.add('tut-on');
+  function open(sec, n, then) {
+    if (el) { if (then) then(); return; }
+    cur = sec; STEPS = build(sec); onEnd = then || null;
+    buildEl(); i = Math.max(-1, Math.min(STEPS.length - 1, (n | 0) - 1)); full = ''; busy = false; document.body.classList.add('tut-on');
     requestAnimationFrame(() => el.classList.add('on'));
     setTimeout(next, 300);
+  }
+  // 設定から：開いている場所を、ぜんぶ案内
+  function start() { open('all', 0); }
+  // 場所が開いたとき：その区切りだけ（もう見ていたら、何もしない）
+  function run(sec, then) {
+    if (!SECS[sec] || (S.tutDone && S.tutDone[sec])) { if (then) then(); return; }
+    open(sec, 0, then);
   }
   window.addEventListener('resize', () => { if (el && i >= 0 && !busy) { const r = rectOf(STEPS[i].at); hole(r); const p = place(r); pos = null; moveTo(p); } });
   // 途中から再開（アプリを開き直したとき）
-  function resume(n) {
-    if (el) return;
-    build(); i = Math.max(-1, Math.min(STEPS.length - 1, (n | 0) - 1)); full = ''; busy = false; document.body.classList.add('tut-on');
-    requestAnimationFrame(() => el.classList.add('on'));
-    setTimeout(next, 300);
-  }
-  window.TUTORIAL = { start, resume };
+  function resume(n, then) { open(S.tutSec && (S.tutSec === 'all' || SECS[S.tutSec]) ? S.tutSec : 'all', n, then); }
+  window.TUTORIAL = { start, run, resume, SECS: Object.keys(SECS) };
 })();
