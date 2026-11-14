@@ -301,7 +301,7 @@
     setImg($('#heroChara'), myCharaSrc());
     setImg($('#soloChara'), A.charaUri(charaIdx() === 0 ? 1 : 0));
     const ki = k => A.VARIANTS.findIndex(v => v.key === k);
-    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg(, A.charaUri(ki('tomoe'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
+    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('tomoe'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
     if (window.AVATAR) $('#homeAv').innerHTML = window.AVATAR.svg(S.av || window.AVATAR.PRESETS.girl);
     setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('shima')));
     // 新しく使えるようになったキャラを知らせる
