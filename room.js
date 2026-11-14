@@ -587,7 +587,7 @@
     if (!it) return;
     const c = cat(it.k);
     if (!guest && (c.light || c.toggle)) { it.on = !it.on; touch(); P.sound('tap'); render(); fx(it); return; }
-    if (!guest && it.k === 'goban') { P.confirmBox('対人戦で一局打ちますか？', () => { flush(); P.startMatch(); }); return; }
+    if (!guest && it.k === 'goban') { P.confirmBox('対人戦のメニューへ行きますか？', () => { if (mode !== 'view') leaveMode(true); clearTrials(); flush(); P.openPvp(); }, null, { yes: '行く', no: 'やめる' }); return; }
     P.sound('tap'); fx(it);
   }
   // 家具の動き：テレビ・明かりはつく／消える、掛け軸はおばけ、植物はゆれる、動物ははねる、ほかはぴょこっ

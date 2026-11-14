@@ -394,8 +394,22 @@
     if (look && AVT) el.innerHTML = `${AVT.thumb(look, 'icon')}<img class="pb-chara" src="${A.faceUri(ci)}" alt="">`;
     else el.innerHTML = `<img class="pb-solo" src="${A.faceUri(ci)}" alt="">`;
   }
+  // 画面のうつりかわり：前の画面をゆっくり消しながら、次の画面をゆっくり出す（前の画面は「hidden」のまま、見た目だけ残す）
+  let outEl = null, outT = 0;
+  function endOut() { clearTimeout(outT); if (outEl) { outEl.classList.remove('scr-out'); outEl.style.cssText = ''; outEl = null; } }
   function showScreen(id) {
+    endOut();
+    const prev = SCREENS.map(k => $('#' + k)).find(e => e && !e.hidden);
+    const box = prev && { t: prev.offsetTop, l: prev.offsetLeft, w: prev.offsetWidth, h: prev.offsetHeight, s: prev.scrollTop };
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
+    const next = $('#' + id);
+    if (next) { next.classList.remove('scr-in'); if (prev && prev !== next) { void next.offsetWidth; next.classList.add('scr-in'); } }
+    if (prev && prev !== next && box.w) {
+      outEl = prev;
+      prev.style.cssText = `position:absolute;z-index:5;pointer-events:none;margin:0;top:${box.t}px;left:${box.l}px;width:${box.w}px;height:${box.h}px;animation:scrOut .6s ease-in forwards`;
+      prev.classList.add('scr-out'); prev.scrollTop = box.s;
+      outT = setTimeout(endOut, 650);
+    }
     document.dispatchEvent(new CustomEvent('kuro9screen', { detail: id }));
     A.setPetals(id === 'game' || id === 'lesson' ? 5 : id === 'reader' ? 14 : 10);
   }
@@ -1555,7 +1569,7 @@
   // ソロモード（solo.js）から使う機能
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
-    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch,
+    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch, openPvp,
     rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
