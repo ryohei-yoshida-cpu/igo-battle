@@ -526,16 +526,18 @@
     if (G.online && !remote) netSend({ t: 'move', g: G.online.g, n: G.record.length, p });
     const prev = G.board;
     G.moveNo++;
-    const tech = techOf(prev, r.board, p, c, r.cap, r.ko, G.moveNo);
+    let tech = null; try { tech = techOf(prev, r.board, p, c, r.cap, r.ko, G.moveNo); } catch (e) {}   // 技の名前（演出だけ。失敗しても対局は止めない）
     G.record.push(p);
     G.board = r.board; G.ko = r.ko; G.caps[c] += r.cap.length; G.last = p; G.lastDrop = p; G.passes = 0; G.pend = -1;
     sound(r.cap.length ? 'cap' : 'stone');
     switchTurn();
     render();
-    stoneFx($('#board'), p, c, $('#boardWrap'));
-    if (tech) fx(tech[0], tech[1], p, c === G.me);
-    // アタリ碁：石を1つでも取ったら勝ち
-    if (G.atari && r.cap.length) { endGame(c, 'アタリ碁'); return true; }
+    // アタリ碁：石を1つでも取ったら勝ち（演出より先に決める）
+    if (G.atari && r.cap.length) {
+      try { stoneFx($('#board'), p, c, $('#boardWrap')); } catch (e) {}
+      endGame(c, 'アタリ碁'); return true;
+    }
+    try { stoneFx($('#board'), p, c, $('#boardWrap')); if (tech) fx(tech[0], tech[1], p, c === G.me); } catch (e) {}
     nextTurn();
     ponder();
     if (G.bot && G.bot.nyumon && c !== G.me) setTimeout(() => hint(), 350);   // 入門：取れる石があれば教える
@@ -1590,6 +1592,7 @@
     claimUnlock(id) {
       if (econOn()) { netSend({ t: 'claim', kind: 'unlock', id }); return; }
       const G2 = { rec: { av: ['tool:t13'] }, av: { av: ['body:b05'] }, room: { items: ['goban'] }, kotto: { items: ['tsubo'] } }[id]; if (!G2) return;
+      S.unlockGot = S.unlockGot || {}; if (S.unlockGot[id]) return; S.unlockGot[id] = 1;
       for (const k of G2.av || []) if (!(S.avOwned || []).includes(k)) S.avOwned = (S.avOwned || []).concat(k);
       for (const k of G2.items || []) if (S.room && S.room.ownedItems) S.room.ownedItems[k] = (S.room.ownedItems[k] || 0) + 1;
       save();

@@ -55,7 +55,8 @@
 
   /* ---------- はじめて：小春が登場して、ルールを知っているか聞く ---------- */
   function intro() {
-    const g = prog(); if (g.intro) return;
+    const g = prog(); if (g.intro || playing) return;
+    playing = true;
     let mode = 'beginner';
     window.FANFARE.scene({
       who: 'koharu', doors: true,
@@ -69,7 +70,7 @@
         { text: '読み終わったら、対人戦もできるようになりますよ。いってらっしゃい！' }
       ],
       then: () => {
-        g.intro = true; S.solo.mode = mode; P.save();
+        playing = false; g.intro = true; S.solo.mode = mode; P.save();
         if (window.SOLO) window.SOLO.open();
       }
     });
@@ -77,8 +78,8 @@
 
   /* ---------- 「春告げの一局」を読み終えた：対人戦が開く・お礼・アタリ碁 ---------- */
   function haruDone() {
-    const g = prog(); if (g.all || g.seen.haru) return;
-    g.seen.haru = 1; P.save();
+    const g = prog(); if (g.all || g.seen.haru || playing) return;
+    playing = true;
     let atari = false;
     if (P.online()) P.claimTutorial(); else if (window.GIFT) window.GIFT.add('welcome', 1000, '「春告げの一局」を読んでくれたお礼（小春より）');
     window.FANFARE.scene({
@@ -86,7 +87,7 @@
       steps: [
         { text: '「春告げの一局」、最後まで読んでくれて、ありがとうございます！' },
         Object.assign(gift('<span class="ff-emoji">💰</span>', '1000銭'), { text: '読んでくれたお礼です。受け取ってください！' }),
-        { text: 'それから……これで「対人戦」ができるようになりました！ 全国のみんなと打てますよ。' },
+        { text: S.solo.mode === 'expert' ? 'それから……これで「対人戦」ができるようになりました！ 全国のみんなと打てますよ。' : 'それから……「対人戦」もできるようになりました。でも、あわてなくて大丈夫ですよ。' },
         { text: 'さっそく、私と一局打ってみませんか？ はじめての人にぴったりの「アタリ碁」です！',
           opts: [['go', '打ってみる'], ['', 'あとで']],
           pick: k => { atari = k === 'go'; return atari
@@ -94,19 +95,38 @@
             : [{ text: 'わかりました！ 打ちたくなったら、対人戦の「キャラクターと対局」で、強さを「入門」にしてみてくださいね。' }]; } }
       ],
       then: () => {
-        refresh();
-        if (atari) P.startAtari(won => afterAtari(won));
+        playing = false; g.seen.haru = 1;   // 最後まで見たら「見た」にする（途中で落ちたら、また最初から）
+        if (atari) g.atari = 'pending';
+        P.save(); refresh();
+        if (atari) startAtari();
       }
     });
   }
-  function afterAtari(won) {
-    P.showScreen('home'); P.renderHome();
+  // アタリ碁（終わるまでは「とちゅう」として覚えておく。アプリが落ちても、次に開いたときにもう一度さそう）
+  function startAtari() { P.startAtari(won => afterAtari(won)); }
+  function atariAgain() {
+    playing = true;
     window.FANFARE.scene({
       who: 'koharu',
-      steps: won
-        ? [{ text: 'やったー！ はじめての勝利、おめでとうございます！' }, { text: 'これからも、一緒に強くなりましょうね。対局を重ねると、新しい場所や仲間に会えますよ！' }]
-        : [{ text: 'おしかったですね！ でも、石を取る感じ、つかめたと思います。' }, { text: 'また一緒に打ちましょう！ 対局を重ねると、新しい場所や仲間に会えますよ！' }],
-      then: () => check()
+      steps: [{ text: 'おかえりなさい！ さっきのアタリ碁、もう一度やりましょうか？', opts: [['go', 'やる'], ['', 'またこんど']], pick: k => { g2 = k; return k ? [{ text: 'じゃあ、いきますよ！ 石をひとつ取ったら勝ちです！' }] : [{ text: 'わかりました！ 打ちたくなったら、「キャラクターと対局」で強さを「入門」にしてくださいね。' }]; } }],
+      then: () => { playing = false; const g = prog(); if (g2) startAtari(); else { delete g.atari; P.save(); check(); } }
+    });
+  }
+  let g2 = '';
+  function afterAtari(won) {
+    const g = prog(); delete g.atari; P.save();
+    P.showScreen('home'); P.renderHome();
+    const beginner = S.solo.mode !== 'expert';
+    // 初心者には、いきなり対人戦ではなく、ソロモードをすすめる
+    const tail = beginner
+      ? [{ text: '初心者なら、まずはソロモードをクリアしてみてはいかがでしょう？ 素敵なみんなと会えるかもです！' }, { text: 'お話を読みながら、囲碁のルールも少しずつ覚えられますよ。対局を重ねると、新しい場所も開いていきます！' }]
+      : [{ text: '対人戦では、全国のみんなと打てます。強さが近い相手と当たるので、気軽にどうぞ！' }, { text: '対局を重ねると、新しい場所や仲間に会えますよ！' }];
+    window.FANFARE.scene({
+      who: 'koharu',
+      steps: (won
+        ? [{ text: 'やったー！ はじめての勝利、おめでとうございます！' }]
+        : [{ text: 'おしかったですね！ でも、石を取る感じ、つかめたと思います。' }]).concat(tail),
+      then: () => { if (beginner && window.SOLO) window.SOLO.open(); check(); }
     });
   }
 
@@ -154,13 +174,22 @@
     if (g.all || playing || !g.intro) return;
     const k = ['rec', 'av', 'room', 'kotto'].find(k => !g.seen[k] && (g.games | 0) >= NEED[k]);
     if (!k) return;
-    g.seen[k] = 1; P.save(); P.claimUnlock(k);
+    P.claimUnlock(k);   // おくりものはサーバーで1回だけ（もう一度呼んでも二重にはならない）
     const sc = SCENES[k]();
     playing = true;
-    window.FANFARE.scene({ who: sc.who, doors: true, steps: sc.steps, then: () => { playing = false; refresh(); P.toast(sc.toast, 4500); setTimeout(check, 600); } });
+    window.FANFARE.scene({ who: sc.who, doors: true, steps: sc.steps, then: () => { playing = false; g.seen[k] = 1; P.save(); refresh(); P.toast(sc.toast, 4500); setTimeout(check, 600); } });
   }
   // アプリを開いたとき：はじめての人は小春の登場、そうでなければ開放のたしかめ
-  function start() { const g = prog(); refresh(); if (!g.intro) intro(); else check(); }
+  // アプリを開いたとき・読みこみ直したとき：とちゅうだったところから
+  function start() {
+    const g = prog(); refresh();
+    if (playing) return;
+    if (!g.intro) { intro(); return; }
+    if (!g.all && S.solo && S.solo.read && S.solo.read.haru && !g.seen.haru) { haruDone(); return; }   // 春告げを読んだあとの小春の話がとちゅうだった
+    if (g.atari === 'pending') { atariAgain(); return; }
+    if (S.tutStep != null && window.TUTORIAL) { window.TUTORIAL.resume(S.tutStep); return; }   // メニューの案内がとちゅうだった
+    check();
+  }
 
   window.PROG = { isOpen, refresh, check, start, haruDone, intro };
 })();

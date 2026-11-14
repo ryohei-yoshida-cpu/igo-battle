@@ -223,8 +223,9 @@ export class Core {
 
   // テスト用（2026/11/14）：部屋番号 561149 のアカウントを1回だけ初期化（ID・パスワード・部屋番号・交流はそのまま。銭・持ち物・部屋・アバター・レート・セーブデータは新しく）
   async testReset(id, r, game) {
-    if (game !== 'go' || String(r.pid || '') !== '561149' || r.fullReset1) return;
-    r.fullReset1 = 1; r.progReset1 = 1;
+    if (game !== 'go' || String(r.pid || '') !== '561149' || r.fullReset2) return;
+    r.fullReset1 = r.fullReset2 = 1; r.progReset1 = 1;
+    await this.social.resetExceptFriends(id, String(r.pid));   // 日記・部屋の書きこみも（フレンドだけ残す）
     for (const k of ['owned', 'room', 'rooms2', 'av', 'zeni', 'gifts', 'giftSeq', 'econV', 'avV', 'avG', 'avRm1', 'daily', 'claims', 'tama', 'charas', 'rate', 'stats', 'packs', 'offer', 'welcome', 'loginDay', 'data', 'at']) delete r[k];
     ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); delete r.welcome;
     r.name = String(r.pid);

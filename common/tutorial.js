@@ -116,6 +116,7 @@
   }
   async function show(n) {
     busy = true;
+    S.tutStep = n; P.saveLocal();   // 途中で落ちても、ここから再開できるように
     const st = STEPS[n];
     if (st.need && window.PROG && !window.PROG.isOpen(st.need)) { busy = false; i = n; if (n + 1 < STEPS.length) { i = n; next2(); } return; }
     el.querySelector('.tut-n').textContent = `${n + 1} / ${STEPS.length}`;
@@ -146,7 +147,7 @@
     show(i);
   }
   function close() {
-    clearInterval(typing);
+    clearInterval(typing); delete S.tutStep; P.saveLocal();
     if (!el) return;
     el.classList.add('out'); document.body.classList.remove('tut-on');
     const e = el; el = null; pos = null;
@@ -169,5 +170,12 @@
     setTimeout(next, 300);
   }
   window.addEventListener('resize', () => { if (el && i >= 0 && !busy) { const r = rectOf(STEPS[i].at); hole(r); const p = place(r); pos = null; moveTo(p); } });
-  window.TUTORIAL = { start };
+  // 途中から再開（アプリを開き直したとき）
+  function resume(n) {
+    if (el) return;
+    build(); i = Math.max(-1, Math.min(STEPS.length - 1, (n | 0) - 1)); full = ''; busy = false; document.body.classList.add('tut-on');
+    requestAnimationFrame(() => el.classList.add('on'));
+    setTimeout(next, 300);
+  }
+  window.TUTORIAL = { start, resume };
 })();

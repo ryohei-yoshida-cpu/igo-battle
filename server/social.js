@@ -96,6 +96,14 @@ export class Social {
     }
     return old.length || gone.length;
   }
+  // テスト用の初期化：フレンドだけ残して、日記・一言・ひとこと・訪問・足あと・ブロック・お知らせを消す
+  async resetExceptFriends(id, pid) {
+    const s = await this.readSoc(id);
+    for (const d of s.diary) if (this.store.del) await this.store.del(`dia:${id}:${d.id}`);
+    await this.withKey('soc:' + id, async x => { const keep = { friends: fixSoc(x).friends, seq: x.seq || 1 }; for (const k of Object.keys(x)) delete x[k]; Object.assign(x, newSoc(), keep); }, newSoc);
+    await this.dropList('pubdia', x => x.oid === id);
+    await this.dropList('pubrooms', x => x.pid === pid);
+  }
   // 読むだけ（前の形が残っていたら、一度だけ書きかえる）
   async readSoc(id) {
     const s = fixSoc(await this.store.get('soc:' + id));
