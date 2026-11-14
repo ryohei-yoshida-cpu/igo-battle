@@ -389,6 +389,8 @@ export class Social {
         const mine = it => pid === me || it.pid === me;   // 持ち主は全部、書いた人は自分のもの
         if (m.kind === 'diary' && pid === me) { s.diary = s.diary.filter(d => d.id !== (m.id | 0)); if (this.store.del) await this.store.del(`dia:${oid}:${m.id | 0}`); }
         else if (m.kind === 'chat') s.chat = s.chat.filter(c => !(c.id === (m.id | 0) && mine(c)));
+        else if (m.kind === 'note' && pid === me) s.notes = m.id === 'all' ? [] : s.notes.filter(n => n.id !== (m.id | 0));   // お知らせ（自分あて）を消す
+        else if (m.kind === 'chatall' && pid === me) s.chat = [];
         else if (m.kind === 'comment') {
           const d = s.diary.find(d => d.id === (m.did | 0)), key = `dia:${oid}:${m.did | 0}`, b = d && await this.store.get(key);
           if (!b) return false;
@@ -397,7 +399,7 @@ export class Social {
         else return false;
       });
       if (s && m.kind === 'diary') await this.dropList('pubdia', x => x.oid === oid && x.did === (m.id | 0));
-      out({ ok: !!s, diary: s && s.diary.map(head), chat: s && s.chat, entry });
+      out({ ok: !!s, diary: s && s.diary.map(head), chat: s && s.chat, notes: s && s.notes.slice(0, 20), entry });
       return;
     }
     if (op === 'cset') {

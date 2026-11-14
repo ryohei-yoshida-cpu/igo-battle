@@ -1244,7 +1244,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all';
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false;
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1278,6 +1278,7 @@
     S.name = v || defName(); save(); renderHome();
   });
   $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
+  $('#optTickerMine').addEventListener('change', e => { S.settings.tickerMine = e.target.checked; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）
   for (const [id, key] of [['#optConfirm', 'confirm'], ['#optFx', 'fx'], ['#optShopFx', 'shopFx'], ['#optSound', 'sound'], ['#optBgm', 'bgm']]) {

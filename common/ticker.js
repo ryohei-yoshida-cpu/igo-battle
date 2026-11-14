@@ -15,7 +15,7 @@
   const myAv = () => S.av || AV.PRESETS.girl;
 
   function all() {
-    const mine = (S.myNotes || []).map(n => Object.assign({ kind: 'note', mine: true }, n));
+    const mine = S.settings.tickerMine === false ? [] : (S.myNotes || []).map(n => Object.assign({ kind: 'note', mine: true }, n));   // 自分のお知らせ（設定で出さないこともできる）
     return chat.map(c => Object.assign({ kind: 'chat' }, c)).concat(notes, mine).sort((a, b) => (b.t || 0) - (a.t || 0)).slice(0, 30);
   }
   function icon(it) {
@@ -77,7 +77,9 @@
   function list() {
     const items = all();
     const hm = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
-    $('#tkList').innerHTML = items.length ? items.map(it => `<div class="tk-item${it.kind === 'note' ? ' note' : ''}">${icon(it)}<span>${html(it)}</span><time>${hm(it.t)}</time></div>`).join('')
+    const key = it => it.mine ? 'mine:' + it.t : (it.kind === 'chat' ? 'chat:' : 'note:') + it.id;
+    $('#tkList').innerHTML = items.length ? items.map(it => `<div class="tk-item${it.kind === 'note' ? ' note' : ''}">${icon(it)}<span>${html(it)}</span><time>${hm(it.t)}</time><button type="button" class="tk-del" data-del="${esc(key(it))}" aria-label="このお知らせを消す">✕</button></div>`).join('') +
+      '<button type="button" class="tk-delall" data-del="all">ぜんぶ消す</button>'
       : '<p class="tk-empty">まだありません。部屋に一言コメントが書かれたり、フレンドの日記が更新されたりすると、ここに流れます。</p>';
   }
 
@@ -95,6 +97,24 @@
     else if (k === 'friend') { P.showScreen('friend'); window.FRIEND.open(); }
     else if (k === 'gift') $('#openGift').click();
   }
+  // 消す：自分のお知らせはこの端末から、部屋の一言コメント・とどいたお知らせはサーバーから
+  function del(k) {
+    const [kind, id] = k.split(':');
+    const done = r => { if (r && r.ok) { if (r.chat) chat = r.chat.slice(0, 20); if (r.notes) notes = r.notes.map(n => Object.assign({ kind: 'note' }, n)); } draw(); list(); };
+    if (k === 'all') {
+      P.confirmBox('一言コメントとお知らせを、ぜんぶ消しますか？（部屋に書かれた一言コメントも消えます）', () => {
+        S.myNotes = []; P.saveLocal();
+        if (!P.online()) { chat = []; notes = []; done(); return; }
+        P.soc('del', { pid: S.pid, kind: 'note', id: 'all' }, r => { done(r); P.soc('del', { pid: S.pid, kind: 'chatall' }, done); });
+      });
+      return;
+    }
+    P.sound('tap');
+    if (kind === 'mine') { S.myNotes = (S.myNotes || []).filter(n => String(n.t) !== id); P.saveLocal(); done(); return; }
+    if (!P.online()) { if (kind === 'chat') chat = chat.filter(c => String(c.id) !== id); else notes = notes.filter(n => String(n.id) !== id); done(); return; }
+    P.soc('del', { pid: S.pid, kind, id: +id }, done);
+  }
+  $('#tkList').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; e.stopPropagation(); del(b.dataset.del); });
   $('#ticker').addEventListener('click', e => {
     const u = e.target.closest('u[data-go]');
     if (u) { e.stopPropagation(); go(u.dataset.go); return; }

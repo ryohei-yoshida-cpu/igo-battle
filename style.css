@@ -1800,3 +1800,5 @@ body.fx-shake #app { animation: fxShake .35s; }
 .ff-buy .ff-items { max-height: 52vh; overflow: auto; }
 .thx-say { overflow: visible; max-height: none; }
 .thx-say .ff-tag { margin: 0 auto 2px; }
+.tk-del { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); background: rgba(0, 0, 0, .3); color: var(--muted); font-size: 12px; cursor: pointer; }
+.tk-delall { align-self: center; margin-top: 4px; padding: 6px 14px; border-radius: 99px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
