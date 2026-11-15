@@ -354,6 +354,21 @@
     { id: 'ev_xsweets', name: 'クリスマスのスイーツスタンド', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'xmas', draw() {} },
     { id: 'ev_aurorabyobu', name: 'オーロラの屏風', style: 'fun', kind: 'floor', w: 2, d: 1, price: 400, season: 'xmas', draw() {} },
     { id: 'ev_snowrug', name: '雪の結晶の丸ラグ', style: 'fun', kind: 'flat', w: 2, d: 2, price: 200, season: 'xmas', draw() {} },
-    { id: 'ev_deerrug', name: 'トナカイのラグ', style: 'fun', kind: 'flat', w: 3, d: 2, price: 200, season: 'xmas', draw() {} }
+    { id: 'ev_deerrug', name: 'トナカイのラグ', style: 'fun', kind: 'flat', w: 3, d: 2, price: 200, season: 'xmas', draw() {} },
+    /* 12こ目のセット：段級位のごほうび（売らない・骨董屋でも売れない） */
+    { id: 'rw_menjo1', name: '初段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_menjo2', name: '二段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_menjo3', name: '三段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_menjo4', name: '四段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_menjo5', name: '五段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_kisei', name: '棋聖のトロフィー', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_meijin', name: '名人の盾', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_makiegoban', name: '蒔絵の名品碁盤', style: 'fun', kind: 'floor', w: 2, d: 2, price: -1, reward: true, draw() {} },
+    { id: 'rw_isshu', name: '一手入魂の額', style: 'fun', kind: 'wall', w: 2, h: 2, v: 3.2, price: -1, reward: true, draw() {} },
+    { id: 'rw_tokonoma', name: '碁打ちの床の間', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_zashiki', name: '対局の座敷', style: 'fun', kind: 'floor', w: 2, d: 2, price: -1, reward: true, draw() {} },
+    { id: 'rw_kinbyobu', name: '富士と鶴の金屏風', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'rw_shinbo', name: '深謀遠慮の額', style: 'fun', kind: 'wall', w: 2, h: 2, v: 3.2, price: -1, reward: true, draw() {} },
+    { id: 'rw_gogudana', name: '碁具の飾り棚', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);

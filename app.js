@@ -859,7 +859,9 @@
       if (r.first) {
       // 盛大に：ハンコがとんできて「〇級昇格」。ごほうびと、使えるようになったキャラ
       const nu = A.VARIANTS.map((v, i) => i).filter(i => UNLOCK[A.VARIANTS[i].key] > r.oldRank && UNLOCK[A.VARIANTS[i].key] <= r.newRank);
-      const rw = ['ごほうび 1000銭（プレゼントボックスに届きました）'].concat(nu.map(i => `「${A.VARIANTS[i].name}」をキャラクターに選べるようになりました！`));
+      const RW_ITEMS = { 2: '対局の座敷', 4: '一手入魂の額', 6: '碁具の飾り棚', 8: '深謀遠慮の額', 9: '碁打ちの床の間', 10: '初段の免状・蒔絵の名品碁盤', 11: '二段の免状・富士と鶴の金屏風', 12: '三段の免状・名人の盾', 13: '四段の免状・棋聖のトロフィー' };
+      const gotItem = RW_ITEMS[r.newRank] && displayRank(r.size === 13 ? 9 : 13) < r.newRank;
+      const rw = ['ごほうび 1000銭（プレゼントボックスに届きました）'].concat(gotItem ? [`記念の家具「${RW_ITEMS[r.newRank]}」（プレゼントボックスに届きました）`] : []).concat(nu.map(i => `「${A.VARIANTS[i].name}」をキャラクターに選べるようになりました！`));
       setTimeout(() => window.FX && window.FX.stamp({ kicker: r.newRank >= DAN_FROM ? '昇段' : '昇級', stamp: RANKS[r.newRank] + '昇格', title: `${RANKS[r.newRank]}に昇格しました！`, rewards: rw, chara: nu.length ? nu[nu.length - 1] : charaIdx(), kind: 'rank' }), 700);
       }
     }

@@ -309,7 +309,7 @@ export class Core {
 
   async rateBot(id, bg, score, gid) {
     const key = 'go' + (bg.size || 9); let t = null, d = 0;
-    await this.withAcct(id, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, bg.lv < 0 ? 1000 : botRating(bg.lv), score, true); rankGift(r, key, b, t, this.now()); });
+    await this.withAcct(id, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, bg.lv < 0 ? 1000 : botRating(bg.lv), score, true); rankGift(r, key, b, t, this.now()); rankItems(r, this.now()); });
     if (t) this.sendRate(id, key, t, d, gid ? gid.split(':').slice(1).join(':') : null);
   }
   /* ---------- 銭・ショップ・部屋（サーバーが正） ---------- */
@@ -410,6 +410,7 @@ export class Core {
           addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
         }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
+        else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] <= 0) { reason = 'item'; return; }   // 碁盤・ごほうびの家具は売っていない
         else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }
@@ -669,7 +670,7 @@ export class Core {
     for (const [i, p] of ps.entries()) {
       const c = i + 1, score = winner === 0 ? 0.5 : winner === c ? 1 : 0;
       let d = 0, t = null;
-      await this.withAcct(p.acct, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, before[1 - i], score, false); rankGift(r, key, b, t, this.now()); });
+      await this.withAcct(p.acct, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, before[1 - i], score, false); rankGift(r, key, b, t, this.now()); rankItems(r, this.now()); });
       if (t) this.sendRate(p.acct, key, t, d, g.id);
     }
   }
@@ -733,6 +734,22 @@ function rankGift(r, key, before, t, now) {
   if (list.includes(nr)) return;
   list.push(nr); addGift(r, 'rank', RANKUP, `${key === 'go13' ? '13路' : ''}${RANK_NAMES[nr] || ''}昇格のごほうび`, now);
 }
+// 段級位のごほうびの家具（9路・13路のどちらかで、はじめてとどいたら1回だけ）。五段の免状は、五段ができたら
+const RANK_ITEMS = { 2: ['rw_zashiki'], 4: ['rw_isshu'], 6: ['rw_gogudana'], 8: ['rw_shinbo'], 9: ['rw_tokonoma'],
+  10: ['rw_menjo1', 'rw_makiegoban'], 11: ['rw_menjo2', 'rw_kinbyobu'], 12: ['rw_menjo3', 'rw_meijin'], 13: ['rw_menjo4', 'rw_kisei'] };
+function rankItems(r, now) {
+  if (!r.rate) return;
+  const best = Math.max(...['go9', 'go13'].map(k => r.rate[k] ? dispRank(r.rate[k]) : -1));
+  r.rankItems = r.rankItems || [];
+  for (const [nr, list] of Object.entries(RANK_ITEMS)) {
+    if (+nr > best || r.rankItems.includes(+nr)) continue;
+    r.rankItems.push(+nr);
+    const items = list.filter(k => ITEMS[k]);
+    if (items.length) addGift(r, 'rank', 0, `${RANK_NAMES[nr]}の記念品（${items.map(k => RANK_ITEM_NAME[k] || k).join('・')}）`, now, { items });
+  }
+}
+const RANK_ITEM_NAME = { rw_zashiki: '対局の座敷', rw_isshu: '一手入魂の額', rw_gogudana: '碁具の飾り棚', rw_shinbo: '深謀遠慮の額', rw_tokonoma: '碁打ちの床の間',
+  rw_menjo1: '初段の免状', rw_makiegoban: '蒔絵の名品碁盤', rw_menjo2: '二段の免状', rw_kinbyobu: '富士と鶴の金屏風', rw_menjo3: '三段の免状', rw_meijin: '名人の盾', rw_menjo4: '四段の免状', rw_kisei: '棋聖のトロフィー' };
 function applyRate(t, op, score, vsBot) {
   let d = eloD(t.rating, op, score, t.games);
   if (vsBot && d > 0 && op < t.rating) d = 0;
@@ -794,6 +811,7 @@ function ensureEcon(r) {
     r.avRm1 = 1;
   }
   if (r.owned && !r.roomRm1) roomRemove(r);
+  if (r.owned && r.rate) rankItems(r, Date.now());   // 前からの人にも、とどいている段級位の記念品を
   if (r.econV === 2 && r.avV !== 3 && r.owned) { avRenew(r); return; }
   // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
   if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; avRenew(r); return; }
