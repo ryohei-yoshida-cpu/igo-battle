@@ -223,6 +223,13 @@ export class Core {
 
   // テスト用（2026/11/14）：部屋番号 561149 のアカウントを1回だけ初期化（ID・パスワード・部屋番号・交流はそのまま。銭・持ち物・部屋・アバター・レート・セーブデータは新しく）
   async testReset(id, r, game) {
+    if (game === 'go' && String(r.pid || '') === '561149' && r.fullReset2 && !r.soloFree1) {
+      // 試し用：ソロモードのカギを全部あける（1回だけ）
+      r.soloFree1 = 1;
+      const gd = await this.gameData(id, r, game);
+      if (gd.data) { gd.data.soloFree = true; await this.store.put('gd:' + id + ':' + game, { data: gd.data, at: this.now() }); }
+      return;
+    }
     if (game !== 'go' || String(r.pid || '') !== '561149' || r.fullReset2) return;
     r.fullReset1 = r.fullReset2 = 1; r.progReset1 = 1;
     await this.social.resetExceptFriends(id, String(r.pid));   // 日記・部屋の書きこみも（フレンドだけ残す）

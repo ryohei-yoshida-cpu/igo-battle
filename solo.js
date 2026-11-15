@@ -15,7 +15,7 @@
   const nameClass = who => who === '小春' ? '' : who === '玄斎' ? 'gensai' : 'other';
   const STAND = new Set(['hinata', 'shima', 'tomoe', 'mike', 'tono']);
   const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
-  const opened = id => S.solo.open[id] || 0;               // 読める幕の最後（0 = 第一幕だけ）
+  const opened = id => S.soloFree ? 999 : (S.solo.open[id] || 0);   // soloFree：試し用に全部あける               // 読める幕の最後（0 = 第一幕だけ）
   const nextLesson = () => LESSONS.find(l => !l.ep && !S.solo.lessons.includes(l.id));   // エピソード専用のトレーニングは別
 
   /* 長い幕は約30行ずつに分ける（区切りごとにミッション）。
@@ -135,7 +135,7 @@
       const n = st.parts.length, op = opened(st.id), done = S.solo.read && S.solo.read[st.id];
       const b = document.createElement('button'); b.className = 'story'; b.type = 'button';
       // 上から順番に：前のお話を読み終えていないと読めない（もう読みはじめていたお話は、そのまま）
-      const seqLock = !prevDone && !done && !op;
+      const seqLock = !S.soloFree && !prevDone && !done && !op;
       prevDone = !!done;
       if (seqLock) {
         b.disabled = true; b.classList.add('locked');
@@ -144,7 +144,7 @@
         b.querySelector('small').textContent = st.sub;
         list.append(b); continue;
       }
-      if (st.need && P.displayRank() < st.need) {
+      if (st.need && !S.soloFree && P.displayRank() < st.need) {
         b.disabled = true; b.classList.add('locked');
         b.innerHTML = '<b></b><small></small><span class="st-state"></span>';
         b.querySelector('b').textContent = '🔒 ' + st.title;
@@ -153,7 +153,7 @@
         list.append(b); continue;
       }
       const pips = n <= 12 ? `<span class="pips">${st.parts.map((_, i) => `<i class="${i <= op ? 'on' : ''}"></i>`).join('')}</span>`
-        : `<span class="st-bar"><i style="width:${Math.round(100 * (done ? n : op + 1) / n)}%"></i></span>`;
+        : `<span class="st-bar"><i style="width:${Math.round(100 * (done ? n : Math.min(n, op + 1)) / n)}%"></i></span>`;
       b.innerHTML = `<b></b>${pips}<small></small><span class="st-state"></span>`;
       b.querySelector('b').textContent = st.title;
       b.querySelector('small').textContent = st.sub;
@@ -351,7 +351,7 @@
     gate();
   }
   function unlockNext() {
-    S.solo.open[RD.story.id] = Math.max(opened(RD.story.id), RD.part + 1); P.save();
+    S.solo.open[RD.story.id] = Math.max(S.solo.open[RD.story.id] || 0, RD.part + 1); P.save();
   }
   function gate() {
     const expert = S.solo.mode === 'expert';
