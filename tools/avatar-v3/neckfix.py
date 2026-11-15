@@ -17,7 +17,7 @@ def neck(p):
         if y0 > top + .45 * H or abs(mx - cx) > .12 * (xs.max() - xs.min()) or w > .35 * (xs.max() - xs.min()): continue
         if best is None or y0 < best[0]: best = (y0, mx)
     return best, h, bot
-NOHEAD = {'b89', 'b90', 'b97'}
+NOHEAD = {'b89', 'b90', 'b97', 'b166'}
 MANUAL = {'b85': 1.18}   # 首が見えず、肌色のまちがいを拾う服（手と足で合わせる）
 for arg in sys.argv[1:]:
     pre, b0, n = arg.split(':'); b0, n = int(b0), int(n)
