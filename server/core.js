@@ -47,7 +47,9 @@ function randCode(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); l
 async function sha(text) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
 export const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
 export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); }, del: async k => { m.delete(k); } }; }
-import { ITEMS, FLOORS, WALLS } from './prices.js';
+import { ITEMS, FLOORS, WALLS, SEASON } from './prices.js';
+// 季節（日本時間）：春 3〜5月・夏 6〜8月・秋 9〜11月・冬 12〜2月
+const seasonOf = t => { const m = new Date(t + 9 * 3600e3).getUTCMonth() + 1; return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'; };
 import { Social } from './social.js';
 import { cleanName } from './ng.js';
 import '../common/avatar-art.js';
@@ -401,7 +403,7 @@ export class Core {
           addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
         }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
-        else if (m.item && ITEMS[m.item]) { price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
+        else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && SEASON[m.item] !== seasonOf(this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }
         else if (m.roomAdd) {
@@ -809,7 +811,7 @@ function ensureEcon(r) {
 function antiqueGift(r, x) {
   const pick = a => a.length ? a[Math.floor(Math.random() * a.length)] : null;
   const avs = (lo, hi) => Object.entries(AVP).filter(([k, p]) => p >= lo && p <= hi && !r.owned.av.includes(k)).map(([k]) => k);
-  const items = f => Object.entries(ITEMS).filter(([, v]) => f(v[0])).map(([k]) => k);
+  const items = f => Object.entries(ITEMS).filter(([k, v]) => f(v[0]) && !SEASON[k]).map(([k]) => k);   // 季節限定は出さない
   let id = null, kind = 'item';
   if (x < 1 / 256) { id = pick(avs(2000, 1e9)); kind = 'av'; }
   else if (x < 1 / 256 + 1 / 64) { id = pick(avs(1200, 1500)); kind = 'av'; }

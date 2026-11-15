@@ -5,6 +5,7 @@ const g = globalThis; g.window = g;
 for (const f of ['common/room-items-pics.js', 'common/room-art.js']) (0, eval)(fs.readFileSync(f, 'utf8'));
 const R = g.ROOMART;
 const ITEMS = {}; for (const c of R.CATALOG) ITEMS[c.id] = [c.price, c.kind === 'wall' ? 'w' : c.kind === 'flat' ? 'f' : 'b'];
+const SEASON = {}; for (const c of R.CATALOG) if (c.season) SEASON[c.id] = c.season;
 const FLOORS = {}, WALLS = {};
 for (const [k, v] of Object.entries(R.FLOORS)) FLOORS[k] = v.price;
 for (const [k, v] of Object.entries(R.WALLS)) WALLS[k] = v.price;
@@ -13,5 +14,6 @@ fs.writeFileSync('server/prices.js', `/* 囲碁BLITZ — ショップの値段�
 export const ITEMS = ${JSON.stringify(ITEMS)};
 export const FLOORS = ${JSON.stringify(FLOORS)};
 export const WALLS = ${JSON.stringify(WALLS)};
+export const SEASON = ${JSON.stringify(SEASON)};   // 季節限定（その季節だけ買える）
 `);
 console.log('items', Object.keys(ITEMS).length);
