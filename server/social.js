@@ -31,6 +31,7 @@
  *   （日記を書くと、フレンドにお知らせ）  お知らせは soc:<ID>.notes（最近30件）。つながっていれば op:'push' ですぐ届く
  */
 import { check, cleanName } from './ng.js';
+import { ageState, cleanBirth } from './age.js';
 import '../common/avatar-art.js';
 const AV = globalThis.AVATAR;
 
@@ -184,9 +185,17 @@ export class Social {
       out({ ok: true, list: (await this.store.get('reports')) || [] });
       return;
     }
+    if (op === 'birth') {   // 誕生日：1回だけ登録できる（あとから変えられない）
+      const b = cleanBirth(m.birth, now);
+      if (!b) { out({ ok: false, reason: 'birth' }); return; }
+      let had = null;
+      await this.core.withAcct(id, async r => { if (r.birth) { had = r.birth; return false; } r.birth = b; });
+      out({ ok: true, birth: had || b, fixed: !!had });
+      return;
+    }
     if (op === 'me') {
-      const s = await this.readSoc(id);
-      out({ ok: true, pid: me, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
+      const s = await this.readSoc(id), ra = await this.store.get('acct:' + id);
+      out({ ok: true, pid: me, birth: (ra && ra.birth) || null, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
       return;
     }
     if (op === 'avatar') {
@@ -324,7 +333,7 @@ export class Social {
       const num = v => Math.max(0, v | 0);
       out({ ok: true, pid, name: acctName(acct) || this.nameOf(oid), av: (acct && acct.av) || null, hito: s.hito,
         rating: num(g9.rating), games: num(g9.games), wins: num(g9.wins), draws: num(g9.draws), streak: num(g9.streak), stats,
-        friend: has(s.friends, me), asked: has(s.freq, me), mine: pid === me, gk: !!(acct && acct.guild && acct.guild[info.game || 'go']), noinv: !!(acct && acct.noGkInv) });
+        friend: has(s.friends, me), asked: has(s.freq, me), mine: pid === me, gk: !!(acct && acct.guild && acct.guild[info.game || 'go']), noinv: !!(acct && acct.noGkInv), kid: ageState(acct, now) !== 'adult' });
       return;
     }
     if (op === 'visit') {
@@ -348,7 +357,8 @@ export class Social {
         ok: true, pid, name: ownerName, av: acct.av || null, room: acct.room || null, rooms2: acct.rooms2 || [], hito: s.hito,
         diary: s.diary.filter(d => canSee(d, pid === me, has(s.friends, me))).map(head), chat: s.chat, visits: { total: s.visits.total, today: s.visits.day === day ? s.visits.today : 0 },
         cset: s.cset, friend: has(s.friends, me), asked: has(s.freq, me), canWrite: canWrite(s, pid), mine: pid === me,
-        gk: !!(acct.guild && acct.guild[info.game || 'go']), noinv: !!acct.noGkInv   // 碁会所に入っているか・勧誘を受けない設定か
+        gk: !!(acct.guild && acct.guild[info.game || 'go']), noinv: !!acct.noGkInv,   // 碁会所に入っているか・勧誘を受けない設定か
+        kid: ageState(acct, now) !== 'adult'   // 15歳以下（メッセージ・一言・招待はなし）
       });
       return;
     }
@@ -389,6 +399,11 @@ export class Social {
     if (op === 'comment' || op === 'chat') {
       const t = text(m.text);
       let reason = null, entry = null;
+      // 15歳以下（と誕生日がまだの人）は書けない。15歳以下の人の部屋にも、ほかの人は書けない
+      if (ageState(await this.store.get('acct:' + id), now) !== 'adult') { out({ ok: false, reason: 'kid' }); return; }
+      if (pid !== me && ageState(await this.store.get('acct:' + oid), now) !== 'adult') { out({ ok: false, reason: 'kidroom' }); return; }
+      // 連投の禁止：一言コメントは30秒に1回（部屋の一言・碁会所の一言で共通）
+      if (op === 'chat') { const w = this.core.waitFor('say', id, 30e3); if (w) { out({ ok: false, reason: 'wait', sec: w }); return; } }
       const gs = await this.core.guild.shortOf(id, info.game || 'go').catch(() => '');
       const s = await this.withSoc(oid, async s => {
         if (!canWrite(s, pid)) { reason = has(s.blocks, me) ? 'blocked' : 'closed'; return false; }
@@ -402,6 +417,7 @@ export class Social {
         d.nc = b.c.length; await this.store.put(`dia:${oid}:${d.id}`, b); entry = b;
       });
       if (reason || !s) { out({ ok: false, reason: reason || 'gone' }); return; }
+      if (op === 'chat') this.core.stamp('say', id);
       this.logPost(id, { where: op === 'chat' ? `部屋 ${pid} の一言` : `部屋 ${pid} の日記へのコメント`, text: t }).catch(() => {});
       out({ ok: true, entry, chat: s.chat });
       // 部屋の持ち主がつながっていたら、新しい一言コメントをすぐ知らせる（画面上の流れる一行）

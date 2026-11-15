@@ -301,6 +301,9 @@ export class Core {
       const p = cid && this.players.get(cid); if (p && p.acct === id) { p.pid = pid; p.av = info.av; p.rates = info.rates; if (info.rates) p.rating = info.rates.go9; }
     }).catch(() => {});
   }
+  // 連投の禁止：kind ごとに、その人が最後に書いた時刻。あと何秒待つか（0ならOK）
+  waitFor(kind, id, gap) { this.lastAt = this.lastAt || new Map(); const t = this.lastAt.get(kind + ':' + id) || 0, left = gap - (this.now() - t); return left > 0 ? Math.ceil(left / 1000) : 0; }
+  stamp(kind, id) { this.lastAt = this.lastAt || new Map(); this.lastAt.set(kind + ':' + id, this.now()); if (this.lastAt.size > 20000) this.lastAt.delete(this.lastAt.keys().next().value); }
   // 利用停止にしたアカウントを、いまの接続から外す
   kickAcct(id) {
     for (const [sock, info] of this.sockInfo) if (info && info.acct === id) { try { sock.send(JSON.stringify({ t: 'banned' })); } catch (e) {} info.acct = null; }

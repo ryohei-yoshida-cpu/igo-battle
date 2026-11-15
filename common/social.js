@@ -14,10 +14,10 @@
     sexual: '性的な言葉が入っているので、書きこめません', violent: '暴力的な言葉が入っているので、書きこめません',
     abuse: '人を傷つける言葉が入っているので、書きこめません', contact: 'URL・メールアドレス・電話番号などは書きこめません',
     fast: '少し待ってから書きこんでください', many: '今日はもう書きこめません（1日80回まで）', long: '文字数が多すぎます', empty: '何か書いてください',
-    closed: 'この部屋は今、書きこみを受け付けていません', blocked: 'この部屋には入れません', nobody: 'その番号の部屋はありません',
+    closed: 'この部屋は今、書きこみを受け付けていません', kid: '15歳以下の人は、一言・コメントを書けません', kidroom: '15歳以下の人の部屋には書きこめません', blocked: 'この部屋には入れません', nobody: 'その番号の部屋はありません',
     offline: 'サーバーにつながっていません', full: '相手のフレンド申請がいっぱいです', myfull: 'フレンドは100人までです', theirfull: '相手のフレンドがいっぱいです（100人まで）', today: '日記は1日1回です', gone: 'その日記は消されました', self: '自分にはできません'
   };
-  const why = r => WHY[r && r.reason] || 'うまくいきませんでした';
+  const why = r => r && r.reason === 'wait' ? `連続では書きこめません。あと${r.sec >= 60 ? Math.ceil(r.sec / 60) + '分' : r.sec + '秒'}待ってください` : WHY[r && r.reason] || 'うまくいきませんでした';
   const CSET = [['all', '全員'], ['friends', 'フレンドだけ'], ['none', '受け付けない']];
 
   // 名前（タップでその人の部屋へ）＋ 持ち主なら「ブロック」
@@ -39,8 +39,10 @@
       if (!(d.diary || []).length) h += `<p class="rm-help">${ctx.mine ? 'まだ日記がありません。今日の一局のことを書いてみましょう。' : 'まだ見られる日記がありません。'}</p>`;
       h += (d.diary || []).map(e => `<button type="button" class="dy-card" data-dopen="${e.id}"><span class="dy-day">${new Date(e.t).getMonth() + 1}/${new Date(e.t).getDate()}</span><span class="dy-t"><b>${esc(e.title)}</b><small>${e.kifu ? '棋譜つき' : ''}${e.nc ? `${e.kifu ? '・' : ''}コメント${e.nc}` : ''}</small></span></button>`).join('');
     } else if (tab === 'chat') {
-      h += closedNote(ctx);
-      if (ctx.mine || d.canWrite) h += `<div class="sc-line"><input type="text" id="scChat" maxlength="40" placeholder="一言（40字まで）"><button type="button" class="btn primary small" data-post="chat">送る</button></div>`;
+      const noKid = (window.AGE && window.AGE.kid()) || (!ctx.mine && d.kid);   // 15歳以下は書けない・15歳以下の部屋にも書けない
+      if (noKid) h += `<p class="rm-help warn">${window.AGE && window.AGE.kid() ? '15歳以下の人は、一言を書けません。' : 'この部屋には一言を書けません。'}</p>`;
+      else h += closedNote(ctx);
+      if (!noKid && (ctx.mine || d.canWrite)) h += `<div class="sc-line"><input type="text" id="scChat" maxlength="40" placeholder="一言（40字まで）"><button type="button" class="btn primary small" data-post="chat">送る</button></div>`;
       h += (d.chat || []).length ? `<ul class="sc-chat">${d.chat.map(c => `<li>${who(c, ctx)}<span>${esc(c.text)}</span><time>${when(c.t)}</time>${ctrl(c, ctx, 'chat')}</li>`).join('')}</ul>`
         : '<p class="rm-help">まだ書きこみがありません。</p>';
     } else if (tab === 'social') {
@@ -61,8 +63,8 @@
       h += `<div class="sc-card"><small>部屋番号 ${esc(ctx.pid)}</small><b>${esc(ctx.name)}さんの部屋</b><span>訪問 今日${d.visits ? d.visits.today : 0}人・合計${d.visits ? d.visits.total : 0}人</span></div>`;
       const gi = window.GUILD && window.GUILD.info();
       h += `<div class="sc-sec">${d.friend ? '<p class="rm-help">フレンドです。</p>' : d.asked ? '<p class="rm-help">フレンド申請中です。</p>' : `<button type="button" class="btn primary small" data-freq="${esc(ctx.pid)}">フレンド申請する</button>`}
-        <div class="gk-row"><button type="button" class="btn lac small" data-mailto="${esc(ctx.pid)}" data-name="${esc(ctx.name)}">✉️ メッセージ</button>${gi && !d.gk && !d.noinv && !d.mine ? `<button type="button" class="btn lac small" data-ginv="${esc(ctx.pid)}">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>
-        <small class="rm-help">メッセージは、フレンドか同じ碁会所のメンバーに送れます。</small></div>`;
+        ${(window.AGE && window.AGE.kid()) || d.kid ? '' : `<div class="gk-row"><button type="button" class="btn lac small" data-mailto="${esc(ctx.pid)}" data-name="${esc(ctx.name)}">✉️ メッセージ</button>${gi && !gi.kids && !d.gk && !d.noinv && !d.mine ? `<button type="button" class="btn lac small" data-ginv="${esc(ctx.pid)}">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>
+        <small class="rm-help">メッセージは、フレンドか同じ碁会所のメンバーに送れます。</small>`}</div>`;
       h += `<div class="sc-sec"><button type="button" class="btn lac small" data-home="1">自分の部屋にもどる</button>
         <button type="button" class="sc-x warn" data-block="${esc(ctx.pid)}" data-name="${esc(ctx.name)}">この人をブロックする</button></div>`;
     }

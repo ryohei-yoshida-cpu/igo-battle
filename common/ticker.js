@@ -39,7 +39,8 @@
       case 'myavatar': return `あなたの${link('avatar', 'アバター')}を着がえました`;
       case 'freq': return `${who}からフレンド申請が届きました。${link('gift', 'プレゼントボックス')}で許可できます`;
       case 'friendok': return `${who}とフレンドになりました`;
-      case 'gboard': return `${who}が碁会所の${link('guild:board', '掲示板')}にスレッドを立てました${it.title ? `「${esc(it.title)}」` : ''}`;
+      case 'gboard': return `${who}が碁会所の掲示板にスレッドを立てました${link('guild:board:' + (it.tid || ''), `「${it.title || '掲示板'}」`)}`;
+      case 'gcmt': return `${who}が掲示板${link('guild:board:' + (it.tid || ''), `「${it.title || ''}」`)}にコメントしました`;
       case 'gmis': return `碁会所のミッション「${esc(it.name)}」をクリア！ ${link('guild:mission', `${it.zeni | 0}銭を受け取る`)}`;
       case 'fzeni': return `${who}から100銭が届きました（${link('gift', 'プレゼントボックス')}）`;
     }
@@ -97,7 +98,7 @@
   function go(dest) {
     if (screen === 'game') { P.toast('対局が終わってから開けます'); return; }
     $('#tkList').hidden = true;
-    const [k, v] = dest.split(':');
+    const i = dest.indexOf(':'), k = i < 0 ? dest : dest.slice(0, i), v = i < 0 ? '' : dest.slice(i + 1);
     const R = window.ROOM;
     if (k === 'room') { if (v && v !== String(S.pid)) R.visit(v); else R.open(); }
     else if (k === 'diary') { if (v && v !== 'me' && v !== String(S.pid)) R.visit(v); else if (window.DIARY) window.DIARY.openHub(); else R.open('diary'); }

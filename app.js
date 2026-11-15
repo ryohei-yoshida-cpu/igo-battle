@@ -1395,7 +1395,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false; $('#optNoGkInv').checked = !!S.noGkInv; $('#adminRep').hidden = !(window.REPORT && window.REPORT.isAdmin());
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false; $('#optNoGkInv').checked = !!S.noGkInv; if (window.AGE) window.AGE.apply(); $('#adminRep').hidden = !(window.REPORT && window.REPORT.isAdmin());
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };

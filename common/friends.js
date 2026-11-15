@@ -187,7 +187,7 @@
         <dl class="prof-stats"><div><dt>段級位</dt><dd>${esc(rank)}</dd></div><div><dt>レート</dt><dd>${res.rating}</dd></div><div><dt>対局</dt><dd>${res.games}</dd></div><div><dt>勝率</dt><dd>${wr}</dd></div></dl>
         ${otherGames(res.stats)}
         <div class="prof-btns">${btn}<button type="button" class="btn lac" data-act="room">部屋をたずねる</button></div>
-        ${res.mine ? '' : `<div class="prof-btns"><button type="button" class="btn lac small" data-act="mail">✉️ メッセージ</button>${gi && !res.gk && !res.noinv ? `<button type="button" class="btn lac small" data-act="ginv">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>`}
+        ${res.mine || res.kid || (window.AGE && window.AGE.kid()) ? '' : `<div class="prof-btns"><button type="button" class="btn lac small" data-act="mail">✉️ メッセージ</button>${gi && !gi.kids && !res.gk && !res.noinv ? `<button type="button" class="btn lac small" data-act="ginv">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>`}
         ${res.mine ? '' : '<button type="button" class="prof-report" data-act="report">この人を通報する</button>'}`;
     });
   }

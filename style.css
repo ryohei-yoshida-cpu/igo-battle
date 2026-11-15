@@ -2059,3 +2059,75 @@ details summary { cursor: pointer; font-size: 12px; color: var(--kin); }
 #matching.gk label.toggle, #matching.gk #mtNoBotNote, #matching.gk #matchChara { display: none !important; }
 .res-opp .res-opp-tap { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--kin); color: var(--kin); font-size: 11px; font-weight: 800; }
 .res-opp .res-opp-tap:empty { display: none; }
+.set-birth { margin: 4px 2px 8px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.bd-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 6px; margin: 4px 0 10px; }
+.bd-check { margin: 0 0 10px !important; padding: 8px 10px; border-radius: 10px; background: rgba(224, 80, 62, .16); color: #ffd2c8; font-weight: 800; }
+
+/* ---------- 碁会所：やり直し（透けない・碁のにおい） ---------- */
+#guild { background: #15100b; }
+#guild .gk-body { gap: 14px; padding-bottom: 28px; }
+.gk-panel { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: #22170f; border: 1px solid #4a3420; }
+.gk-panel.hi { border-color: var(--kin); }
+.gk-panel h3 { margin: 0; font-size: 15px; font-weight: 900; color: #f3d690; letter-spacing: .06em; }
+.gk-ph { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* 看板：碁盤の木目 */
+.gk-sign { padding: 6px 4px 2px; }
+.gk-sign-board { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 16px 16px; border-radius: 10px; text-align: center;
+  background: repeating-linear-gradient(90deg, rgba(60, 30, 5, .28) 0 1px, transparent 1px 34px), repeating-linear-gradient(0deg, rgba(60, 30, 5, .28) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(100deg, rgba(120, 70, 20, .10) 0 3px, transparent 3px 11px), linear-gradient(160deg, #eac27c, #d9a556 55%, #c48a3c);
+  border: 5px solid #5b3a1b; box-shadow: inset 0 0 0 2px #8a5a2a, 0 10px 22px rgba(0, 0, 0, .55); }
+.gk-sign-board small { font-size: 12px; font-weight: 900; letter-spacing: .5em; color: #6b3b14; padding-left: .5em; }
+.gk-sign-board b { font-family: var(--brush); font-weight: 400; font-size: clamp(30px, 10vw, 46px); line-height: 1.15; color: #1c1008; text-shadow: 0 1px 0 rgba(255, 240, 200, .5); overflow-wrap: anywhere; }
+.gk-sign-board span { font-size: 11.5px; font-weight: 800; color: #4a2a0e; }
+.gk-st { position: absolute; width: 30px; height: 30px; border-radius: 50%; }
+.gk-st.b { left: 14px; top: 14px; background: radial-gradient(circle at 35% 30%, #6a6a6a, #111 55%, #000); box-shadow: 2px 3px 4px rgba(0, 0, 0, .45); }
+.gk-st.w { right: 14px; bottom: 12px; background: radial-gradient(circle at 35% 30%, #fff, #e8e4da 60%, #bdb6a6); box-shadow: 2px 3px 4px rgba(0, 0, 0, .35); }
+/* マスター＋お知らせ */
+.gk-host { display: grid; grid-template-columns: minmax(104px, 34%) 1fr; gap: 10px; align-items: stretch; }
+.gk-master { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 12px; border-radius: 16px; background: linear-gradient(#2c1d12, #1d130c); border: 1px solid #4a3420; }
+.gk-master-fig { width: 100%; max-width: 140px; aspect-ratio: 3 / 5; display: grid; place-items: end center; }
+.gk-master-fig svg { width: 100%; height: 100%; }
+.gk-master em { font-style: normal; font-size: 10.5px; font-weight: 900; padding: 1px 8px; border-radius: 999px; background: var(--kin); color: #2a1a10; }
+.gk-master b { font-size: 13px; text-align: center; overflow-wrap: anywhere; }
+.gk-notice { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border-radius: 6px; background: linear-gradient(#fbf5e8, #f1e6cf); color: #2b1d12; border: 1px solid #cdb68b; box-shadow: 0 6px 14px rgba(0, 0, 0, .45); min-width: 0; }
+.gk-notice h3 { margin: 0; font-size: 13px; font-weight: 900; color: #a8261c; letter-spacing: .08em; border-bottom: 1px solid #d8c39a; padding-bottom: 6px; }
+.gk-notice p { margin: 0; font-size: 13.5px; line-height: 1.75; overflow-wrap: anywhere; }
+.gk-notice-empty { color: #8a7458; }
+.gk-nlink { display: inline; font: inherit; font-weight: 900; color: #a8261c; background: none; border: 0; border-bottom: 1px solid #a8261c; padding: 0 1px; cursor: pointer; }
+.gk-nedit-btn { align-self: flex-end; margin-top: auto; font: inherit; font-size: 11.5px; font-weight: 800; color: #6b4a26; background: none; border: 1px solid #b89c6c; border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.gk-nedit { display: flex; flex-direction: column; gap: 6px; }
+.gk-nedit .gk-in { background: #fffaf0; color: #2b1d12; border-color: #cdb68b; }
+.gk-nedit .gk-note { color: #6b5a40; }
+.gk-kids-hi { font-family: var(--brush); font-size: 30px !important; text-align: center; color: #a8261c; padding: 18px 0; }
+/* 入口のタイル */
+.gk-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gk-tile { position: relative; display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left; padding: 12px; border-radius: 14px; background: linear-gradient(150deg, #34210f, #22160c); border: 1px solid #6a4a26; color: var(--text); font: inherit; cursor: pointer; }
+.gk-tile-mark { grid-row: 1 / 3; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; font-style: normal; font-size: 16px; font-weight: 900; color: #2a1a10; background: linear-gradient(#f3d690, #c9a24e); }
+.gk-tile b { font-size: 13.5px; } .gk-tile small { font-size: 11px; color: var(--muted); }
+.gk-tile em { position: absolute; top: -6px; right: -4px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #e0302a; color: #fff; font-style: normal; font-size: 12px; font-weight: 900; display: grid; place-items: center; }
+/* 掲示板：アイコンとタイトルだけ */
+.gk-threads li button { flex-direction: row; align-items: center; gap: 10px; background: #2a1c12; border-color: #4a3420; padding: 8px 10px; }
+.gk-threads li button b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.gk-threads li button small { flex: none; display: inline-block; min-width: 22px; text-align: center; padding: 1px 6px; border-radius: 999px; background: #3c2a1a; color: #f3d690; font-weight: 900; }
+.gk-ti { flex: none; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: #f3e7d2; display: block; }
+.gk-ti svg { width: 100%; height: 100%; display: block; }
+.gk-backbar { align-self: flex-start; font: inherit; font-size: 13px; font-weight: 800; color: #f3d690; background: #22170f; border: 1px solid #4a3420; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+/* スレッド */
+.gk-thv { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 10px; }
+.gk-thv-fig { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; background: #22170f; border: 1px solid #4a3420; }
+.gk-thv-fig svg { width: 100%; max-width: 120px; height: auto; aspect-ratio: 3 / 5; }
+.gk-thv-fig b { font-size: 12.5px; text-align: center; overflow-wrap: anywhere; }
+.gk-thv-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 14px; border-radius: 6px; background: linear-gradient(#fbf5e8, #f1e6cf); color: #2b1d12; border: 1px solid #cdb68b; }
+.gk-thv-main h3 { margin: 0; font-size: 16px; font-weight: 900; overflow-wrap: anywhere; }
+.gk-thv-main p { margin: 0; font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gk-thv-main small { font-size: 11px; color: #7a6448; }
+.gk-thv-main .sc-x { align-self: flex-end; color: #a8261c; }
+.gk-replies li { display: flex; gap: 8px; background: #2a1c12; }
+.gk-replies li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gk-replies .sc-x { align-self: flex-end; }
+#guild .gk-mem li, #guild .gk-list li, #guild .gk-call, #guild .gk-rank li { background: #2a1c12; }
+#guild .gk-mis li { background: #22170f; }
+/* kids碁会所：明るく */
+.gk-kids .gk-sign-board { background: repeating-linear-gradient(90deg, rgba(60, 30, 5, .18) 0 1px, transparent 1px 34px), repeating-linear-gradient(0deg, rgba(60, 30, 5, .18) 0 1px, transparent 1px 34px), linear-gradient(160deg, #ffe0a6, #f7c873); border-color: #e08a3a; }
+.gk-kids .gk-sign-board small { color: #d2541e; }
+.gk-nedit .select { background-color: #fffaf0; color: #2b1d12; border-color: #cdb68b; }

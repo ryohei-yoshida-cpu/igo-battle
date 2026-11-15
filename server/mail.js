@@ -16,6 +16,7 @@
  * サーバー → アプリ { t:'mail', op:'push', item, unread }
  */
 import { check, cleanName } from './ng.js';
+import { ageState } from './age.js';
 
 export const MAIL = { text: 200, box: 300, gapMs: 3000, perDay: 150 };
 const NG = { sexual: 'ng', violent: 'ng', abuse: 'ng', contact: 'contact' };
@@ -49,6 +50,9 @@ export class Mail {
     const [ms, os] = [await this.soc.readSoc(id), await this.soc.readSoc(oid)];
     if (ms.blocks.some(b => b.pid === pid) || os.blocks.some(b => b.pid === me)) return 'blocked';
     const a = await this.store.get('acct:' + oid); if (a && a.ban) return 'gone';
+    // 15歳以下（と誕生日がまだの人）は、送ることも受け取ることもできない
+    if (ageState(await this.store.get('acct:' + id), this.now()) !== 'adult') return 'kid';
+    if (ageState(a, this.now()) !== 'adult') return 'kidto';
     if (ms.friends.some(f => f.pid === pid) || os.friends.some(f => f.pid === me)) return null;
     const r1 = await this.store.get('acct:' + id);
     const g1 = r1 && r1.guild || {}, g2 = a && a.guild || {};

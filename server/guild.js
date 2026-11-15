@@ -31,6 +31,7 @@
  * サーバー → アプリ { t:'guild', op:'push', kind, ... }：一言・マッチの呼びかけ・メンバーの出入り
  */
 import { check, cleanName } from './ng.js';
+import { ageState } from './age.js';
 
 export const GUILD = {
   max: 20, giveAmount: 50, giveTo: 5, recvMax: 3, needGames: 50, chat: 60, text: 40,
@@ -42,7 +43,7 @@ export const GUILD = {
     total: { need: 100, zeni: 150, per: 'day', name: 'みんなで100局' },
     week: { need: 500, zeni: 300, per: 'week', name: '1週間で500局' }
   },
-  recallRate: 0.8, recallDays: 3, idleDays: 30, pr: 60, threads: 40, replies: 100, btitle: 30, btext: 300
+  recallRate: 0.8, recallDays: 3, idleDays: 30, notice: 400, pr: 60, threads: 40, replies: 100, btitle: 30, btext: 300
 };
 // 碁会所のタグ・設定（そろえる）
 const LVL = v => /^[kd]([1-9]|10)$/.test(v) && !(v[0] === 'd' && +v.slice(1) > 4) ? v : 'beg';
@@ -50,9 +51,13 @@ const LVL_RANK = v => v === 'beg' ? 0 : v[0] === 'k' ? 10 - +v.slice(1) : 9 + +v
 export function cleanSet(m) {
   return {
     lvl: LVL(String(m.lvl || 'beg')), join: ['open', 'apply', 'invite'].includes(m.join) ? m.join : 'open',
-    talk: m.talk === 'off' ? 'off' : 'on', idle: m.idle === 'bye' ? 'bye' : 'keep', board: m.board === 'off' ? 'off' : 'on'
+    talk: m.talk === 'off' ? 'off' : 'on', idle: m.idle === 'bye' ? 'bye' : 'keep', board: m.board === 'off' ? 'off' : 'on',
+    mpost: m.mpost === 'off' ? 'off' : 'on'   // メンバーの掲示板投稿を許可（off ならマスター・店長だけがスレッドを立てられる）
   };
 }
+// kids碁会所（15歳以下だけ）：ミッション・自動参加・お知らせだけ。細かい設定はなし
+export const KIDS_SET = { lvl: 'beg', join: 'open', talk: 'off', idle: 'bye', board: 'off', mpost: 'off' };
+export const KIDS_NOTICE = 'いらっしゃい';
 // 月のランキングのごほうび（碁会所ぜんたいの銭。勝ちの数に応じて山分け、マスターは1.3倍の重み）
 //   1位 10000銭、上位5%ずつの帯で 8000 → 300銭 へなめらかに下がる。上位5%（と1位）はトロフィーも
 export function monthPrize(rank, n) {
@@ -84,6 +89,9 @@ export class Guild {
     if (g.recall && t - g.recall.at > GUILD.recallDays * 864e5) g.recall = null;
     g.chat = g.chat || []; g.seq = g.seq || 1; g.apps = g.apps || []; g.invites = (g.invites || []).filter(x => t - x.at < 7 * 864e5);
     if (!g.set) g.set = cleanSet({});
+    if (!g.set.mpost) g.set.mpost = 'on';
+    if (g.kids) { g.set = Object.assign({}, KIDS_SET); g.notice = KIDS_NOTICE; }
+    g.deny = g.deny || { post: [], cmt: [] };
     if (!g.short) g.short = String(g.name || '').slice(0, 3);
     // 1か月来ていない人は自動で退会（マスターも。マスターは店長か、いちばん古いメンバーに）
     if (g.set.idle === 'bye') {
@@ -116,7 +124,7 @@ export class Guild {
     return Math.max(...['go9', 'go13'].map(k => this.h.dispRank(this.h.rateOf(r, k))));
   }
   // おすすめ・一覧で見せる形
-  card(g) { this.roll(g); return { id: g.id, name: g.name, short: g.short, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0), set: g.set, pr: g.pr || '', on: g.members.filter(m => this.online(m.id)).length, today: g.day.total }; }
+  card(g) { this.roll(g); return { id: g.id, kids: !!g.kids, name: g.name, short: g.short, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0), set: g.set, pr: g.pr || '', on: g.members.filter(m => this.online(m.id)).length, today: g.day.total }; }
   async gidOf(id, game) { const r = await this.store.get('acct:' + id); return (r && r.guild && r.guild[game || 'go']) || null; }
   online(id) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) return p; return null; }
   sendTo(id, msg) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify(Object.assign({ t: 'guild' }, msg))); } catch (e) {} } }
@@ -129,8 +137,10 @@ export class Guild {
     for (const c of g.chat) frownOf[c.from] = (frownOf[c.from] || 0) + (c.frown || []).length;
     const members = g.members.map(m => {
       const p = this.online(m.id);
-      return { pid: m.pid, name: m.name, role: this.role(g, m.id), on: !!p, busy: !!(p && p.game), av: (p && p.av) || m.av || null, wins: (g.month.wins[m.id] | 0), frown: boss ? (frownOf[m.id] | 0) : undefined, me: m.id === id || undefined };
+      return { pid: m.pid, name: m.name, role: this.role(g, m.id), on: !!p, busy: !!(p && p.game), av: (p && p.av) || m.av || null, wins: (g.month.wins[m.id] | 0), frown: boss ? (frownOf[m.id] | 0) : undefined, me: m.id === id || undefined,
+        noPost: boss && g.deny.post.includes(m.id) || undefined, noCmt: boss && g.deny.cmt.includes(m.id) || undefined };
     });
+    const master = members.find(x => x.role === 'master');
     const mine = g.members.find(m => m.id === id);
     return {
       id: g.id, name: g.name, at: g.at, role: this.role(g, id), members, max: GUILD.max,
@@ -139,7 +149,10 @@ export class Guild {
       recall: g.recall ? { by: g.recall.by, at: g.recall.at, yes: g.recall.yes.length, no: g.recall.no.length, need: this.recallNeed(g), voted: g.recall.yes.includes(id) ? 'yes' : g.recall.no.includes(id) ? 'no' : '' } : null,
       last: g.last || null, me: mine ? mine.pid : null,
       short: g.short, set: g.set, pr: g.pr || '',
-      apps: boss ? g.apps.map(a => ({ pid: a.pid, name: a.name, at: a.at })) : undefined
+      apps: boss ? g.apps.map(a => ({ pid: a.pid, name: a.name, at: a.at })) : undefined,
+      kids: !!g.kids, notice: g.notice || '', master: master ? { pid: master.pid, name: master.name, av: master.av } : null,
+      canPost: !g.kids && g.set.board === 'on' && (boss || g.set.mpost === 'on') && !g.deny.post.includes(id),
+      canCmt: !g.kids && g.set.board === 'on' && !g.deny.cmt.includes(id)
     };
   }
   chatView(c, id, boss) { return { id: c.id, t: c.t, pid: c.pid, name: c.name, gs: c.gs || undefined, av: c.av || null, text: c.text, mine: c.from === id || undefined, frowned: (c.frown || []).includes(id) || undefined, frown: boss ? (c.frown || []).length : undefined }; }
@@ -186,7 +199,7 @@ export class Guild {
       const idx = (await this.store.get('guilds:' + game)) || [];
       const rows = [];
       for (const it of idx) {
-        const g = await this.store.get('guild:' + it.id); if (!g) continue;
+        const g = await this.store.get('guild:' + it.id); if (!g || g.kids) continue;   // kids碁会所はランキングなし
         const wins = g.month && g.month.m === ym ? g.month.wins : g.last && g.last.m === ym ? g.last.wins : null;
         const total = wins ? Object.values(wins).reduce((a, b) => a + b, 0) : 0;
         if (total > 0) rows.push({ g, wins, total });
@@ -219,15 +232,16 @@ export class Guild {
     const fail = reason => out({ ok: false, reason });
     const reply = async extra => out(Object.assign({ ok: true, guild: await this.meData(id, game) }, extra || {}));
     const memberId = async (g, p) => { const oid = await this.core.social.idOf(p); return oid && g.members.some(x => x.id === oid) ? oid : null; };
+    const age = ageState(await this.store.get('acct:' + id), now), kid = age !== 'adult';   // 15歳以下（誕生日がまだの人も）はkids碁会所だけ
 
-    if (op === 'me') { const ar = await this.store.get('acct:' + id); return reply({ noinv: !!(ar && ar.noGkInv) }); }
+    if (op === 'me') { const ar = await this.store.get('acct:' + id); return reply({ noinv: !!(ar && ar.noGkInv), age }); }
     if (op === 'pref') {   // 設定「碁会所の勧誘を受けない」
       await this.core.withAcct(id, async r => { if (m.noinv) r.noGkInv = 1; else delete r.noGkInv; });
       return out({ ok: true, noinv: !!m.noinv });
     }
     if (op === 'rank') {
       const idx = (await this.store.get('guilds:' + game)) || [], rows = [];
-      for (const it of idx) { const g = await this.store.get('guild:' + it.id); if (!g) continue; this.roll(g); rows.push({ id: g.id, name: g.name, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0) }); }
+      for (const it of idx) { const g = await this.store.get('guild:' + it.id); if (!g || g.kids) continue; this.roll(g); rows.push({ id: g.id, name: g.name, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0) }); }
       rows.sort((a, b) => b.wins - a.wins);
       const ranked = rows.filter(r => r.wins > 0);
       const list = rows.slice(0, 50).map((r, i) => Object.assign(r, r.wins > 0 ? { rank: i + 1, prize: monthPrize(i, ranked.length) } : {}));
@@ -238,7 +252,7 @@ export class Guild {
       const q = String(m.q || '').trim().slice(0, 20).toUpperCase(), idx = (await this.store.get('guilds:' + game)) || [];
       const hit = idx.filter(it => !q || it.id === q || it.name.toUpperCase().includes(q)).slice(0, 60);
       const list = [];
-      for (const it of hit.slice(0, 30)) { const g = await this.store.get('guild:' + it.id); if (!g) continue; list.push(this.card(g)); }
+      for (const it of hit.slice(0, 40)) { const g = await this.store.get('guild:' + it.id); if (!g || !!g.kids !== kid) continue; list.push(this.card(g)); }
       list.sort((a, b) => b.wins - a.wins || b.n - a.n);
       out({ ok: true, list, mine: gid });
       return;
@@ -249,6 +263,7 @@ export class Guild {
       for (const it of idx.slice(-300)) {
         const g = await this.store.get('guild:' + it.id); if (!g) continue;
         const c = this.card(g);
+        if (c.kids !== kid) continue;
         if (c.n >= GUILD.max || c.set.join === 'invite' || LVL_RANK(c.set.lvl) > my || g.members.some(x => x.id === id)) continue;
         let sc = Math.random() * 3 + Math.min(10, c.today / 5) + c.on * 2 + Math.min(6, c.n);
         if (c.set.lvl === 'beg' && my <= 5) sc += 12;                       // 初心者歓迎 × 10〜5級
@@ -264,6 +279,7 @@ export class Guild {
     if (op === 'accept') {
       // 招待をうける：招待はどの設定でも有効（段級位の条件も、招待なら入れる）
       if (gid) return fail('in');
+      if (kid) return fail(age === 'unknown' ? 'birth' : 'kid');
       const nid = String(m.id || '').slice(0, 8);
       let why = '';
       const av = (this.online(id) || {}).av || null;
@@ -282,6 +298,7 @@ export class Guild {
     if (op === 'decline') { await this.markMail(id, m.n | 0, 'declined'); return out({ ok: true }); }
     if (op === 'create' || op === 'join') {
       if (gid) return fail('in');
+      if (age === 'unknown') return fail('birth');
       const gd = await this.store.get('gd:' + id + ':' + game), prog = gd && gd.data && gd.data.prog;
       const ar = await this.store.get('acct:' + id);
       if (!(prog && (prog.all || (prog.games | 0) >= GUILD.needGames)) && !(ar && ar.gkFree) && !(gd && gd.data && gd.data.gkFree)) return fail('games');
@@ -297,7 +314,7 @@ export class Guild {
         if (idx.some(it => it.name === name)) return fail('same');
         let nid; do { nid = newId(); } while (await this.store.get('guild:' + nid));
         me.seen = now;
-        g = { id: nid, game, name, short, pr, set: cleanSet(m), at: now, master: id, manager: null, members: [me], chat: [], seq: 1 };
+        g = { id: nid, game, name, short, pr: kid ? '' : pr, set: kid ? Object.assign({}, KIDS_SET) : cleanSet(m), at: now, master: id, manager: null, members: [me], chat: [], seq: 1, kids: kid || undefined, notice: kid ? KIDS_NOTICE : '' };
         this.roll(g); await this.store.put('guild:' + nid, g);
         await this.core.social.withKey('guilds:' + game, list => { list.push({ id: nid, name, n: 1 }); }, () => []);
       } else {
@@ -306,6 +323,7 @@ export class Guild {
         me.seen = now;
         g = await this.withG(String(m.id || '').slice(0, 8), g => {
           if (g.members.some(x => x.id === id)) return;
+          if (!!g.kids !== kid) { why = kid ? 'kid' : 'kidsonly'; return false; }
           if (g.members.length >= GUILD.max) { why = 'full'; return false; }
           if (LVL_RANK(g.set.lvl) > my) { why = 'lvl'; return false; }
           if (g.set.join === 'invite') { why = 'invite'; return false; }
@@ -327,6 +345,10 @@ export class Guild {
       return reply();
     }
     if (!gid) return fail('none');
+    if (kid || (await this.store.get('guild:' + gid) || {}).kids) {
+      // kids碁会所でできるのは、見る・ミッションの受け取り・抜けるだけ
+      if (!['leave', 'claim'].includes(op)) return fail('kids');
+    }
 
     if (op === 'leave') {
       let left = null;
@@ -369,6 +391,7 @@ export class Guild {
       const os = await this.core.social.readSoc(oid), ms = await this.core.social.readSoc(id);
       if (os.blocks.some(b => b.pid === pid) || ms.blocks.some(b => b.pid === String(m.pid))) return fail('blocked');
       if (await this.gidOf(oid, game)) return fail('theirs');
+      if (ageState(await this.store.get('acct:' + oid), now) !== 'adult') return fail('kidto');
       const oa = await this.store.get('acct:' + oid); if (oa && oa.noGkInv) return fail('noinv');
       let why = '';
       const g = await this.withG(gid, g => {
@@ -383,51 +406,98 @@ export class Guild {
     if (op === 'settings') {
       let why = '';
       const pr = String(m.pr || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.pr), short = String(m.short || '').replace(/[\s\u0000-\u001f\u007f:：]/g, '').slice(0, 3);
-      if ((pr && check(pr)) || (short && check(short))) return fail('ng');
+      const notice = String(m.notice || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.notice);
+      if ((pr && check(pr)) || (short && check(short)) || (notice && check(notice))) return fail('ng');
       const g = await this.withG(gid, g => {
         if (g.master !== id) { why = 'role'; return false; }
         g.set = cleanSet(m); g.pr = pr; if (short) g.short = short;
+        if (typeof m.notice === 'string') g.notice = notice;
         if (g.set.talk === 'off') g.chat = g.chat.slice(0, 0);
       });
       if (!g) return fail(why);
       return reply();
     }
-    if (op === 'threads' || op === 'post' || op === 'reply' || op === 'bdel') {
+    if (op === 'notice') {   // マスターからのお知らせ（[[スレッド番号]] で掲示板へのリンク）
+      const notice = String(m.text || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.notice);
+      if (notice && check(notice)) return fail('ng');
+      let why = '';
+      const g = await this.withG(gid, g => { if (g.master !== id) { why = 'role'; return false; } g.notice = notice; });
+      if (!g) return fail(why);
+      return reply();
+    }
+    if (op === 'deny') {   // 特定メンバーの掲示板投稿・コメントを拒否（マスター・店長）
+      let why = '';
+      const g = await this.withG(gid, async g => {
+        if (g.master !== id && g.manager !== id) { why = 'role'; return false; }
+        const oid = await memberId(g, m.pid); if (!oid || oid === g.master || oid === id) { why = 'who'; return false; }
+        const k = m.kind === 'cmt' ? 'cmt' : 'post';
+        g.deny[k] = g.deny[k].filter(x => x !== oid); if (m.on) g.deny[k].push(oid);
+      });
+      if (!g) return fail(why);
+      return reply();
+    }
+    /* ---------- 掲示板 ----------
+     *   threads … 一覧（投稿者のアイコンとタイトルだけ）   thread { tid } … 1つ（本文とコメント）
+     *   post { title, text, cmt: on/off, notify: none/past/me/all } … スレッドを立てる
+     *      cmt：コメントあり（メンバーがコメントできる）／なし   notify：コメントがついたら一言コメント欄にお知らせ
+     *        past 書きこんだことのあるメンバー＋投稿者 / me 投稿者だけ / all 碁会所みんな / none なし
+     *   reply { tid, text } … コメント   bdel { tid, rid } … 消す（書いた人・マスター・店長） */
+    if (['threads', 'thread', 'post', 'reply', 'bdel'].includes(op)) {
       const g0 = await this.store.get('guild:' + gid);
       if (!g0 || !g0.members.some(x => x.id === id)) return fail('none');
-      if (g0.set && g0.set.board === 'off') return fail('board');
+      this.roll(g0);
+      if (g0.set.board === 'off') return fail('board');
       const boss = g0.master === id || g0.manager === id, key = 'gboard:' + gid;
       const clean = (v, n) => String(v || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, n);
-      let why = '';
+      const av = (this.online(id) || {}).av || (g0.members.find(x => x.id === id) || {}).av || null;
+      let why = '', hit = null;
       if (op === 'post' || op === 'reply') {
+        if (op === 'post' && !boss && g0.set.mpost === 'off') return fail('mpost');
+        if (g0.deny[op === 'post' ? 'post' : 'cmt'].includes(id)) return fail('denied');
         const title = clean(m.title, GUILD.btitle), text = clean(m.text, GUILD.btext);
         if (!text || (op === 'post' && !title)) return fail('empty');
         if (check(text) || (title && check(title))) return fail('ng');
-        this.saidAt = this.saidAt || new Map();
-        if (now - (this.saidAt.get(id) || 0) < 4000) return fail('fast');
-        this.saidAt.set(id, now);
+        // 連投の禁止：スレッドは1時間に1回、コメントは10分に1回
+        const wk = op === 'post' ? 'bpost' : 'bcmt', w = this.core.waitFor(wk, id, op === 'post' ? 3600e3 : 600e3);
+        if (w) return out({ ok: false, reason: 'wait', sec: w });
         const r = await this.core.social.withKey(key, b => {
           b.seq = (b.seq || 0) + 1;
-          const it = { id: b.seq, t: now, pid, name: myName(), text };
-          if (op === 'post') { b.threads.unshift(Object.assign(it, { title, replies: [], last: now })); b.threads = b.threads.slice(0, GUILD.threads); return; }
+          const it = { id: b.seq, t: now, uid: id, pid, name: myName(), av, text };
+          if (op === 'post') {
+            hit = Object.assign(it, { title, replies: [], last: now, cmt: m.cmt === 'off' ? 'off' : 'on', notify: ['none', 'past', 'me', 'all'].includes(m.notify) ? m.notify : 'none' });
+            b.threads.unshift(hit); b.threads = b.threads.slice(0, GUILD.threads); return;
+          }
           const th = b.threads.find(x => x.id === (m.tid | 0)); if (!th) { why = 'gone'; return false; }
-          th.replies.push(it); th.replies = th.replies.slice(-GUILD.replies); th.last = now;
-          b.threads = [th].concat(b.threads.filter(x => x !== th));
+          if (th.cmt === 'off') { why = 'nocmt'; return false; }
+          th.replies.push(it); th.replies = th.replies.slice(-GUILD.replies); th.last = now; hit = th;
         }, () => ({ seq: 0, threads: [] }));
         if (!r) return fail(why);
-        this.archive(id, op === 'post' ? `[掲示板] ${title}：${text}` : `[掲示板の返信] ${text}`, g0).catch(() => {});
-        if (op === 'post') for (const mm of g0.members) if (mm.id !== id)   // スレッドが立ったら、メンバーの一言コメント欄にお知らせ
-          this.core.social.notify(mm.id, { type: 'gboard', pid, name: myName(), gs: g0.short, title: String(m.title || '').slice(0, GUILD.btitle), t: now }).catch(() => {});
+        this.core.stamp(wk, id);
+        this.archive(id, op === 'post' ? `[掲示板] ${title}：${text}` : `[掲示板のコメント] ${text}`, g0).catch(() => {});
+        // お知らせ：スレッドが立ったらみんなに。コメントは、そのスレッドの「通知」の設定どおり
+        const note = { pid, name: myName(), gs: g0.short, title: hit.title, tid: hit.id, t: now };
+        let to = [];
+        if (op === 'post') to = g0.members.map(x => x.id);
+        else if (hit.notify === 'all') to = g0.members.map(x => x.id);
+        else if (hit.notify === 'me') to = [hit.uid];
+        else if (hit.notify === 'past') to = [hit.uid].concat(hit.replies.map(x => x.uid));
+        for (const uid of [...new Set(to)]) if (uid && uid !== id && g0.members.some(x => x.id === uid))
+          this.core.social.notify(uid, Object.assign({ type: op === 'post' ? 'gboard' : 'gcmt' }, note)).catch(() => {});
       } else if (op === 'bdel') {
         const r = await this.core.social.withKey(key, b => {
           const th = b.threads.find(x => x.id === (m.tid | 0)); if (!th) { why = 'gone'; return false; }
-          if (m.rid) { const rp = th.replies.find(x => x.id === (m.rid | 0)); if (!rp || (rp.pid !== pid && !boss)) { why = 'role'; return false; } th.replies = th.replies.filter(x => x !== rp); }
+          if (m.rid) { const rp = th.replies.find(x => x.id === (m.rid | 0)); if (!rp || (rp.pid !== pid && !boss)) { why = 'role'; return false; } th.replies = th.replies.filter(x => x !== rp); hit = th; }
           else { if (th.pid !== pid && !boss) { why = 'role'; return false; } b.threads = b.threads.filter(x => x !== th); }
         }, null);
         if (!r) return fail(why || 'gone');
       }
       const b = (await this.store.get(key)) || { threads: [] };
-      return out({ ok: true, threads: b.threads, me: pid, boss });
+      const pub = x => { const o = Object.assign({}, x); delete o.uid; if (o.replies) o.replies = o.replies.map(r => { const c = Object.assign({}, r); delete c.uid; return c; }); return o; };
+      const list = b.threads.map(x => ({ id: x.id, title: x.title, pid: x.pid, name: x.name, av: x.av || null, n: x.replies.length, t: x.t, last: x.last }));
+      const tid = op === 'thread' || op === 'reply' ? (m.tid | 0) : op === 'bdel' && m.rid ? (m.tid | 0) : op === 'post' ? hit.id : 0;
+      const th = tid ? b.threads.find(x => x.id === tid) : null;
+      if (op === 'thread' && !th) return fail('gone');
+      return out({ ok: true, threads: list, thread: th ? pub(th) : null, me: pid, boss });
     }
     if (op === 'boss') {
       let why = '';
@@ -520,9 +590,8 @@ export class Guild {
       if (!text) return fail('empty');
       if (text.length > GUILD.text) return fail('long');
       if (check(text)) return fail('ng');
-      this.saidAt = this.saidAt || new Map();
-      if (now - (this.saidAt.get(id) || 0) < 4000) return fail('fast');
-      this.saidAt.set(id, now);
+      const w = this.core.waitFor('say', id, 30e3); if (w) return out({ ok: false, reason: 'wait', sec: w });   // 一言は30秒に1回
+      this.core.stamp('say', id);
       let item = null;
       const g = await this.withG(gid, g => {
         if (!g.members.some(x => x.id === id)) return false;

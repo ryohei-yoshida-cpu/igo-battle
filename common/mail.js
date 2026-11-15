@@ -12,7 +12,7 @@
   const WHY = {
     offline: 'サーバーにつながっているときに使えます', who: 'フレンドか、同じ碁会所のメンバーにだけ送れます', blocked: 'ブロックしているか、されているので送れません',
     empty: 'メッセージを入れてください', long: '200字までです', ng: '使えない言葉が入っています', contact: '連絡先・URLなどの個人情報は送れません',
-    fast: '少し待ってから送ってください', many: '今日はもう送れません（1日150通まで）', gone: 'もうありません', in: 'もう碁会所に入っています', full: '碁会所がいっぱいです', role: 'できるのはマスター・店長だけです'
+    fast: '少し待ってから送ってください', kid: '15歳以下の人は、メッセージを使えません', kidto: '相手は15歳以下なので、メッセージを送れません', many: '今日はもう送れません（1日150通まで）', gone: 'もうありません', in: 'もう碁会所に入っています', full: '碁会所がいっぱいです', role: 'できるのはマスター・店長だけです'
   };
   const why = r => WHY[r && r.reason] || 'うまくいきませんでした';
   const req = (op, data, cb) => P.mail(op, data, r => { if (r && typeof r.unread === 'number') badge(r.unread); if (cb) cb(r); });
@@ -57,7 +57,7 @@
       <div class="gk-row ml-foot"><button type="button" class="btn lac small" data-visit="${esc(c.pid)}">部屋へ</button><button type="button" class="sc-x" data-delthread="1">このやりとりを消す</button></div>`;
     const th = $('#mlThread'); th.scrollTop = th.scrollHeight;
   }
-  function compose(pid, name, from) { if (!P.online()) { P.toast(WHY.offline); return; } back = from || 'home'; P.showScreen('mail'); openThread(String(pid), name || String(pid)); }
+  function compose(pid, name, from) { if (!P.online()) { P.toast(WHY.offline); return; } if (window.AGE && window.AGE.kid()) { P.toast(WHY.kid); return; } back = from || 'home'; P.showScreen('mail'); openThread(String(pid), name || String(pid)); }
 
   $('#mlBack').onclick = () => {
     P.sound('tap');
