@@ -190,7 +190,10 @@
     };
   }
   function drawPetal(p, alpha) {
-    fx.save(); fx.translate(p.x, p.y); fx.rotate(p.a); fx.scale(1, Math.abs(Math.cos(p.f)) * .8 + .2);
+    if (!(p.r > 0) || !isFinite(p.x) || !isFinite(p.y)) return;
+    fx.save();
+    try {
+    fx.translate(p.x, p.y); fx.rotate(p.a); fx.scale(1, Math.abs(Math.cos(p.f)) * .8 + .2);
     fx.fillStyle = `rgba(${p.c},${alpha})`;
     const r = p.r;
     fx.beginPath(); fx.moveTo(0, -r);
@@ -198,15 +201,27 @@
     fx.bezierCurveTo(-r * .8, r * .6, -r * .9, -r * .7, 0, -r);
     fx.fill();
     fx.fillStyle = `rgba(255,255,255,${alpha * .35})`; fx.beginPath(); fx.ellipse(-r * .2, -r * .2, r * .25, r * .5, 0, 0, 6.3); fx.fill();
-    fx.restore();
+    } finally { fx.restore(); }
   }
   let avoidFn = null, avoidRect = null, avoidT = 0;
   function setAvoid(fn) { avoidFn = fn; avoidRect = null; avoidT = 0; }
   function loop() {
     if (!fxCv) return;
+    // 何があっても次のコマを予約する（止まると、花びらが画面に残ったままになる）
+    requestAnimationFrame(loop);
+    try { frame(); } catch (e) {
+      // 描きかけで止まっても、つぎのコマは まっさらから
+      try { if (fx.reset) fx.reset(); } catch (e2) {}
+      sizeFx(); parts.length = 0;
+    }
+  }
+  function frame() {
+    // 毎コマ、向きと大きさをもとにもどしてから、画面ぜんぶを消す
+    fx.setTransform(1, 0, 0, 1, 0, 0); fx.globalAlpha = 1;
+    fx.clearRect(0, 0, fxCv.width, fxCv.height);
+    fx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (avoidFn && ++avoidT % 15 === 1) { try { avoidRect = avoidFn(); } catch (e) { avoidRect = null; } }   // 位置は、ときどき測りなおす
     if (!avoidFn) avoidRect = null;
-    fx.clearRect(0, 0, W, H);
     gust = Math.sin(Date.now() / 2300) * .8 + Math.sin(Date.now() / 900) * .3;
     if (!reduce) {
       while (petals.length < petalTarget) petals.push(newPetal(petals.length < petalTarget / 2 && !petals._init));
@@ -250,7 +265,6 @@
         fx.closePath(); fx.fill();
       }
     }
-    requestAnimationFrame(loop);
   }
   function startFx(cv) {
     fxCv = cv; fx = cv.getContext('2d'); sizeFx();

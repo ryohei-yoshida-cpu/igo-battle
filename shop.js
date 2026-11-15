@@ -123,7 +123,7 @@
       P.confirmBox(`勾玉 ${P.TAMA_CHARA} で「${v.name}」を開きますか？`, () => P.tama('chara', { key: v.key }, res => {
         if (!res.ok) { kTalk(TAMA_NG[res.reason] || 'できなかったな。'); return; }
         kTalk(`${v.name}に話はつけといた。……大事にしろよ。`); renderKotto();
-        window.FANFARE.celebrate({ items: [{ thumb: `<img src="${window.ART.charaUri(window.ART.VARIANTS.indexOf(v))}" alt="">`, name: v.name }], title: 'キャラクターが仲間になりました！' });
+        window.FANFARE.celebrate({ items: [{ thumb: `<img src="${window.ART.charaUri(window.ART.VARIANTS.indexOf(v))}" alt="">`, name: v.name }], title: 'キャラクターが仲間になりました！', then: () => P.askChara(v.name) });
       }), null, { yes: '開く', no: 'やめる' });
       return;
     }

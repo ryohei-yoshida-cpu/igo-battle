@@ -299,6 +299,13 @@
     $('#cfNo').onclick = () => { $('#confirm').hidden = true; if (no) no(); };
   }
 
+  // キャラが仲間になったとき：キャラクター選択画面に行くか、きく
+  function askChara(name) {
+    S.charaOpenN = A.VARIANTS.filter((v, i) => charaOpen(i)).length; saveLocal();   // ホームで、もう一度きかない
+    if (window.PROG && !window.PROG.isOpen('room')) { toast(`新しいキャラ「${name}」が仲間になりました！`, 5000); return; }
+    confirmBox(`新しいキャラ「${name}」が仲間になりました！ キャラクター選択画面に行きますか？`, () => { renderSettings(); showScreen('chara'); }, null, { yes: '行く', no: 'あとで' });
+  }
+
   /* ---------- ホーム描画 ---------- */
   function renderHome() {
     setImg($('#heroChara'), myCharaSrc());
@@ -311,7 +318,7 @@
     const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
     if (S.charaOpenN != null && nOpen > S.charaOpenN) {
       const nv = A.VARIANTS.filter((v, i) => charaOpen(i) && UNLOCK[v.key] > 0).sort((a, b) => UNLOCK[b.key] - UNLOCK[a.key])[0];
-      if (nv) setTimeout(() => toast(`新しいキャラ「${nv.name}」が仲間になりました！ ルーム → キャラクターで選べます`, 5000), 600);
+      if (nv) setTimeout(() => askChara(nv.name), 900);
     }
     if (S.charaOpenN !== nOpen) { S.charaOpenN = nOpen; saveLocal(); }
     if (window.ROOM && !document.body.classList.contains('on-title')) window.ROOM.todayVisitor();
@@ -1587,7 +1594,7 @@
   // ソロモード（solo.js）から使う機能
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
-    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch, openPvp,
+    drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch, openPvp, askChara,
     rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
     claim(kind, id, amount) {
