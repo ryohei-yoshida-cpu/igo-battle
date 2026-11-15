@@ -362,6 +362,7 @@
     { id: 'rw_menjo4', name: '四段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
     { id: 'rw_menjo5', name: '五段の免状', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
     { id: 'rw_kisei', name: '棋聖のトロフィー', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} },
+    { id: 'gk_trophy', name: '碁会所のトロフィー', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} },
     { id: 'rw_meijin', name: '名人の盾', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} },
     { id: 'rw_makiegoban', name: '蒔絵の名品碁盤', style: 'fun', kind: 'floor', w: 2, d: 2, price: -1, reward: true, draw() {} },
     { id: 'rw_isshu', name: '一手入魂の額', style: 'fun', kind: 'wall', w: 2, h: 2, v: 3.2, price: -1, reward: true, draw() {} },

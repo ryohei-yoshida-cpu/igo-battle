@@ -103,7 +103,7 @@
     <nav class="home-tiles">
       <button class="tile shop" id="openShop" type="button"><img id="tileShop" alt=""><b>ショップ</b></button>
       <button class="tile rec" id="openRecord" type="button"><img id="tileRec" alt=""><b>戦歴</b></button>
-      <button class="tile rev" id="openReview" type="button"><img id="tileRev" alt=""><b>検討</b></button>
+      <button class="tile gk" id="openGuild" type="button"><img id="tileGk" alt=""><b>碁会所</b></button>
     </nav>
     <button class="diary-bar" id="homeDiary" type="button"><span aria-hidden="true">✒</span>日記を書く<i aria-hidden="true">›</i></button>
 
@@ -143,7 +143,15 @@
       </button>
       <label class="bot-lv" for="botLevelQuick"><small>当たる強さ</small><select id="botLevelQuick" class="select"></select></label>
     </div>
-    <button class="pvp-shop" id="pvpShop" type="button">ショップへいく ›</button>
+    <button class="mode-card guild" id="goGuild" type="button">
+      <span class="mc-k">碁会所内マッチ</span>
+      <span class="mc-sub" id="goGuildSub">碁会所の仲間と一局。ランダム・呼びかけ（ハンデ戦もできる）</span>
+      <span class="bc-go">碁会所へ</span>
+    </button>
+    <div class="pvp-links">
+      <button class="pvp-shop" id="openReview" type="button">検討（ひとりで並べる） ›</button>
+      <button class="pvp-shop" id="pvpShop" type="button">ショップへいく ›</button>
+    </div>
     <p class="pvp-note" id="pvpNote"></p>
   </section>
 
@@ -216,6 +224,22 @@
       </div>
       <button class="btn danger" id="frClose" type="button">部屋を閉じる</button>
     </div>
+  </section>
+
+  <!-- 碁会所（ギルド）：ゲームごと（将棋ならサロン、麻雀なら雀荘） -->
+  <section id="guild" class="screen" hidden>
+    <header class="bar">
+      <button class="btn lac small" id="gkBack">← もどる</button>
+      <h2 id="gkTitle">碁会所</h2>
+      <span class="zeni-chip" id="gkZeni"></span>
+    </header>
+    <div class="seg gk-tabs" role="radiogroup" id="gkTabs" hidden>
+      <button type="button" role="radio" data-tab="home">碁会所</button>
+      <button type="button" role="radio" data-tab="match">マッチ</button>
+      <button type="button" role="radio" data-tab="mission">ミッション</button>
+      <button type="button" role="radio" data-tab="rank">ランキング</button>
+    </div>
+    <div class="gk-body" id="gkBody"></div>
   </section>
 
   <!-- ショップ（店員：ひなた） -->
@@ -834,6 +858,7 @@
 <script src="common/progress.js"></script>
 <script src="diary.js"></script>
 <script src="common/ticker.js"></script>
+<script src="common/guild.js"></script>
 <script src="common/fanfare.js"></script>
 <script src="shop.js"></script>
 <script src="common/limited.js"></script>

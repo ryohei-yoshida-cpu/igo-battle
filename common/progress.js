@@ -1,20 +1,21 @@
 /* 囲碁BLITZ — はじめての人の「開放」の流れ
  *   はじめ：小春が登場して「囲碁のルール、知ってる？」→ 初心者／経験者モードでソロモードへ
  *   ソロ「春告げの一局」を読み終える → 対人戦が開く（小春からお礼の1000銭・アタリ碁で最初の一局）
- *   3局 → 戦歴・検討（巴）／ 5局 → アバター・服ショップ（ひなた）／ 10局 → マイルームなど（静馬）／ 20局 → 骨董屋（玄斎）
+ *   3局 → 戦歴・検討（巴）／ 5局 → アバター・服ショップ（ひなた）／ 10局 → マイルームなど（静馬）／ 20局 → 骨董屋（玄斎）／ 50局 → 碁会所（玄斎）
  *   前から遊んでいる人は、ぜんぶ開いたまま。
  */
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
   const $ = s => document.querySelector(s);
-  const NEED = { rec: 3, av: 5, room: 10, kotto: 20 };
+  const NEED = { rec: 3, av: 5, room: 10, kotto: 20, gk: 50 };
   const LOCKS = [
     ['pvp', ['#startMatch']],
     ['rec', ['#openRecord', '#openReview', '#meChip']],
     ['av', ['#openHub', '#openShop', '#openAvShop', '#openAvatar', '#shopAvatar']],
     ['room', ['#openRoom', '#openChara', '#openFriends', '#openExplore', '#openDiary', '#homeDiary', '#shopRoom']],
-    ['kotto', ['#shopKotto']]
+    ['kotto', ['#shopKotto']],
+    ['gk', ['#openGuild', '#goGuild']]
   ];
   // 状態（サーバーから読みこみ直したときに消えることがあるので、毎回たしかめる）
   function prog() {
@@ -166,13 +167,22 @@
         { text: '店の奥からは、ときどき掘り出し物も出てくる。……お前さんになら、譲ってやってもいい。' },
         Object.assign(gift(window.ROOM ? window.ROOM.thumb('makie_goke') : '', '蒔絵の碁笥箱'), { text: 'ほれ、近づきのしるしだ。いい碁石が入ってる。大事にしな。' })
       ]
+    }),
+    gk: () => ({
+      who: 'gensai', toast: '「碁会所」が開きました！ ホームと対人戦の画面から行けます',
+      steps: [
+        { text: '五十局か。……もう立派な常連だな。' },
+        { text: '碁ってのは、ひとりで強くなるもんじゃねえ。仲間と打って、笑って、悔しがって強くなるんだ。' },
+        { text: 'お前さんも「碁会所」を開いてみるか？ 気の合う連中を集めて、月ごとにほかの碁会所と勝ち数をきそうのも面白えぞ。' },
+        { text: 'ほかの碁会所に入れてもらうのもいい。……ま、好きにやんな。' }
+      ]
     })
   };
   let playing = false;
   function check() {
     const g = prog(); refresh();
     if (g.all || playing || !g.intro) return;
-    const k = ['rec', 'av', 'room', 'kotto'].find(k => !g.seen[k] && (g.games | 0) >= NEED[k]);
+    const k = ['rec', 'av', 'room', 'kotto', 'gk'].find(k => !g.seen[k] && (g.games | 0) >= NEED[k]);
     if (!k) { const t = pendingTour(); if (t) tour(t, () => setTimeout(check, 600)); return; }
     P.claimUnlock(k);   // おくりものはサーバーで1回だけ（もう一度呼んでも二重にはならない）
     const sc = SCENES[k]();
@@ -191,7 +201,7 @@
     const done = S.tutDone || {};
     if (!done.base) return 'base';
     if (isOpen('pvp') && g.seen.haru && g.atari !== 'pending' && !done.pvp) return 'pvp';
-    return ['rec', 'av', 'room', 'kotto'].find(k => g.seen[k] && !done[k]) || null;
+    return ['rec', 'av', 'room', 'kotto', 'gk'].find(k => g.seen[k] && !done[k]) || null;
   }
   // アプリを開いたとき：はじめての人は小春の登場、そうでなければ開放のたしかめ
   // アプリを開いたとき・読みこみ直したとき：とちゅうだったところから

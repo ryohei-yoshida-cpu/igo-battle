@@ -28,7 +28,7 @@
     ],
     rec: [
       { go: home, at: '#openRecord', say: '「戦歴」では、あなたの成績や、打った碁をふり返れます。巴ちゃん、ああ見えてとっても努力家なんですよ。' },
-      { go: home, at: '#openReview', say: '「検討」では、打った碁をAIと一緒に見直せます。負けた碁ほど、宝物なんです！' }
+      { go: () => $('#startMatch').click(), at: '#openReview', say: '「検討」は対人戦の画面にあります。打った碁をAIと一緒に見直せます。負けた碁ほど、宝物なんです！' }
     ],
     av: [
       { go: home, at: '#openHub', say: '「ルーム」には、あなたのアバターがいます。行ってみましょう！' },
@@ -51,9 +51,15 @@
     kotto: [
       { go: () => window.SHOP.open(), at: '#shopKotto', say: 'ショップの奥に「骨董屋」ができました！ 師匠のお店です。' },
       { at: '#shopKotto', say: 'いらなくなった服や家具を引きとってくれたり、めずらしい掘り出し物があったり……のぞいてみてくださいね！' }
+    ],
+    gk: [
+      { go: home, at: '#openGuild', say: '「碁会所」が開きました！ 仲間と集まって打つ場所です。自分でつくることも、ほかの碁会所に入ることもできますよ。' },
+      { go: () => window.GUILD.open('home', 'home'), at: '#gkBody', say: '碁会所の仲間には、1日5人まで50銭をおくれます。みんなで対局するとミッションの銭も受け取れるんです！' },
+      { go: () => $('#startMatch').click(), at: '#goGuild', say: '対人戦の画面の「碁会所内マッチ」で、仲間と打てます。ハンデをつけて呼ぶこともできますよ。' },
+      { go: home, at: '#tkLine', say: 'それから、いちばん上の一行をタップすると、碁会所のみんなに一言を送れます。おしゃべりも楽しいですよ♪' }
     ]
   };
-  const ORDER = ['base', 'pvp', 'rec', 'av', 'room', 'kotto'];
+  const ORDER = ['base', 'pvp', 'rec', 'av', 'room', 'kotto', 'gk'];
   const END = { go: home, say: 'これで案内はおしまいです！ 最後まで聞いてくれて、ありがとうございました。これから、よろしくお願いしますね！', last: true };
   const PART_END = { go: home, say: 'ここの案内はおしまいです。また新しい場所が開いたら、案内しますね！', last: true };
   let STEPS = [], cur = null, onEnd = null;   // cur：いま案内している区切り（全部なら 'all'）

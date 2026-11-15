@@ -58,6 +58,7 @@ function limitOpen(tag, t) {
 }
 const seasonOf = t => { const m = new Date(t + 9 * 3600e3).getUTCMonth() + 1; return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'; };
 import { Social } from './social.js';
+import { Guild } from './guild.js';
 import { cleanName } from './ng.js';
 import '../common/avatar-art.js';
 const AVP = globalThis.AVATAR.PRICE, AVATAR_CLEAN = globalThis.AVATAR.clean, AV_SEASON = globalThis.AVATAR.SEASON || {};
@@ -77,6 +78,7 @@ export class Core {
     this.store = opts.store || memStore();
     this.sockInfo = new Map();  // sock → { acct }
     this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
+    this.guild = new Guild(this, { rateOf, dispRank });   // 碁会所（ギルド）
     this.social = new Social(this);   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
   }
 
@@ -131,6 +133,7 @@ export class Core {
     if (ECON.includes(m.t)) return this.econ(sock, m);
     if (raw.length > 4000) return;
     if (m.t === 'soc') { const info = this.sockInfo.get(sock); return info && this.social.handle(sock, info, m); }
+    if (m.t === 'guild') { const info = this.sockInfo.get(sock); return info && this.guild.handle(sock, info, m).catch(e => console.error('guild', e)); }
     if (m.t === 'hello') return this.hello(sock, m);
     const cid = this.socks.get(sock); if (!cid) return;
     const pl = this.players.get(cid);
@@ -351,6 +354,10 @@ export class Core {
       if (!bg) return;
       const sec = (this.now() - bg.t0) / 1000, moves = m.moves | 0;
       const short = sec < 30 || moves < 16;
+      if (!short) {   // 碁会所の対局数（キャラクター戦）。強さ以上のキャラクターに勝ったら月のランキングに数える
+        const r0 = await this.store.get('acct:' + id), mine = r0 ? rateOf(r0, 'go' + (bg.size || 9)).rating : START_RATE;
+        this.guild.count(id, info.game || 'go', 'bot', m.result === 'win' && !bg.solo && bg.lv >= 0 && botRating(bg.lv) >= mine).catch(() => {});
+      }
       // レート：負けはいつでも数える。勝ち・引き分けは、早すぎる・短すぎる対局なら数えない
       if (!bg.solo && (m.result === 'loss' || !short)) await this.rateBot(id, bg, m.result === 'win' ? 1 : m.result === 'draw' ? 0.5 : 0, key);
       if (short) { out({ t: 'zeni', gained: 0, why: 'short' }); return; }   // 早すぎる・短すぎる対局は数えない
@@ -573,7 +580,7 @@ export class Core {
     }
   }
   // a, b: プレイヤー。hc があればフレンド戦（a が部屋をつくった人）。black を指定すると黒番が決まる
-  create(a, b, hc, black, size) {
+  create(a, b, hc, black, size, gk) {
     size = hc ? hc.size : size === 13 ? 13 : 9;
     const id = 'g' + (++this.seq) + '-' + Math.random().toString(36).slice(2, 7);
     if (!black) black = hc && hc.black === 'host' ? a : hc && hc.black === 'guest' ? b : Math.random() < 0.5 ? a : b;
@@ -581,14 +588,15 @@ export class Core {
     const main = hc ? hc.min * 60000 : MAIN_MS * (size === 13 ? 2 : 1);   // 13路のランダムマッチは10分
     const g = {
       id, players: { 1: black.cid, 2: white.cid }, colorOf: { [black.cid]: 1, [white.cid]: 2 },
-      hc: hc || null, host: hc ? a.cid : null, size,
+      hc: hc || null, host: hc ? a.cid : null, size, gk: gk || null,
       moves: [], clock: { 1: main, 2: main }, toPlay: hc && hc.h >= 2 ? 2 : 1, turnStart: this.now() + START_DELAY_MS,
       passes: 0, over: false, scoring: false, away: { 1: null, 2: null }, timer: null, acked: {}, endMsg: null
     };
     this.games.set(id, g);
     for (const p of [black, white]) { p.seekAt = 0; p.game = id; this.closeRoom(p); }
-    for (const c of [1, 2]) this.send(g.players[c], { t: 'start', g: id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), delay: START_DELAY_MS, hc: g.hc || undefined, size: g.size });
+    for (const c of [1, 2]) this.send(g.players[c], { t: 'start', g: id, color: c, opp: this.pub(g.players[3 - c]), clock: this.clocks(g), delay: START_DELAY_MS, hc: g.hc || undefined, size: g.size, gk: g.gk || undefined });
     this.arm(g);
+    return g;
   }
   abort(g) {
     g.over = true; this.clearTimeout(g.timer);
@@ -632,7 +640,17 @@ export class Core {
   /* ---------- フレンドマッチ：合言葉（4けたの数字）で部屋に入る ---------- */
   fhost(pl, m) {
     if (pl.game) return;
-    const h = m.hc || {};
+    const hc = this.cleanHc(m.hc);
+    this.closeRoom(pl); pl.seekAt = 0;
+    if (this.rooms.size > 5000) return;
+    let code; do { code = String(1000 + Math.floor(Math.random() * 9000)); } while (this.rooms.has(code));
+    this.rooms.set(code, { code, host: pl.cid, hc, at: this.now() });
+    pl.room = code;
+    this.send(pl.cid, { t: 'froom', code, hc });
+  }
+  // ハンデ（フレンドマッチ・碁会所内マッチ）：置き石 0〜5、黒番 host/guest/random、持ち時間、盤
+  cleanHc(h) {
+    h = h || {};
     const hc = {
       h: [0, 1, 2, 3, 4, 5].includes(h.h) ? h.h : 0,
       black: ['host', 'guest', 'random'].includes(h.black) ? h.black : 'random',
@@ -641,12 +659,7 @@ export class Core {
     };
     if (hc.h > 0 && hc.black === 'random') hc.black = 'guest';
     hc.komi = hc.h === 0 ? 7 : 0;
-    this.closeRoom(pl); pl.seekAt = 0;
-    if (this.rooms.size > 5000) return;
-    let code; do { code = String(1000 + Math.floor(Math.random() * 9000)); } while (this.rooms.has(code));
-    this.rooms.set(code, { code, host: pl.cid, hc, at: this.now() });
-    pl.room = code;
-    this.send(pl.cid, { t: 'froom', code, hc });
+    return hc;
   }
   fjoin(pl, m) {
     if (pl.game) return;
@@ -676,7 +689,7 @@ export class Core {
     if (!host) return;
     // 互先は黒白を入れかえる。ハンデ戦は同じ手合いのまま
     const black = g.hc.h === 0 ? this.players.get(g.players[2]) : this.players.get(g.players[1]);
-    this.create(host, guest, g.hc, black);
+    this.create(host, guest, g.hc, black, null, g.gk);
   }
 
   // 対人戦のレート：両方のアカウントのサーバーのレートで計算して、それぞれに知らせる
@@ -708,6 +721,15 @@ export class Core {
       if (p && p.acct && amount) this.give(p.acct, amount, 'online').catch(() => {});
     }
     for (const c of [1, 2]) this.send(g.players[c], g.endMsg);
+    // 碁会所の対局数・月のランキング（短すぎる対局は数えない。勝ち数は自分の強さ以上の相手に勝ったときだけ）
+    if (g.moves.length >= 16 && (g.gk || !g.hc)) {
+      const key = 'go' + (g.size === 13 ? 13 : 9), ps = [1, 2].map(c => this.players.get(g.players[c]));
+      const rt = p => (p && p.rates && p.rates[key]) || (p && p.rating) || START_RATE;
+      if (ps.every(p => p && p.acct) && ps[0].acct !== ps[1].acct) ps.forEach((p, i) => {
+        const up = winner === i + 1 && rt(ps[1 - i]) >= rt(p);
+        this.guild.count(p.acct, 'go', g.gk ? 'inner' : 'random', up).catch(() => {});
+      });
+    }
     if (!g.hc) this.rateOnline(g, winner).catch(() => {});
     for (const c of [1, 2]) {
       const p = this.players.get(g.players[c]);

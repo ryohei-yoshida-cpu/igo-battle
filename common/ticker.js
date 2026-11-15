@@ -3,6 +3,7 @@
  *   ・お知らせ：キャラが遊びに来た／フレンドが日記を更新した／フレンドの段級位が上がった／対人戦の申込（部屋番号つき）
  *   ・自分のお知らせ：日記を書いた／段級位が上がった／対人戦を申し込んだ
  *   下線の言葉（日記・マイルーム・アバター・部屋番号など）をタップすると、その画面へ。
+ *   碁会所に入っていれば、碁会所の一言も流れる。一覧の下の欄から、碁会所のみんなに一言（☹️＝やだなぁ。数はマスター・店長だけに見える）
  *   表示：設定「一言コメント・お知らせの表示」… すべての画面 / マイルームだけ / 表示しない
  */
 (function () {
@@ -10,13 +11,13 @@
   const P = window.APP, S = P.S, A = P.A, AV = window.AVATAR;
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  let chat = [], notes = [], screen = 'home', loaded = false;
+  let chat = [], notes = [], gchat = null, gboss = false, screen = 'home', loaded = false;
   const link = (go, text) => `<u data-go="${esc(go)}">${esc(text)}</u>`;
   const myAv = () => S.av || AV.PRESETS.girl;
 
   function all() {
     const mine = S.settings.tickerMine === false ? [] : (S.myNotes || []).map(n => Object.assign({ kind: 'note', mine: true }, n));   // 自分のお知らせ（設定で出さないこともできる）
-    return chat.map(c => Object.assign({ kind: 'chat' }, c)).concat(notes, mine).sort((a, b) => (b.t || 0) - (a.t || 0)).slice(0, 30);
+    return chat.map(c => Object.assign({ kind: 'chat' }, c)).concat((gchat || []).map(c => Object.assign({}, c, { kind: 'gchat', gid: c.id })), notes, mine).sort((a, b) => (b.t || 0) - (a.t || 0)).slice(0, 30);
   }
   function icon(it) {
     if (it.type === 'visit') { const i = A.VARIANTS.findIndex(v => v.key === it.chara); return `<img src="${A.faceUri(Math.max(0, i))}" alt="">`; }
@@ -25,6 +26,7 @@
   function html(it) {
     const who = it.pid ? link('room:' + it.pid, it.name) : esc(it.name);
     if (it.kind === 'chat') return `<b>${who}</b>${esc(it.text)}`;
+    if (it.kind === 'gchat') return `<b><i class="tk-gk">碁会所</i>${who}</b>${esc(it.text)}`;
     switch (it.type) {
       case 'visit': return `${esc(it.name)}が${link('room', 'マイルーム')}に遊びに来ました`;
       case 'diary': return `${who}が${link('diary:' + it.pid, '日記')}を更新しました${it.title ? `「${esc(it.title)}」` : ''}`;
@@ -78,9 +80,14 @@
     const items = all();
     const hm = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
     const key = it => it.mine ? 'mine:' + it.t : (it.kind === 'chat' ? 'chat:' : 'note:') + it.id;
-    $('#tkList').innerHTML = items.length ? items.map(it => `<div class="tk-item${it.kind === 'note' ? ' note' : ''}">${icon(it)}<span>${html(it)}</span><time>${hm(it.t)}</time><button type="button" class="tk-del" data-del="${esc(key(it))}" aria-label="このお知らせを消す">✕</button></div>`).join('') +
+    const side = it => it.kind === 'gchat' ? (it.mine ? '' : `<button type="button" class="tk-fr${it.frowned ? ' on' : ''}" data-frown="${it.gid}" aria-label="やだなぁ">☹️${gboss && it.frown ? it.frown : ''}</button>`)
+      : `<button type="button" class="tk-del" data-del="${esc(key(it))}" aria-label="このお知らせを消す">✕</button>`;
+    const say = gchat ? '<div class="tk-say"><input type="text" id="tkSay" maxlength="40" placeholder="碁会所のみんなに一言（40字まで）"><button type="button" class="btn primary small" id="tkSend">送る</button></div>' : '';
+    const old = $('#tkSay'), typed = old ? old.value : '', focus = old && document.activeElement === old;
+    $('#tkList').innerHTML = (items.length ? items.map(it => `<div class="tk-item${it.kind === 'note' ? ' note' : ''}${it.kind === 'gchat' ? ' gk' : ''}">${icon(it)}<span>${html(it)}</span><time>${hm(it.t)}</time>${side(it)}</div>`).join('') +
       '<button type="button" class="tk-delall" data-del="all">ぜんぶ消す</button>'
-      : '<p class="tk-empty">まだありません。部屋に一言コメントが書かれたり、フレンドの日記が更新されたりすると、ここに流れます。</p>';
+      : '<p class="tk-empty">まだありません。部屋に一言コメントが書かれたり、フレンドの日記が更新されたりすると、ここに流れます。</p>') + say;
+    const inp = $('#tkSay'); if (inp && typed) inp.value = typed; if (inp && focus) inp.focus();
   }
 
   // 下線の言葉から、その画面へ
@@ -114,7 +121,24 @@
     if (!P.online()) { if (kind === 'chat') chat = chat.filter(c => String(c.id) !== id); else notes = notes.filter(n => String(n.id) !== id); done(); return; }
     P.soc('del', { pid: S.pid, kind, id: +id }, done);
   }
-  $('#tkList').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; e.stopPropagation(); del(b.dataset.del); });
+  $('#tkList').addEventListener('click', e => {
+    const f = e.target.closest('[data-frown]');
+    if (f) { e.stopPropagation(); P.sound('tap'); if (window.GUILD) window.GUILD.frown(+f.dataset.frown); return; }
+    if (e.target.closest('#tkSend')) { e.stopPropagation(); sendSay(); return; }
+    if (e.target.closest('#tkSay')) { e.stopPropagation(); return; }
+    const b = e.target.closest('[data-del]'); if (!b) return; e.stopPropagation(); del(b.dataset.del);
+  });
+  $('#tkList').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'tkSay') { e.preventDefault(); sendSay(); } });
+  function sendSay() {
+    const inp = $('#tkSay'), text = inp && inp.value.trim(); if (!text || !window.GUILD) return;
+    inp.disabled = true;
+    window.GUILD.say(text, r => { inp.disabled = false; if (r.ok) { inp.value = ''; P.sound('ok'); } });
+  }
+  // 碁会所の一言（入っていなければ null）。boss：マスター・店長（☹️の数が見える）
+  function guild(list, boss) {
+    gchat = list ? list.slice(0, 20) : null; gboss = !!boss; draw();
+  }
+  function gpush(it) { if (!gchat || !it) return; gchat = [it].concat(gchat.filter(x => x.id !== it.id)).slice(0, 20); draw(true); }
   $('#ticker').addEventListener('click', e => {
     const u = e.target.closest('u[data-go]');
     if (u) { e.stopPropagation(); go(u.dataset.go); return; }
@@ -125,5 +149,5 @@
   setInterval(() => {
     if (!loaded && P.online() && shouldShow()) { loaded = true; P.soc('me', {}, r => { if (r.ok) set(r.chat, r.notes); else loaded = false; }); }
   }, 2000);
-  window.TICKER = { set, push, draw, mine };
+  window.TICKER = { set, push, draw, mine, guild, gpush };
 })();

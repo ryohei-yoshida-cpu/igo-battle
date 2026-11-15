@@ -311,7 +311,7 @@
     setImg($('#heroChara'), myCharaSrc());
     setImg($('#soloChara'), A.charaUri(charaIdx() === 0 ? 1 : 0));
     const ki = k => A.VARIANTS.findIndex(v => v.key === k);
-    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('tomoe'))); setImg($('#tileRev'), A.charaUri(ki('gensai')));
+    setImg($('#tileShop'), A.charaUri(ki('hinata'))); setImg($('#tileRec'), A.charaUri(ki('tomoe'))); setImg($('#tileGk'), A.charaUri(ki('gensai')));
     if (window.AVATAR) $('#homeAv').innerHTML = window.AVATAR.svg(S.av || window.AVATAR.PRESETS.girl);
     setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('shima')));
     // 新しく使えるようになったキャラを知らせる
@@ -391,7 +391,7 @@
   $('#recTabs').addEventListener('click', e => { const b = e.target.closest('[data-rt]'); if (!b) return; recTab = b.dataset.rt; sound('tap'); renderRecord(); });
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'kotto', 'friends', 'explore', 'diaryHub'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'kotto', 'friends', 'explore', 'diaryHub', 'guild'];
   // 対局のアイコン：アバターの顔（右下に相棒のキャラ）。Bot はキャラそのもの
   function setPb(el, look, ci) {
     const AVT = window.AVATAR;
@@ -1047,7 +1047,7 @@
     else if (m.gained && m.why === 'episode') toast(`エピソードクリア！ ＋${m.gained} 銭`, 4000);
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
-  let buyReq = 0; const buyCb = {}, socCb = {}, giftCb = {};
+  let buyReq = 0; const buyCb = {}, socCb = {}, giftCb = {}, guildCb = {};
   const APP_SOC = (op, data, cb) => { const req = ++buyReq; if (cb) socCb[req] = cb; netSend(Object.assign({ t: 'soc', op, req }, data || {})); };
   function onAccount(m) {
     NET.authed = true;
@@ -1101,6 +1101,8 @@
     switch (m.t) {
       case 'lobby': NET.online = m.online; NET.seeking = m.seeking; if (M && !M.found) matchTick(); break;
       case 'start':
+        // 碁会所内マッチ：呼びかけ・ランダムのどちらも、ここから始まる（対局中でなければ受ける）
+        if (m.gk && !(M && !M.found) && !(G && !G.over)) { stopMatch(); M = { friend: true, gk: true, found: false, t0: Date.now(), timer: 0 }; }
         if (M && !M.found) onlineFound(m);
         else netSend({ t: 'decline', g: m.g });   // もう Bot 戦を始めていた
         break;
@@ -1144,6 +1146,9 @@
       case 'soc':
         if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
         if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
+      case 'guild':
+        if (m.op === 'push') { if (window.GUILD) window.GUILD.push(m); break; }
+        if (guildCb[m.req]) { guildCb[m.req](m); delete guildCb[m.req]; } break;
       case 'froom': if (M && M.friend && !M.found) { M.code = m.code; if (window.FRIEND) window.FRIEND.onRoom(m); } break;
       case 'fnone': if (M && M.friend && M.joining) { M = null; } if (window.FRIEND) window.FRIEND.onNone(m); break;
       case 'rematch':
@@ -1269,7 +1274,7 @@
     if (G && G.over) { $('#result').hidden = true; G = null; }   // フレンド戦の「もう一局」
     const opp = humanOpp(m.opp), hc = m.hc || null;
     showFound(A.faceUri(opp.ava), opp.name, `${RANKS[rankFromRating(opp.rating)]}・レート ${opp.rating}`, m.color,
-      hc ? `フレンドマッチ・${hc.size === 13 ? '13路' : '9路'}・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : `オンラインのプレイヤーとマッチしました（${m.size === 13 ? '13路' : '9路'}）`, hc);
+      hc ? `${m.gk ? '碁会所内マッチ' : 'フレンドマッチ'}・${hc.size === 13 ? '13路' : '9路'}・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : `オンラインのプレイヤーとマッチしました（${m.size === 13 ? '13路' : '9路'}）`, hc);
     M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc, size: m.size }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
   }
   // 「自分と同じ以上の強さ」：レートが自分以上の Bot のうち、弱いほうから2つ（いなければ いちばん強い Bot）
@@ -1715,6 +1720,12 @@
       netSend(Object.assign({ t: 'soc', op, req }, data || {}));
     },
     online: () => econOn(),
+    // 碁会所（ギルド）。サーバーにつながっていないときは reason: 'offline'
+    guild(op, data, cb) {
+      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
+      const req = ++buyReq; if (cb) guildCb[req] = cb;
+      netSend(Object.assign({ t: 'guild', op, req }, data || {}));
+    },
     // 部屋の配置をサーバーへ（もようがえを終えたとき・部屋を出るとき）
     saveRoom() {
       saveLocal();
