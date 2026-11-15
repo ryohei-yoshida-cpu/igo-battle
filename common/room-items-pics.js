@@ -100,6 +100,15 @@
     { id: 'w_sconce', name: '燭台の壁飾り', style: 'yo', kind: 'wall', w: 1.2, h: 1.2, v: 3, price: 200, draw() {} },
     { id: 'w_shelf', name: '壁の飾り棚', style: 'yo', kind: 'wall', w: 2, h: 2, v: 3, price: 200, draw() {} },
     { id: 'w_banner', name: '百合紋のタペストリー', style: 'yo', kind: 'wall', w: 1.3, h: 1.3, v: 2.4, price: 200, draw() {} },
-    { id: 'w_moonwindow', name: '月夜の窓', style: 'yo', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, draw() {} }
+    { id: 'w_moonwindow', name: '月夜の窓', style: 'yo', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, draw() {} },
+    /* 4つ目のセット：床に置くクローク */
+    { id: 'clf_baroque', name: 'バロックのチェスト', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'clf_white', name: '白いドレッサーチェスト', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'clf_study', name: '書斎の本棚', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'clf_fuji', name: '藤の白い飾り棚', style: 'yo', kind: 'floor', w: 2, d: 1, price: 400, cloak: true, draw() {} },
+    { id: 'clf_sakura', name: '桜の箪笥', style: 'wa', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'clf_magic', name: '魔法の小物棚', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'clf_wardrobe', name: '金具のワードローブ', style: 'yo', kind: 'floor', w: 2, d: 1, price: 400, cloak: true, draw() {} },
+    { id: 'clf_rack', name: '真鍮のオープンラック', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
