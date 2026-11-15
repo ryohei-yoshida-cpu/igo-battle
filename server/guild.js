@@ -182,7 +182,8 @@ export class Guild {
     if (op === 'create' || op === 'join') {
       if (gid) return fail('in');
       const gd = await this.store.get('gd:' + id + ':' + game), prog = gd && gd.data && gd.data.prog;
-      if (!(prog && (prog.all || (prog.games | 0) >= GUILD.needGames))) return fail('games');
+      const ar = await this.store.get('acct:' + id);
+      if (!(prog && (prog.all || (prog.games | 0) >= GUILD.needGames)) && !(ar && ar.gkFree) && !(gd && gd.data && gd.data.gkFree)) return fail('games');
       const av = (this.online(id) || {}).av || null, me = { id, pid, name: myName(), av, at: now };
       let g;
       if (op === 'create') {

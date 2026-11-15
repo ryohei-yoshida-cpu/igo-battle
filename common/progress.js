@@ -31,6 +31,7 @@
     const g = prog();
     if (g.all) return true;
     if (k === 'pvp') return !!(S.solo && S.solo.read && S.solo.read.haru);
+    if (k === 'gk' && S.gkFree) return true;   // 試し用にあけた碁会所
     return (g.games | 0) >= (NEED[k] || 0);
   }
   const lockText = k => k === 'pvp' ? 'ソロモード「春告げの一局」を読むと開きます' : `あと ${Math.max(0, NEED[k] - (prog().games | 0))} 局で開きます`;

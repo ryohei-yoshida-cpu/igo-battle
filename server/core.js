@@ -252,6 +252,12 @@ export class Core {
       for (const k of Object.keys(FLOORS)) if (!r.owned.floors.includes(k)) r.owned.floors.push(k);
       for (const k of Object.keys(WALLS)) if (!r.owned.walls.includes(k)) r.owned.walls.push(k);
     }
+    if (game === 'go' && String(r.pid || '') === '561149' && !r.gkFree) {
+      // 試し用：碁会所のカギをあける（50局まだでも入れる）
+      r.gkFree = 1;
+      const gd = await this.gameData(id, r, game);
+      if (gd.data) { gd.data.gkFree = 1; await this.store.put('gd:' + id + ':' + game, { data: gd.data, at: this.now() }); }
+    }
     if (game === 'go' && String(r.pid || '') === '561149' && r.soloFree1 && !r.soloFree2) {
       // 試し用にあけたソロモードのカギを、もとにもどす（1回だけ）
       r.soloFree2 = 1;
