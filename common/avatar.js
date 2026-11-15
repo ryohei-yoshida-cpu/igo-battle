@@ -77,12 +77,16 @@
     if (look.full && look.full !== 'none' && ['head', 'body', 'tool'].includes(slot)) h += `<p class="ln-lead">オールセットを着ています。${SLOT_NAME[slot]}をえらぶと、オールセットが外れます。</p>`;
     for (const [sl, title, only] of slot === 'line' ? [] : sections(slot)) {
       if (title) h += `<div class="av-sec">${title}</div>`;
-      const list = AV.CATALOG[sl].filter(([id]) => (!only || only(id)) && (mode === 'shop' || owned(sl, id)));
+      // 限定の服：ショップでは、その時期だけ並べる（先頭に）。クロークでは、持っていればいつでも
+      const lim = id => AV.SEASON && AV.SEASON[sl + ':' + id], limOpen = id => window.ROOMART && window.ROOMART.limitOpen && window.ROOMART.limitOpen(lim(id));
+      const list = AV.CATALOG[sl].filter(([id]) => (!only || only(id)) && (mode === 'shop' ? (!lim(id) || limOpen(id) || owned(sl, id)) : owned(sl, id)))
+        .sort((x, y) => (mode === 'shop' && lim(y[0]) && limOpen(y[0]) ? 1 : 0) - (mode === 'shop' && lim(x[0]) && limOpen(x[0]) ? 1 : 0));
       if (!list.length) { if (mode === 'closet' && title) h = h.replace(/<div class="av-sec">[^<]*<\/div>$/, ''); continue; }
       h += list.map(([id, name, price]) => {
         const have = owned(sl, id), wearing = (look[sl] || 'none') === id;
         const preview = Object.assign({}, look, { [sl]: id });
-        return `<button type="button" class="av-item ${wearing ? 'on' : ''}" data-sl="${sl}" data-id="${id}">${AV.thumb(preview, slot)}<b>${name}</b>` +
+        const lt = lim(id), ltName = lt && window.ROOMART ? (window.ROOMART.EVENTS[lt] ? window.ROOMART.EVENTS[lt].name : window.ROOMART.SEASON_NAME[lt]) : '';
+        return `<button type="button" class="av-item ${wearing ? 'on' : ''}" data-sl="${sl}" data-id="${id}">${ltName ? `<i class="av-lim">${ltName}限定</i>` : ''}${AV.thumb(preview, slot)}<b>${name}</b>` +
           `<small class="price">${price < 0 ? `<i class="tm">勾玉限定</i>勾玉 ${tamaOf(sl, id)}` : price ? price.toLocaleString() + ' 銭' : '無料'}</small>${have ? `<i class="av-own">${wearing ? '着ている' : '持っている'}</i>` : ''}</button>`;
       }).join('');
     }
@@ -236,7 +240,7 @@
       });
     }
   });
-  const BUY_NG = { tama: '勾玉が足りません', zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています' };
+  const BUY_NG = { tama: '勾玉が足りません', zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています', season: '時期がすぎたので、もう買えません' };
   // 1回目のタップは試着だけ。試着中のものをもう一度タップすると「買いますか？」
   function askBuy(sl, id) {
     const entry = AV.CATALOG[sl].find(x => x[0] === id); if (!entry) return;

@@ -1889,3 +1889,6 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 @keyframes lbShine { 0%, 75% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 @media (max-width: 360px) { .lb-items .rm-thumb:nth-child(n+3) { display: none; } }
 @media (prefers-reduced-motion: reduce) { .lim-banner::after { animation: none; } }
+
+.av-item { position: relative; }
+.av-lim { position: absolute; top: 4px; left: 4px; z-index: 2; font-style: normal; font-size: 10px; font-weight: 900; padding: 1px 6px; border-radius: 6px; background: #b8242a; color: #fff6e0; box-shadow: 0 1px 3px rgba(0,0,0,.35); }

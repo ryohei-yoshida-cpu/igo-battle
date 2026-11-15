@@ -60,7 +60,7 @@ const seasonOf = t => { const m = new Date(t + 9 * 3600e3).getUTCMonth() + 1; re
 import { Social } from './social.js';
 import { cleanName } from './ng.js';
 import '../common/avatar-art.js';
-const AVP = globalThis.AVATAR.PRICE, AVATAR_CLEAN = globalThis.AVATAR.clean;
+const AVP = globalThis.AVATAR.PRICE, AVATAR_CLEAN = globalThis.AVATAR.clean, AV_SEASON = globalThis.AVATAR.SEASON || {};
 import { AV_OLD, AV_OLD2 } from './av-old-prices.js';
 export const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000, AWAY_MS = 180 * 1000, START_DELAY_MS = 2500;
 
@@ -409,6 +409,7 @@ export class Core {
           if (tamaOf(r, g) < t) { reason = 'tama'; return; }
           addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
         }
+        if (m.av && AV_SEASON[m.av] && !limitOpen(AV_SEASON[m.av], this.now()) && !r.owned.av.includes(m.av)) { reason = 'season'; return; }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
         else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] <= 0) { reason = 'item'; return; }   // 碁盤・ごほうびの家具は売っていない
         else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
