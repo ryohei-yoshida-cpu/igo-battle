@@ -232,6 +232,16 @@ export class Core {
 
   // テスト用（2026/11/14）：部屋番号 561149 のアカウントを1回だけ初期化（ID・パスワード・部屋番号・交流はそのまま。銭・持ち物・部屋・アバター・レート・セーブデータは新しく）
   async testReset(id, r, game) {
+    if (game === 'go' && String(r.pid || '') === '561149' && r.fullReset2 && !r.allOwn1) {
+      // 試し用：服・台詞・家具・床・壁紙を、ぜんぶ持っていることにする（1回だけ）
+      r.allOwn1 = 1; ensureEcon(r);
+      const av = new Set(r.owned.av || []);
+      for (const k of Object.keys(AVP)) if (!k.endsWith(':none') && AVP[k] !== 0) av.add(k);
+      r.owned.av = [...av];
+      for (const k of Object.keys(ITEMS)) r.owned.items[k] = Math.max(r.owned.items[k] | 0, 1);
+      for (const k of Object.keys(FLOORS)) if (!r.owned.floors.includes(k)) r.owned.floors.push(k);
+      for (const k of Object.keys(WALLS)) if (!r.owned.walls.includes(k)) r.owned.walls.push(k);
+    }
     if (game === 'go' && String(r.pid || '') === '561149' && r.soloFree1 && !r.soloFree2) {
       // 試し用にあけたソロモードのカギを、もとにもどす（1回だけ）
       r.soloFree2 = 1;
