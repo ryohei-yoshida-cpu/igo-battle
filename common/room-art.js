@@ -269,6 +269,8 @@
   ];
   // 追加の家具（common/room-items-more.js）
   if (typeof window !== 'undefined' && window.ROOM_MORE) CATALOG.push(...window.ROOM_MORE({ WOOD, DARKWOOD, KAYA, RED, GOLD, CREAM, shade }));
+  // 絵で描いた和の家具（common/room-items-pics.js）
+  if (typeof window !== 'undefined' && window.ROOM_PICS) CATALOG.push(...window.ROOM_PICS);
   // 値段は4段階（下100・中400・上600・特800）にそろえる。碁盤は無料
   const tier = p => p === 0 ? 0 : p <= 150 ? 100 : p <= 350 ? 200 : p <= 700 ? 300 : 400;
   const TIER_PRICE = { 100: 100, 200: 400, 300: 600, 400: 800 };
@@ -277,7 +279,7 @@
   const CLOAK = new Set(['tansu', 'ikou', 'closet', 'rack', 'mirror', 'dresser']);
   for (const c of CATALOG) if (CLOAK.has(c.id)) { c.cloak = true; c.note = c.note || '置くと、お気に入りセットが2つふえる'; }
   // 絵で描いた家具（img/room/<id>.webp、つくものは <id>_on.webp）。[横, 縦] ピクセル
-  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[679,555],"bookshelf":[485,567],"chabudai":[556,517],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"goban":[573,410],"kakejiku":[106,195],"plant":[308,355],"sofa":[589,473],"tv":[432,417],"tv_on":[432,417],"window":[263,175],"zabuton":[507,313]};
+  const IMG = {"andon":[141,181],"andon_on":[141,181],"bed":[679,555],"bookshelf":[485,567],"cha_daisha":[374,391],"cha_wagon":[399,401],"chabudai":[556,517],"chaki_zataku":[409,388],"chataku":[422,385],"clock":[168,178],"fireplace":[232,188],"fireplace_on":[232,181],"fridge":[147,216],"fuzukue_sho":[416,398],"goban":[573,410],"goban_hon":[417,345],"goban_kenba":[374,394],"goishi_dana":[363,380],"goishi_hako":[398,403],"goishi_kazari":[325,371],"goke_kazaridana":[416,377],"gokedansu":[412,382],"hakoniwa_kare":[423,383],"hakoniwa_take":[435,394],"hakoniwa_toro":[428,356],"hondana_hana":[388,405],"hondana_koshi":[365,398],"jizaikagi":[396,421],"kakejiku":[106,195],"kakuandon":[321,385],"kazaridana_bon":[416,419],"kifu_dai":[406,378],"kifu_fuzukue":[429,385],"kotatsu_icho":[436,337],"kotatsu_sakura":[431,291],"kusuridansu":[396,370],"makie_goke":[411,414],"maruandon":[286,433],"marudana":[379,404],"marumado_dana":[404,418],"nagaisu_wakakusa":[410,367],"plant":[308,355],"shinchu_wagon":[381,401],"shobu_dai":[341,417],"shobu_hanadai":[401,412],"shobu_ishi":[345,393],"sofa":[589,473],"tansu_furoshiki":[412,385],"tsukubai":[428,400],"tv":[432,417],"tv_on":[432,417],"wa_chair":[402,392],"window":[263,175],"zabuton":[507,313],"zaisu":[400,385],"zaisu_hiji":[409,401],"zaisu_reclining":[398,401],"zaisu_seigaiha":[389,390],"zataku_hana":[425,385]};
   for (const c of CATALOG) if (IMG[c.id]) {
     c.img = true;
     if (c.kind === 'wall') { const [iw, ih] = IMG[c.id]; c.h = Math.round(c.w * ih / iw * 100) / 100; }   // 壁の家具は絵の縦横の比にあわせる
