@@ -1,0 +1,40 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 1200px; height: 560px; overflow: hidden; font-family: "Noto Sans CJK JP", sans-serif; }
+.bn { position: relative; width: 1200px; height: 560px; overflow: hidden; }
+.bn .bg { position: absolute; inset: 0; }
+.bn .rays { position: absolute; left: -400px; top: -500px; width: 2000px; height: 2000px; opacity: .55;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.55) 0deg 6deg, rgba(255,255,255,0) 6deg 15deg);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 0, #000 18%, transparent 55%); }
+.bn .grid { position: absolute; inset: 0; opacity: .18;
+  background-image: linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px);
+  background-size: 28px 28px; -webkit-mask-image: linear-gradient(90deg, #000, transparent 60%); }
+.petal { position: absolute; width: 22px; height: 16px; border-radius: 80% 0 80% 0; background: linear-gradient(135deg, #fff0f5, #ff9fbf);
+  box-shadow: 0 1px 3px rgba(160, 40, 80, .25); }
+.char { position: absolute; filter: drop-shadow(0 0 0 #fff) drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff) drop-shadow(0 14px 18px rgba(80, 10, 40, .45)); }
+.catch { position: absolute; color: #fff; font-weight: 900; font-size: 30px; letter-spacing: .02em; paint-order: stroke fill;
+  -webkit-text-stroke: 7px #3a1530; text-shadow: 0 4px 0 #3a1530; }
+.catch::before { content: "「"; } .catch::after { content: "」"; }
+.head { position: absolute; font-weight: 900; line-height: 1; letter-spacing: -.02em; paint-order: stroke fill; }
+.head span { display: block; }
+.head .l1 { font-size: 46px; color: #fff; -webkit-text-stroke: 9px #7a1238; text-shadow: 0 5px 0 #7a1238; }
+.head .l2 { margin-top: 6px; font-size: 96px; background: linear-gradient(#fff 15%, #ffe27a 55%, #ffb12b 85%); -webkit-background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 0 #7a1238) drop-shadow(5px 0 0 #7a1238) drop-shadow(-5px 0 0 #7a1238) drop-shadow(0 5px 0 #7a1238) drop-shadow(0 -5px 0 #7a1238) drop-shadow(0 7px 0 #4a0820); }
+.sub { position: absolute; color: #fff; font-weight: 900; font-size: 28px; line-height: 1.35; paint-order: stroke fill; -webkit-text-stroke: 7px #3a1530; transform: rotate(-4deg); }
+.sub em { font-style: normal; font-size: 40px; color: #ffe27a; }
+.badge { position: absolute; width: 200px; height: 200px; display: grid; place-items: center; text-align: center; transform: rotate(-10deg); }
+.badge::before { content: ""; position: absolute; inset: 0; background: conic-gradient(from 0deg, #ffd34d, #fff3b0, #ffb300, #fff3b0, #ffd34d, #ffb300, #ffd34d);
+  clip-path: polygon(50% 0, 61% 12%, 77% 6%, 80% 22%, 96% 25%, 90% 40%, 100% 52%, 88% 62%, 94% 78%, 78% 80%, 74% 96%, 60% 88%, 50% 100%, 40% 88%, 26% 96%, 22% 80%, 6% 78%, 12% 62%, 0 52%, 10% 40%, 4% 25%, 20% 22%, 23% 6%, 39% 12%);
+  filter: drop-shadow(0 6px 0 #8a4a00); }
+.badge div { position: relative; font-weight: 900; color: #7a1a00; line-height: 1.1; font-size: 22px; }
+.badge b { display: block; font-size: 36px; color: #c8102e; paint-order: stroke fill; -webkit-text-stroke: 5px #fff; }
+.bar { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; background: linear-gradient(90deg, rgba(150, 10, 40, .95), rgba(220, 40, 70, .9) 60%, rgba(220, 40, 70, 0));
+  display: flex; align-items: center; gap: 18px; padding-left: 34px; }
+.bar b { font-weight: 900; font-size: 44px; color: #fff; paint-order: stroke fill; -webkit-text-stroke: 8px #4a0612; text-shadow: 0 4px 0 #4a0612; letter-spacing: .02em; }
+.bar small { font-weight: 900; font-size: 22px; color: #ffe9a8; paint-order: stroke fill; -webkit-text-stroke: 5px #4a0612; }
+.logo { position: absolute; right: 26px; bottom: 18px; padding: 8px 16px 10px; border-radius: 10px; background: linear-gradient(#1b2a4a, #0b1226); border: 3px solid #ffd34d;
+  transform: skewX(-10deg); box-shadow: 0 6px 14px rgba(0, 0, 0, .4); }
+.logo i { display: block; font-style: normal; font-size: 13px; font-weight: 900; color: #ffd34d; letter-spacing: .2em; transform: skewX(10deg); }
+.logo b { display: block; font-size: 34px; font-weight: 900; color: #fff; transform: skewX(10deg); line-height: 1; }
+.logo b span { color: #ff6b8a; }
+.spark { position: absolute; width: 26px; height: 26px; background: #fff; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  filter: drop-shadow(0 0 6px #fff); }

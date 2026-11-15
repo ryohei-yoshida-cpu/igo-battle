@@ -580,6 +580,9 @@
     const d = new Date((t || Date.now()) + 9 * 3600e3), md = String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
     return e.from <= e.to ? md >= e.from && md <= e.to : md >= e.from || md <= e.to;
   }
+  // 大きなお知らせバナー（img/banner/<時期>_<av|room>.webp）。まだ作っていない時期は出さない
+  const BANNERS = { spring: ['av', 'room'] };
+  function bannerOf(kind, t) { for (const x of openLimits(t)) if ((BANNERS[x.tag] || []).includes(kind)) return `img/banner/${x.tag}_${kind}.webp`; return null; }
   // いま開いている限定（行事を先に）：[{ tag, name, when }]
   function openLimits(t) {
     const out = Object.entries(EVENTS).filter(([k]) => limitOpen(k, t)).map(([k, e]) => ({ tag: k, name: e.name, when: e.from.split('-').map(Number).join('/') + '〜' + e.to.split('-').map(Number).join('/') }));
@@ -587,5 +590,5 @@
     return out;
   }
   function seasonOf(t) { const m = new Date((t || Date.now()) + 9 * 3600e3).getUTCMonth() + 1; return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'; }
-  window.ROOMART = { seasonOf, limitOpen, openLimits, EVENTS, SEASON_NAME, SEASON_MONTHS, swatch, LOW, HALL, HALLW, drawHall, drawDoor, roomBox, layout, canAttach, defAt, hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
+  window.ROOMART = { seasonOf, limitOpen, openLimits, bannerOf, EVENTS, SEASON_NAME, SEASON_MONTHS, swatch, LOW, HALL, HALLW, drawHall, drawDoor, roomBox, layout, canAttach, defAt, hasOn: id => !!IMG[id + '_on'], SIZES, BASE, sizeOf, scaleOf, wallScale, N, WH, W, H, TW, TH, TZ, OX, OY, proj, CATALOG, BY_ID, FLOORS, WALLS, drawFloor, drawWalls, drawFloorItem, drawWallItem, drawVisitor, footprint, toGrid, toWall, DEFS, shade };
 })();

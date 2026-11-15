@@ -838,7 +838,8 @@
       }
     }
     const lim = R.openLimits(), limName = lim.map(x => x.name).join('・');
-    $('#rsGrid').innerHTML = (shopKind === 'season' ? `<p class="rm-help rs-note">${lim.map(x => `${x.name}（${x.when}）`).join('・')}だけの品です。時期がかわると、並ぶ品も入れかわります。買った品は、時期がすぎても使えます。</p>` : '') + (shopKind === 'cloak' ? '<p class="rm-help rs-note">部屋にクロークを1つ置くごとに、アバターの「お気に入りセット」が2つふえます。</p>' : '') + g;
+    const bnr = shopKind === 'season' && R.bannerOf && R.bannerOf('room');
+    $('#rsGrid').innerHTML = (bnr ? `<img class="big-banner" src="${bnr}" alt="限定家具のお知らせ">` : '') + (shopKind === 'season' ? `<p class="rm-help rs-note">${lim.map(x => `${x.name}（${x.when}）`).join('・')}だけの品です。時期がかわると、並ぶ品も入れかわります。買った品は、時期がすぎても使えます。</p>` : '') + (shopKind === 'cloak' ? '<p class="rm-help rs-note">部屋にクロークを1つ置くごとに、アバターの「お気に入りセット」が2つふえます。</p>' : '') + g;
     $('#rsCart').innerHTML = `<b class="rs-cart-h">選んでいる品</b>` + (cart.length
       ? `<ul>${cart.map((c, i) => `<li><span>${esc(c.name)}</span><em>${c.price.toLocaleString()} 銭</em><button type="button" class="sc-x" data-cx="${i}" aria-label="やめる">×</button></li>`).join('')}</ul>`
       : `<p class="rs-empty">商品をタップすると、部屋に試し置きできます${allRooms().length > 1 ? '。ほかの部屋をタップすると、その部屋の買い物もまとめてできます' : ''}</p>`) +

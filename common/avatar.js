@@ -80,6 +80,8 @@
     $('#avZeni').innerHTML = walletHtml();
     $('#avTabs').innerHTML = AV.TABS.concat([['line', '台詞']]).map(([k, n]) => `<button type="button" data-slot="${k}" aria-pressed="${slot === k}">${n}</button>`).join('');
     let h = slot === 'line' ? linesHtml() : '';
+    const bnr = mode === 'shop' && window.ROOMART && window.ROOMART.bannerOf && window.ROOMART.bannerOf('av');
+    if (bnr) h = `<img class="big-banner" src="${bnr}" alt="限定アバターのお知らせ">` + h;
     if (look.full && look.full !== 'none' && ['head', 'body', 'tool'].includes(slot)) h += `<p class="ln-lead">オールセットを着ています。${SLOT_NAME[slot]}をえらぶと、オールセットが外れます。</p>`;
     for (const [sl, title, only] of slot === 'line' ? [] : sections(slot)) {
       if (title) h += `<div class="av-sec">${title}</div>`;

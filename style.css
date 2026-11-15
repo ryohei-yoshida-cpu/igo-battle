@@ -1892,3 +1892,6 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 
 .av-item { position: relative; }
 .av-lim { position: absolute; top: 4px; left: 4px; z-index: 2; font-style: normal; font-size: 10px; font-weight: 900; padding: 1px 6px; border-radius: 6px; background: #b8242a; color: #fff6e0; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+
+/* 時期の大きなお知らせバナー（ショップの上） */
+.big-banner { grid-column: 1 / -1; display: block; width: 100%; height: auto; aspect-ratio: 1200 / 560; border-radius: 12px; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
