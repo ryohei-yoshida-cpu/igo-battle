@@ -581,7 +581,7 @@
     return e.from <= e.to ? md >= e.from && md <= e.to : md >= e.from || md <= e.to;
   }
   // 大きなお知らせバナー（img/banner/<時期>_<av|room>.webp）。まだ作っていない時期は出さない
-  const BANNERS = ['newyear', 'hina', 'kodomo', 'tanabata', 'spring'];   // シーズンパックの1枚絵がある時期（行事を先に）
+  const BANNERS = ['newyear', 'hina', 'kodomo', 'tanabata', 'tsukimi', 'halloween', 'xmas', 'spring', 'summer', 'autumn', 'winter'];   // シーズンパックの1枚絵がある時期（行事を先に）
   function bannerOf(kind, t) { for (const x of openLimits(t)) if (BANNERS.includes(x.tag)) return `img/banner/${x.tag}.webp`; return null; }
   // いま開いている限定（行事を先に）：[{ tag, name, when }]
   function openLimits(t) {
