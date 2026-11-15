@@ -145,6 +145,24 @@
     { id: 'y_ottoman', name: 'オットマン', style: 'yo', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
     { id: 'y_pendant', name: '吊りランプ', style: 'yo', kind: 'wall', w: 1, h: 1, v: 4.2, price: 200, draw() {} },
     { id: 'y_sconce', name: '壁のランプ', style: 'yo', kind: 'wall', w: 1.1, h: 1.1, v: 3, price: 100, draw() {} },
-    { id: 'y_rug', name: 'ナチュラルなラグ', style: 'yo', kind: 'flat', w: 3, d: 3, price: 200, draw() {} }
+    { id: 'y_rug', name: 'ナチュラルなラグ', style: 'yo', kind: 'flat', w: 3, d: 3, price: 200, draw() {} },
+    /* 7つ目のセット：中華の家具 */
+    { id: 'c_dining', name: '円卓セット', style: 'chu', kind: 'floor', w: 2, d: 2, price: 400, draw() {} },
+    { id: 'c_bed', name: '天蓋の寝台', style: 'chu', kind: 'floor', w: 2, d: 3, price: 400, draw() {} },
+    { id: 'c_desk', name: '書斎の机', style: 'chu', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'c_sofa', name: '羅漢床', style: 'chu', kind: 'floor', w: 2, d: 1, price: 400, draw() {} },
+    { id: 'c_shelf', name: '多宝格', style: 'chu', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'c_kitchen', name: '中華のかまど', style: 'chu', kind: 'floor', w: 2, d: 1, price: 400, draw() {} },
+    { id: 'c_cupboard', name: '茶器の棚', style: 'chu', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'c_wardrobe', name: '中華の衣装だんす', style: 'chu', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'c_chest', name: '中華のチェスト', style: 'chu', kind: 'floor', w: 2, d: 1, price: 200, cloak: true, draw() {} },
+    { id: 'c_screen', name: '梅の衝立', style: 'chu', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'c_floorlamp', name: '中華の灯籠スタンド', style: 'chu', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
+    { id: 'c_tablelamp', name: '角灯', style: 'chu', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
+    { id: 'c_teatable', name: '茶卓', style: 'chu', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
+    { id: 'c_stool', name: '鼓のいす', style: 'chu', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
+    { id: 'c_hanglantern', name: '宮灯', style: 'chu', kind: 'wall', w: 1.2, h: 1.2, v: 4, price: 200, draw() {} },
+    { id: 'c_walllantern', name: '壁の提灯', style: 'chu', kind: 'wall', w: 1.1, h: 1.1, v: 3, price: 100, draw() {} },
+    { id: 'c_rug', name: '龍紋の絨毯', style: 'chu', kind: 'flat', w: 3, d: 3, price: 300, draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
