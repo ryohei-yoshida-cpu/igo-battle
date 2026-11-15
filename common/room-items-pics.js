@@ -126,6 +126,25 @@
     { id: 'w_sakuramado', name: '桜の丸窓', style: 'wa', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, draw() {} },
     { id: 'w_tsuru', name: '鶴の掛け軸', style: 'wa', kind: 'wall', w: 1.2, h: 1.2, v: 2.2, price: 300, draw() {} },
     { id: 'w_sensu', name: '桜と扇の飾り', style: 'wa', kind: 'wall', w: 1.8, h: 1.8, v: 2.6, price: 200, draw() {} },
-    { id: 'w_momijitoro', name: '紅葉の吊り灯籠', style: 'wa', kind: 'wall', w: 1.2, h: 1.2, v: 3, price: 200, draw() {} }
+    { id: 'w_momijitoro', name: '紅葉の吊り灯籠', style: 'wa', kind: 'wall', w: 1.2, h: 1.2, v: 3, price: 200, draw() {} },
+    /* 6つ目のセット：ふつうの洋室の家具 */
+    { id: 'y_dining', name: 'ダイニングセット', style: 'yo', kind: 'floor', w: 2, d: 2, price: 300, draw() {} },
+    { id: 'y_bed', name: 'ナチュラルなベッド', style: 'yo', kind: 'floor', w: 2, d: 3, price: 400, draw() {} },
+    { id: 'y_desk', name: '机といす', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'y_sofa', name: 'グリーンのソファ', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'y_armchair', name: '革のひとりがけ', style: 'yo', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
+    { id: 'y_bookshelf', name: '木の本棚', style: 'yo', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
+    { id: 'y_kitchen', name: 'キッチン', style: 'yo', kind: 'floor', w: 3, d: 1, price: 400, draw() {} },
+    { id: 'y_cupboard', name: '食器棚', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, draw() {} },
+    { id: 'y_wardrobe', name: '洋服だんす', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    { id: 'y_chest', name: 'チェスト', style: 'yo', kind: 'floor', w: 2, d: 1, price: 200, cloak: true, draw() {} },
+    { id: 'y_trunk', name: '古いトランク', style: 'yo', kind: 'floor', w: 2, d: 1, price: 200, draw() {} },
+    { id: 'y_floorlamp', name: 'フロアランプ', style: 'yo', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
+    { id: 'y_tablelamp', name: 'テーブルランプ', style: 'yo', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
+    { id: 'y_roundtable', name: '丸いコーヒーテーブル', style: 'yo', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
+    { id: 'y_ottoman', name: 'オットマン', style: 'yo', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
+    { id: 'y_pendant', name: '吊りランプ', style: 'yo', kind: 'wall', w: 1, h: 1, v: 4.2, price: 200, draw() {} },
+    { id: 'y_sconce', name: '壁のランプ', style: 'yo', kind: 'wall', w: 1.1, h: 1.1, v: 3, price: 100, draw() {} },
+    { id: 'y_rug', name: 'ナチュラルなラグ', style: 'yo', kind: 'flat', w: 3, d: 3, price: 200, draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
