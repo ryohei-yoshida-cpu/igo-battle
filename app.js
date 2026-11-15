@@ -403,6 +403,7 @@
   function endOut() { clearTimeout(outT); if (outEl) { outEl.classList.remove('scr-out'); outEl.style.cssText = ''; outEl = null; } }
   function showScreen(id) {
     endOut();
+    if (window.LIMITED) window.LIMITED.refresh();   // 限定品のバナー
     const prev = SCREENS.map(k => $('#' + k)).find(e => e && !e.hidden);
     const box = prev && { t: prev.offsetTop, l: prev.offsetLeft, w: prev.offsetWidth, h: prev.offsetHeight, s: prev.scrollTop };
     for (const k of SCREENS) $('#' + k).hidden = k !== id;
