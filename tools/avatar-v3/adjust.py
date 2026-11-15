@@ -2,7 +2,7 @@
 #   ADJ: id → (横, 縦, 大きさ)。何度動かしても orig から作るので、ずれがたまらない
 import os, shutil, numpy as np
 from PIL import Image
-ADJ = {'h16': (0, -106, 1), 'h36': (0, -35, 1), 'h61': (0, 27, 1)}
+ADJ = {'h16': (-14, -28, 1), 'h36': (0, -35, 1), 'h61': (0, 27, 1)}
 os.makedirs('orig', exist_ok=True)
 for k, (dx, dy, s) in ADJ.items():
     src = f'../../img/av3/{k}.webp'
