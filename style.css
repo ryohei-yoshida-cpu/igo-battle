@@ -2055,3 +2055,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--kin); }
 .agree .btn:disabled { opacity: .45; }
 .gk-tabs button { white-space: nowrap; padding-left: 2px; padding-right: 2px; font-size: clamp(11px, 3.2vw, 13px); }
 .gk-th .sc-x, .gk-replies .sc-x { align-self: flex-start; }
+/* 碁会所内ランダムの待ち合い：Botの項目はなし */
+#matching.gk label.toggle, #matching.gk #mtNoBotNote, #matching.gk #matchChara { display: none !important; }
+.res-opp .res-opp-tap { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--kin); color: var(--kin); font-size: 11px; font-weight: 800; }
+.res-opp .res-opp-tap:empty { display: none; }

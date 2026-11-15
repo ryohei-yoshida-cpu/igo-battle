@@ -147,6 +147,8 @@
       const b = e.target.closest('button[data-act]'); if (!b) return;
       const pid = box.dataset.pid;
       if (b.dataset.act === 'room') { box.hidden = true; window.ROOM.visit(pid); return; }
+      if (b.dataset.act === 'mail') { box.hidden = true; window.MAIL.compose(pid, box.dataset.name); return; }
+      if (b.dataset.act === 'ginv') { b.disabled = true; window.GUILD.invite(pid, r => { if (r.ok) b.textContent = '招待しました'; else b.disabled = false; }); return; }
       if (b.dataset.act === 'report') { window.REPORT.open({ pid, kind: 'prof' }); return; }
       if (b.dataset.act === 'freq') {
         b.disabled = true;
@@ -175,6 +177,8 @@
     if (!P.online()) { body.innerHTML = '<p class="rm-help">サーバーにつながっているときに見られます。</p>'; return; }
     P.soc('prof', { pid }, res => {
       if (!res.ok) { body.innerHTML = res.reason === 'nobody' ? '<p class="rm-help">その部屋番号の人は見つかりませんでした。</p>' : `<p class="rm-help">${esc((fallback && fallback.name) || '')}さんの戦績は見られませんでした。</p>`; return; }
+      const gi = window.GUILD && window.GUILD.info();
+      b.dataset.name = res.name || '';
       const rank = P.RANKS[Math.min(P.RANKS.length - 1, P.rankOf ? P.rankOf(res.rating) : 0)] || '';
       const wr = res.games ? Math.round(res.wins / res.games * 100) + '%' : '—';
       const btn = res.mine ? '' : res.friend ? '<span class="prof-tag">フレンド</span>' : res.asked ? '<button type="button" class="btn lac" disabled>申請中</button>' : '<button type="button" class="btn primary" data-act="freq">フレンド申請</button>';
@@ -183,6 +187,7 @@
         <dl class="prof-stats"><div><dt>段級位</dt><dd>${esc(rank)}</dd></div><div><dt>レート</dt><dd>${res.rating}</dd></div><div><dt>対局</dt><dd>${res.games}</dd></div><div><dt>勝率</dt><dd>${wr}</dd></div></dl>
         ${otherGames(res.stats)}
         <div class="prof-btns">${btn}<button type="button" class="btn lac" data-act="room">部屋をたずねる</button></div>
+        ${res.mine ? '' : `<div class="prof-btns"><button type="button" class="btn lac small" data-act="mail">✉️ メッセージ</button>${gi && !res.gk && !res.noinv ? `<button type="button" class="btn lac small" data-act="ginv">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>`}
         ${res.mine ? '' : '<button type="button" class="prof-report" data-act="report">この人を通報する</button>'}`;
     });
   }

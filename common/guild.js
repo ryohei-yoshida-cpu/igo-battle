@@ -23,7 +23,7 @@
     empty: '一言を入れてください', long: '40字までです', fast: '少し待ってから送ってください', mine: '自分の一言です', gone: 'その呼びかけは、もうありません',
     turn: '相手の返事を待っています', off: '相手がオンラインではありません', busy: 'どちらかが対局中です', net: 'つながっていません', auth: 'アカウントが必要です',
     short: '省略名（3文字まで）を入れてください', lvl: '段級位の条件に届いていません', invite: '招待された人だけが入れる碁会所です', applied: 'もう申請しています',
-    blocked: 'ブロックしているか、されているので招待できません', theirs: 'その人は、もうほかの碁会所に入っています', invited: 'もう招待しています', talkoff: 'この碁会所は会話なしの設定です', board: '掲示板は使わない設定です'
+    blocked: 'ブロックしているか、されているので招待できません', noinv: 'その人は碁会所の勧誘を受けない設定です', theirs: 'その人は、もうほかの碁会所に入っています', invited: 'もう招待しています', talkoff: 'この碁会所は会話なしの設定です', board: '掲示板は使わない設定です'
   };
   const why = r => WHY[r && r.reason] || 'うまくいきませんでした';
   const ROLE = { master: 'マスター', manager: '店長', member: '' };
@@ -68,7 +68,7 @@
   try { Object.assign(hcSt, JSON.parse(localStorage.getItem('kuro9.gkhc') || '{}')); } catch (e) {}
   const keepHc = () => { try { localStorage.setItem('kuro9.gkhc', JSON.stringify(hcSt)); } catch (e) {} };
 
-  const req = (op, data, cb) => P.guild(op, data, r => { if (r && r.guild !== undefined) setG(r.guild); if (cb) cb(r); });
+  const req = (op, data, cb) => P.guild(op, data, r => { if (r && r.guild !== undefined) setG(r.guild); if (r && typeof r.noinv === 'boolean' && !!S.noGkInv !== r.noinv) { S.noGkInv = r.noinv; } if (cb) cb(r); });
   function setG(g) {
     G = g;
     if (window.TICKER) window.TICKER.guild(g ? g.chat : null, g && (g.role === 'master' || g.role === 'manager'));
@@ -277,7 +277,7 @@
     else if (d.mode) { P.sound('tap'); hcSt.mode = d.mode; keepHc(); render(); }
     else if (d.h) { P.sound('tap'); hcSt.h = +d.h; keepHc(); render(); }
     else if (d.min) { P.sound('tap'); hcSt.min = +d.min; keepHc(); render(); }
-    else if (d.act === 'seek') { P.sound('stone'); req('gseek', { size: hcSt.size }, r => { seeking = !!(r.ok && r.seeking); if (!r.ok) fail(r); render(); }); }
+    else if (d.act === 'seek') { P.sound('stone'); P.FR.guildMatch(hcSt.size); }
     else if (d.act === 'unseek') { P.sound('tap'); req('gunseek', {}, () => { seeking = false; render(); }); }
     else if (d.act === 'call') {
       const pid = $('#gkTo').value; if (!pid) return;

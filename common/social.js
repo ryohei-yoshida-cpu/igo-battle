@@ -61,7 +61,7 @@
       h += `<div class="sc-card"><small>部屋番号 ${esc(ctx.pid)}</small><b>${esc(ctx.name)}さんの部屋</b><span>訪問 今日${d.visits ? d.visits.today : 0}人・合計${d.visits ? d.visits.total : 0}人</span></div>`;
       const gi = window.GUILD && window.GUILD.info();
       h += `<div class="sc-sec">${d.friend ? '<p class="rm-help">フレンドです。</p>' : d.asked ? '<p class="rm-help">フレンド申請中です。</p>' : `<button type="button" class="btn primary small" data-freq="${esc(ctx.pid)}">フレンド申請する</button>`}
-        <div class="gk-row"><button type="button" class="btn lac small" data-mailto="${esc(ctx.pid)}" data-name="${esc(ctx.name)}">✉️ メッセージ</button>${gi ? `<button type="button" class="btn lac small" data-ginv="${esc(ctx.pid)}">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>
+        <div class="gk-row"><button type="button" class="btn lac small" data-mailto="${esc(ctx.pid)}" data-name="${esc(ctx.name)}">✉️ メッセージ</button>${gi && !d.gk && !d.noinv && !d.mine ? `<button type="button" class="btn lac small" data-ginv="${esc(ctx.pid)}">碁会所「${esc(gi.name)}」に招待</button>` : ''}</div>
         <small class="rm-help">メッセージは、フレンドか同じ碁会所のメンバーに送れます。</small></div>`;
       h += `<div class="sc-sec"><button type="button" class="btn lac small" data-home="1">自分の部屋にもどる</button>
         <button type="button" class="sc-x warn" data-block="${esc(ctx.pid)}" data-name="${esc(ctx.name)}">この人をブロックする</button></div>`;

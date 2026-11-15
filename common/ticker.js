@@ -39,6 +39,8 @@
       case 'myavatar': return `あなたの${link('avatar', 'アバター')}を着がえました`;
       case 'freq': return `${who}からフレンド申請が届きました。${link('gift', 'プレゼントボックス')}で許可できます`;
       case 'friendok': return `${who}とフレンドになりました`;
+      case 'gboard': return `${who}が碁会所の${link('guild:board', '掲示板')}にスレッドを立てました${it.title ? `「${esc(it.title)}」` : ''}`;
+      case 'gmis': return `碁会所のミッション「${esc(it.name)}」をクリア！ ${link('guild:mission', `${it.zeni | 0}銭を受け取る`)}`;
       case 'fzeni': return `${who}から100銭が届きました（${link('gift', 'プレゼントボックス')}）`;
     }
     return '';
@@ -104,6 +106,7 @@
     else if (k === 'join') window.FRIEND.joinWith(v);
     else if (k === 'friend') { P.showScreen('friend'); window.FRIEND.open(); }
     else if (k === 'gift') $('#openGift').click();
+    else if (k === 'guild' && window.GUILD) window.GUILD.open(v || 'home', 'home');
   }
   // 消す：自分のお知らせはこの端末から、部屋の一言コメント・とどいたお知らせはサーバーから
   function del(k) {

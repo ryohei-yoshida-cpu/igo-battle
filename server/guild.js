@@ -159,12 +159,21 @@ export class Guild {
    *   kind: inner 碁会所内 / random ランダムマッチ / bot キャラクター戦。up：自分の強さ以上の相手に勝った（月のランキング） */
   async count(id, game, kind, up) {
     const gid = await this.gidOf(id, game); if (!gid) return;
-    await this.withG(gid, g => {
+    const clear = [];
+    const g = await this.withG(gid, g => {
       if (!g.members.some(m => m.id === id)) return false;
       if (g.day[kind] != null) g.day[kind]++;
       g.day.total++; g.week.total++;
       if (up && kind !== 'inner') g.month.wins[id] = (g.month.wins[id] | 0) + 1;
+      // ちょうど達成した瞬間のミッション
+      for (const [k, ms] of Object.entries(GUILD.missions)) {
+        const have = ms.per === 'week' ? g.week.total : g.day[k];
+        if (have === ms.need && (k === kind || k === 'total' || k === 'week')) clear.push(ms);
+      }
     });
+    // ミッションクリアを、メンバーみんなの一言コメント欄に（タップで受け取り画面へ）
+    if (g && clear.length) for (const ms of clear) for (const mm of g.members)
+      await this.core.social.notify(mm.id, { type: 'gmis', name: ms.name, zeni: ms.zeni, gs: g.short, t: this.now() }).catch(() => {});
   }
 
   /* ---------- 月のランキング：月がかわってから、だれかが碁会所を開いたときに1回だけ配る ---------- */
@@ -211,7 +220,11 @@ export class Guild {
     const reply = async extra => out(Object.assign({ ok: true, guild: await this.meData(id, game) }, extra || {}));
     const memberId = async (g, p) => { const oid = await this.core.social.idOf(p); return oid && g.members.some(x => x.id === oid) ? oid : null; };
 
-    if (op === 'me') return reply();
+    if (op === 'me') { const ar = await this.store.get('acct:' + id); return reply({ noinv: !!(ar && ar.noGkInv) }); }
+    if (op === 'pref') {   // 設定「碁会所の勧誘を受けない」
+      await this.core.withAcct(id, async r => { if (m.noinv) r.noGkInv = 1; else delete r.noGkInv; });
+      return out({ ok: true, noinv: !!m.noinv });
+    }
     if (op === 'rank') {
       const idx = (await this.store.get('guilds:' + game)) || [], rows = [];
       for (const it of idx) { const g = await this.store.get('guild:' + it.id); if (!g) continue; this.roll(g); rows.push({ id: g.id, name: g.name, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0) }); }
@@ -356,6 +369,7 @@ export class Guild {
       const os = await this.core.social.readSoc(oid), ms = await this.core.social.readSoc(id);
       if (os.blocks.some(b => b.pid === pid) || ms.blocks.some(b => b.pid === String(m.pid))) return fail('blocked');
       if (await this.gidOf(oid, game)) return fail('theirs');
+      const oa = await this.store.get('acct:' + oid); if (oa && oa.noGkInv) return fail('noinv');
       let why = '';
       const g = await this.withG(gid, g => {
         if (g.invites.some(x => x.to === oid)) { why = 'invited'; return false; }
@@ -402,6 +416,8 @@ export class Guild {
         }, () => ({ seq: 0, threads: [] }));
         if (!r) return fail(why);
         this.archive(id, op === 'post' ? `[掲示板] ${title}：${text}` : `[掲示板の返信] ${text}`, g0).catch(() => {});
+        if (op === 'post') for (const mm of g0.members) if (mm.id !== id)   // スレッドが立ったら、メンバーの一言コメント欄にお知らせ
+          this.core.social.notify(mm.id, { type: 'gboard', pid, name: myName(), gs: g0.short, title: String(m.title || '').slice(0, GUILD.btitle), t: now }).catch(() => {});
       } else if (op === 'bdel') {
         const r = await this.core.social.withKey(key, b => {
           const th = b.threads.find(x => x.id === (m.tid | 0)); if (!th) { why = 'gone'; return false; }

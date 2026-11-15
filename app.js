@@ -436,7 +436,7 @@
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
       passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1,
       online: opts.online || null, oppAway: 0,
-      hc: opts.hc || null, friend: !!opts.hc, komi: opts.hc ? opts.hc.komi : KOMI, size: BN, atari: !!opts.atari
+      hc: opts.hc || null, friend: !!opts.hc, gk: !!opts.gk, komi: opts.hc ? opts.hc.komi : KOMI, size: BN, atari: !!opts.atari
     };
     if (opts.atari) G.clock = { 1: 60 * 60000, 2: 60 * 60000 };   // アタリ碁（はじめての一局）は時間を気にしない
     if (BN === 13) G.clock = { 1: MAIN_MS * 2, 2: MAIN_MS * 2 };   // 13路は10分
@@ -779,7 +779,7 @@
       const tap = !!(op.human && op.pid && window.PROFILE);
       box.classList.toggle('tappable', tap);
       let hint = box.querySelector('.res-opp-tap'); if (!hint) { hint = document.createElement('small'); hint.className = 'res-opp-tap'; box.append(hint); }
-      hint.textContent = tap ? 'タップで戦績・フレンド申請' : '';
+      hint.textContent = tap ? '戦績を見る ›' : '';
       box.onclick = tap ? () => { sound('tap'); window.PROFILE.open(op.pid, op); } : null;
     }
     // 「もう一局」は、少したってからハンコのように押される
@@ -825,7 +825,7 @@
     $('#resAgain').disabled = false;
     if (r && r.friend) {
       // フレンド戦：レートは動かない。「もう一局」は相手にも申しこむ
-      pr.hidden = false; pr.textContent = `フレンドマッチ・${HC_NAME[G.hc.h]}（レート変動なし）`;
+      pr.hidden = false; pr.textContent = `${G.gk ? '碁会所内マッチ' : 'フレンドマッチ'}・${HC_NAME[G.hc.h]}（レート変動なし）`;
       const g = G.online.g, opp = G.bot;
       $('#resAgain').textContent = G.reAsk ? 'もう一局（相手が待っています）' : 'もう一局';
       $('#resAgain').onclick = () => {
@@ -1214,6 +1214,7 @@
   const FR = {
     available: () => !!NET_URL,
     random(size) { startMatch(size); },
+    guildMatch(size) { guildMatch(size); },
     bot(size) { botNow(size); },
     online: () => NET.ok,
     host(hc) { friendSend({ t: 'fhost', hc }); },
@@ -1234,8 +1235,28 @@
     clearInterval(M.timer);
     matchFound();
   }
+  // 碁会所内ランダム：いつもの待ち合い画面で、碁会所の仲間を待つ（Botの項目はなし）
+  function guildMatch(size) {
+    stopMatch();
+    size = size === 13 ? 13 : 9;
+    M = { t0: Date.now(), gk: true, found: false, timer: 0, size };
+    $('#matching').hidden = false; $('#matching').classList.add('gk');
+    $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
+    $('#mtTitle').textContent = '碁会所の仲間を待っています';
+    setImg($('#mtMe'), myFaceSrc());
+    netSend({ t: 'guild', op: 'gseek', size, req: 0 });
+    const tick = () => {
+      if (!M || !M.gk || M.found) return;
+      const sec = Math.floor((Date.now() - M.t0) / 1000), tt = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+      const g = window.GUILD && window.GUILD.info(), on = g ? g.members.filter(x => x.on && !x.me).length : 0;
+      $('#mtSub').textContent = `碁会所内ランダム（${M.size}路・互先）・オンラインの仲間 ${on}人・${tt}`;
+      $('#mpText').textContent = `碁会所の仲間を待っています ${tt}`;
+    };
+    M.timer = setInterval(tick, 250); tick();
+  }
   function startMatch(size) {
     stopMatch();
+    $('#matching').classList.remove('gk');
     size = size === 13 ? 13 : 9;
     const myRank = rankFromRating(RS(size).rating);
     M = { t0: Date.now(), fixed: S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon', myRank, found: false, timer: 0, size };
@@ -1287,7 +1308,7 @@
     const opp = humanOpp(m.opp), hc = m.hc || null;
     showFound(A.faceUri(opp.ava), opp.name, `${RANKS[rankFromRating(opp.rating)]}・レート ${opp.rating}`, m.color,
       hc ? `${m.gk ? '碁会所内マッチ' : 'フレンドマッチ'}・${hc.size === 13 ? '13路' : '9路'}・${HC_NAME[hc.h]}・持ち時間${hc.min}分` : `オンラインのプレイヤーとマッチしました（${m.size === 13 ? '13路' : '9路'}）`, hc);
-    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc, size: m.size }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
+    M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(opp, m.color, { online: { g: m.g }, hc, size: m.size, gk: !!m.gk }); setClocks(m.clock); }, Math.max(1200, (m.delay || 2500) - 300));
   }
   // 「自分と同じ以上の強さ」：レートが自分以上の Bot のうち、弱いほうから2つ（いなければ いちばん強い Bot）
   // 入門：10級より下。小春が、わざとアタリを見のがしてくれる
@@ -1308,13 +1329,13 @@
     const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz, atari: !!bot.nyumon }); }, 2200);   // 入門はいつもアタリ碁
   }
   function stopMatch() {
-    if (M) { clearInterval(M.timer); clearTimeout(M.timer); if (!M.found) netSend({ t: M.friend ? 'fcancel' : 'cancel' }); }
+    if (M) { clearInterval(M.timer); clearTimeout(M.timer); if (!M.found) netSend(M.gk ? { t: 'guild', op: 'gunseek', req: 0 } : { t: M.friend ? 'fcancel' : 'cancel' }); }
     M = null;
     $('#matching').hidden = true; $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
   }
   // 待っている間に「すぐにキャラクターとマッチ」
   $('#matchChara').onclick = () => { if (!M || M.found || M.friend) return; sound('stone'); netSend({ t: 'cancel' }); matchFound(); };
-  $('#cancelMatch').onclick = () => { stopMatch(); if (!$('#home').hidden || !$('#pvp').hidden) openPvp(); };
+  $('#cancelMatch').onclick = () => { const gk = M && M.gk; stopMatch(); if (gk && window.GUILD) { window.GUILD.open('match'); return; } if (!$('#home').hidden || !$('#pvp').hidden) openPvp(); };
   $('#optNoBot').addEventListener('change', e => {
     S.noBot = e.target.checked; save();
     $('#mtNoBotNote').hidden = !S.noBot;
@@ -1374,7 +1395,7 @@
     });
     $('#boardKaya').setAttribute('aria-checked', String(S.settings.board !== 'washi'));
     $('#boardWashi').setAttribute('aria-checked', String(S.settings.board === 'washi'));
-    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false; $('#adminRep').hidden = !(window.REPORT && window.REPORT.isAdmin());
+    $('#optConfirm').checked = S.settings.confirm; $('#optFx').checked = S.settings.fx; $('#optShopFx').checked = S.settings.shopFx !== false; $('#optSound').checked = S.settings.sound; $('#optBgm').checked = S.settings.bgm !== false; $('#optTicker').value = S.settings.tickerMode || 'all'; $('#optTickerMine').checked = S.settings.tickerMine !== false; $('#optNoGkInv').checked = !!S.noGkInv; $('#adminRep').hidden = !(window.REPORT && window.REPORT.isAdmin());
   }
   $('#boardKaya').onclick = () => { S.settings.board = 'kaya'; save(); applyBoardStyle(); renderSettings(); };
   $('#boardWashi').onclick = () => { S.settings.board = 'washi'; save(); applyBoardStyle(); renderSettings(); };
@@ -1410,6 +1431,11 @@
   $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
   $('#adminRep').onclick = () => { $('#settings').hidden = true; window.ADMIN.open(); };
   $('#startTut').onclick = () => { $('#settings').hidden = true; window.TUTORIAL.start(false); };
+  // 碁会所の勧誘（招待）を受けない：サーバーにも覚えてもらう
+  $('#optNoGkInv').addEventListener('change', e => {
+    S.noGkInv = e.target.checked; save();
+    if (econOn()) netSend({ t: 'guild', op: 'pref', noinv: S.noGkInv, req: 0 });
+  });
   $('#optTickerMine').addEventListener('change', e => { S.settings.tickerMine = e.target.checked; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#nameInput').addEventListener('change', () => { if (NET.ok) netHello(); });   // 名前を変えたらサーバーにも知らせる（部屋や対局で見える名前）

@@ -324,7 +324,7 @@ export class Social {
       const num = v => Math.max(0, v | 0);
       out({ ok: true, pid, name: acctName(acct) || this.nameOf(oid), av: (acct && acct.av) || null, hito: s.hito,
         rating: num(g9.rating), games: num(g9.games), wins: num(g9.wins), draws: num(g9.draws), streak: num(g9.streak), stats,
-        friend: has(s.friends, me), asked: has(s.freq, me), mine: pid === me });
+        friend: has(s.friends, me), asked: has(s.freq, me), mine: pid === me, gk: !!(acct && acct.guild && acct.guild[info.game || 'go']), noinv: !!(acct && acct.noGkInv) });
       return;
     }
     if (op === 'visit') {
@@ -347,7 +347,8 @@ export class Social {
       out({
         ok: true, pid, name: ownerName, av: acct.av || null, room: acct.room || null, rooms2: acct.rooms2 || [], hito: s.hito,
         diary: s.diary.filter(d => canSee(d, pid === me, has(s.friends, me))).map(head), chat: s.chat, visits: { total: s.visits.total, today: s.visits.day === day ? s.visits.today : 0 },
-        cset: s.cset, friend: has(s.friends, me), asked: has(s.freq, me), canWrite: canWrite(s, pid), mine: pid === me
+        cset: s.cset, friend: has(s.friends, me), asked: has(s.freq, me), canWrite: canWrite(s, pid), mine: pid === me,
+        gk: !!(acct.guild && acct.guild[info.game || 'go']), noinv: !!acct.noGkInv   // 碁会所に入っているか・勧誘を受けない設定か
       });
       return;
     }
