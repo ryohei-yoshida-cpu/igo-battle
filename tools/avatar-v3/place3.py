@@ -45,6 +45,7 @@ print('hand y', HAND_Y, 'hand span', HAND_W)
 import sys
 PRE, NH, H0, NB, B0 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
 FEETONLY = 'feet' in sys.argv[6:]   # 足まで描いてある服は、首から足でそろえる（手で合わせると浮く）
+FIX3 = {'h95': (1.1, 40)}   # 目で見て直したもの（大きさ・下へ）。花粉症の女の子は、たれた髪の先があごより下
 heads = []
 for k in range(NH):
     p = np.asarray(Image.open(f'cut/{PRE}h{k:02d}.png')); name = f'h{H0 + k}'
@@ -56,7 +57,8 @@ med = float(np.median([q[2] for q in heads]))
 for nm, pp, ss, ccx, chin in heads:
     if abs(ss / med - 1) > .12:   # 顔がうまく測れない（マスク・ひげなど）：大きさはまわりと同じ、あごは絵の下はし
         print('head scale fix', nm, round(ss / med, 2)); ss = med; chin = np.nonzero(pp[..., 3] > 128)[0].max()
-    put(pp, ss, 200 - ccx * ss, 314 - chin * ss, nm); thumb(pp, nm)
+    f, dy = FIX3.get(nm, (1, 0)); cy = 314 - chin * ss; ss2 = ss * f
+    put(pp, ss2, 200 - ccx * ss2, cy - chin * (ss2 - ss) + dy, nm); thumb(pp, nm)
 for k in range(NB):
     p = np.asarray(Image.open(f'cut/{PRE}b{k:02d}.png')); name = f'b{B0 + k}'
     h = hands(p); ys, xs = np.nonzero(p[..., 3] > 128); sf = (FEET - NECK) / (ys.max() - ys.min())
