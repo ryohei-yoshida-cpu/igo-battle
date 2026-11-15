@@ -830,6 +830,13 @@ function ensureEcon(r) {
   }
   if (r.owned && !r.roomRm1) roomRemove(r);
   if (r.owned && r.rate) rankItems(r, Date.now());   // 前からの人にも、とどいている段級位の記念品を
+  if (r.owned && r.owned.av && !r.avRm2) {   // 2026/11/15 取りやめ：縦ロールの姫（持っていた人には銭をおかえし）
+    let back = 0;
+    r.owned.av = r.owned.av.filter(k => { if (k in AV_RM2) { back += AV_RM2[k]; return false; } return true; });
+    if (r.av) r.av = AVATAR_CLEAN(r.av);
+    if (back > 0) addGift(r, 'refund', back, '取りやめた髪のおかえし', Date.now());
+    r.avRm2 = 1;
+  }
   if (r.econV === 2 && r.avV !== 3 && r.owned) { avRenew(r); return; }
   // はじめての人には 3000 銭のプレゼント（前からの人にも1回だけ）
   if (r.econV === 1) { r.daily = r.daily || { day: '', bot: 0 }; r.claims = r.claims || {}; r.owned.av = r.owned.av || []; addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now()); r.econV = 2; r.welcome = true; avRenew(r); return; }
@@ -865,6 +872,7 @@ function antiqueGift(r, x) {
 // 2026/11/15 取りやめた家具（線で描いた家具・角度の合わない絵の家具）と、その値段。持っていた人には、銭をおかえし
 const ROOM_RM = {"kotatsu":800,"byobu":600,"bonsai":600,"andon":400,"tansu":400,"ikou":600,"closet":600,"hibachi":400,"maneki":400,"lowtable":400,"floorlamp":400,"fridge":600,"washer":600,"fireplace":800,"piano":800,"rug":100,"entaku":600,"chuchair":400,"tsubo":400,"bamboo":400,"shishi":800,"chataku":600,"shoji":600,"marumado":800,"painting":800,"chouchin":400,"fuku":100,"irori":600,"yoroi":800,"katana":400,"kingyobachi":100,"shishiodoshi":400,"touro":400,"taiko":400,"daruma":100,"kokeshi":100,"tanuki":400,"chagama":400,"bangasa":100,"matsu":600,"shogiban":400,"kagamimochi":100,"kadomatsu":600,"hinadan":800,"endai":400,"goke":400,"kamidana":600,"desk":400,"pcdesk":600,"gamechair":400,"arcade":800,"aquarium":600,"globe":100,"telescope":400,"drums":800,"guitar":400,"dumbbell":100,"treadmill":600,"bicycle":400,"rack":400,"mirror":400,"dresser":600,"treasure":600,"xmastree":600,"snowman":100,"teddy":400,"robot":800,"knight":800,"jukebox":800,"vending":600,"billiards":800,"hammock":600,"cactus":100,"sofa1":400,"beanbag":100,"bunkbed":800,"kitchen":800,"microwave":100,"waterserver":400,"mahjong":600,"panda":400,"dragon":800,"seiro":100,"kabin":400,"hakkaku":600,"zhaocai":800,"wok":600,"chabako":400,"chuscreen":600,"kanfu":400,"ganpei":100,"pudding":600,"cake":800,"ufo":800,"rocket":800,"dino":800,"coins":800,"bigstone_b":400,"bigstone_w":400,"cloud":600,"ghost":400,"alien":600,"lavalamp":100,"stove":100,"sushilane":800,"ramen":800,"ballpool":600,"slide":600,"fountain":800,"safe":400,"mirrorball":600,"castle":800,"pyramid":600,"cat":400,"dog":400,"penguin":400,"igostatue":800,"tatamimat":100,"roundrug":100,"gobanrug":400,"lawn":100,"tigerrug":600,"starmat":400,"hatoclock":400,"worldmap":400,"blackboard":400,"darts":100,"kamidanaw":400,"tako":100,"noren":400,"shodo":100,"photo":100,"neon":600,"spaceposter":100,"aircon":400,"moonart":400,"shelfw":400,"rainbow":400,"snowflake":100,"target":100,"animalhead":400,"goclock":400,"lanternw":100,"menuboard":100,"stainedglass":600};
 // 足もとのないアバターの服（2026/11/14 取りやめ）。持っていた人には、銭をおかえし
+const AV_RM2 = { 'head:h16': 1800, 'body:b90': 0 };
 const AV_RM = { 'body:b02': 1800, 'body:b06': 1800, 'body:b24': 1800, 'body:b25': 1200, 'body:b26': 1200, 'body:b27': 1800, 'body:b29': 1800, 'body:b30': 300, 'body:b31': 300 };
 function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {}, rates: { go9: rateOf(r, 'go9'), go13: rateOf(r, 'go13') } }; }
 /* ---------- 勾玉（課金石）：アプリ（ゲーム）ごとに持つ。お金で買った分は、そのアプリの中だけで使う（Google Play のきまり） ---------- */
