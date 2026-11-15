@@ -40,11 +40,14 @@ for k in range(8):
 HAND_Y = float(np.median([r[0] for r in ref])); HAND_W = float(np.median([r[1] for r in ref]))
 print('hand y', HAND_Y, 'hand span', HAND_W)
 
-# お正月の限定（2026/11/15）：頭 15（h64〜h78）・服 12（b42〜b53）。place2.py と同じ置き方
+# 行事の限定のアバター：python3 place3.py <かしら> <頭の数> <頭の最初の番号> <服の数> <服の最初の番号>
+#   お正月：nyh/nyb 15 64 12 42　ひな祭り：hnh/hnb 15 79 12 54
 import sys
+PRE, NH, H0, NB, B0 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
+FEETONLY = 'feet' in sys.argv[6:]   # 足まで描いてある服は、首から足でそろえる（手で合わせると浮く）
 heads = []
-for k in range(15):
-    p = np.asarray(Image.open(f'cut/nyh{k:02d}.png')); name = f'h{64 + k}'
+for k in range(NH):
+    p = np.asarray(Image.open(f'cut/{PRE}h{k:02d}.png')); name = f'h{H0 + k}'
     S = skin(p[..., :3]) & (p[..., 3] > 200); S = ndi.binary_opening(S, iterations=2)
     lab, n = ndi.label(S); sz = ndi.sum(S, lab, range(1, n + 1))
     F = lab == (np.argmax(sz) + 1); fy, fx = np.nonzero(F)
@@ -53,10 +56,10 @@ med = float(np.median([q[2] for q in heads]))
 for nm, pp, ss, ccx, chin in heads:
     if abs(ss / med - 1) > .12: print('head scale fix', nm, round(ss / med, 2)); ss = med
     put(pp, ss, 200 - ccx * ss, 314 - chin * ss, nm); thumb(pp, nm)
-for k in range(12):
-    p = np.asarray(Image.open(f'cut/nyb{k:02d}.png')); name = f'b{42 + k}'
+for k in range(NB):
+    p = np.asarray(Image.open(f'cut/{PRE}b{k:02d}.png')); name = f'b{B0 + k}'
     h = hands(p); ys, xs = np.nonzero(p[..., 3] > 128); sf = (FEET - NECK) / (ys.max() - ys.min())
-    if h is None: s = sf; top, cx = ys.min(), (xs.min() + xs.max()) / 2; note = 'feet'
+    if h is None or FEETONLY: s = sf; top, cx = ys.min(), (xs.min() + xs.max()) / 2; note = 'feet'
     else:
         top, cx, hy, hw = h; sh = (HAND_Y / (hy - top) + HAND_W / hw) / 2; s = min(sh, sf); note = 'hands' if sh < sf else 'feet'
     put(p, s, 200 - cx * s, NECK - top * s, name); thumb(p, name); print(name, note, round(s, 3))
