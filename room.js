@@ -831,19 +831,19 @@
     } else {
       for (const c of R.CATALOG) {
         if (c.price <= 0) continue;
-        if (shopKind === 'season') { if (c.season !== R.seasonOf()) continue; }
+        if (shopKind === 'season') { if (!c.season || !R.limitOpen(c.season)) continue; }
         else if (c.season || (c.cloak ? 'cloak' : c.kind === 'wall' ? 'wall' : 'floor') !== shopKind) continue;
         const have = base().ownedItems[c.id] || 0, trying = trials().filter(it => it.k === c.id).length;
         g += `<button type="button" class="rm-card rs-card${trying ? ' on' : ''}" data-try="${c.id}">${thumb(c.id)}<b>${c.name}</b><span class="rm-price">${c.price.toLocaleString()} 銭</span>${have ? `<small class="rs-have">${have}こ持ってる</small>` : ''}</button>`;
       }
     }
-    const sn = R.seasonOf();
-    $('#rsGrid').innerHTML = (shopKind === 'season' ? `<p class="rm-help rs-note">${R.SEASON_NAME[sn]}（${R.SEASON_MONTHS[sn]}）だけの品です。季節がかわると、並ぶ品も入れかわります。買った品は、季節がすぎても使えます。</p>` : '') + (shopKind === 'cloak' ? '<p class="rm-help rs-note">部屋にクロークを1つ置くごとに、アバターの「お気に入りセット」が2つふえます。</p>' : '') + g;
+    const lim = R.openLimits(), limName = lim.map(x => x.name).join('・');
+    $('#rsGrid').innerHTML = (shopKind === 'season' ? `<p class="rm-help rs-note">${lim.map(x => `${x.name}（${x.when}）`).join('・')}だけの品です。時期がかわると、並ぶ品も入れかわります。買った品は、時期がすぎても使えます。</p>` : '') + (shopKind === 'cloak' ? '<p class="rm-help rs-note">部屋にクロークを1つ置くごとに、アバターの「お気に入りセット」が2つふえます。</p>' : '') + g;
     $('#rsCart').innerHTML = `<b class="rs-cart-h">選んでいる品</b>` + (cart.length
       ? `<ul>${cart.map((c, i) => `<li><span>${esc(c.name)}</span><em>${c.price.toLocaleString()} 銭</em><button type="button" class="sc-x" data-cx="${i}" aria-label="やめる">×</button></li>`).join('')}</ul>`
       : `<p class="rs-empty">商品をタップすると、部屋に試し置きできます${allRooms().length > 1 ? '。ほかの部屋をタップすると、その部屋の買い物もまとめてできます' : ''}</p>`) +
       `<div class="rs-total"><small>合計</small><b class="${short ? 'short' : ''}">${total.toLocaleString()} 銭</b></div><button type="button" class="btn primary rs-buy" data-buyall="1" ${!cart.length || short ? 'disabled' : ''}>購入</button>`;
-    $('#rsNav').innerHTML = [['season', R.SEASON_NAME[sn] + 'の限定'], ['floor', '床の家具'], ['wall', '壁の家具'], ['cloak', 'クローク'], ['interior', '床・壁紙']].map(([k, n]) => `<button type="button" data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('');
+    $('#rsNav').innerHTML = [['season', limName + 'の限定'], ['floor', '床の家具'], ['wall', '壁の家具'], ['cloak', 'クローク'], ['interior', '床・壁紙']].map(([k, n]) => `<button type="button" data-kind="${k}" aria-pressed="${shopKind === k}">${n}</button>`).join('');
   }
   const layoutOf = r => JSON.stringify({ f: r.floor, w: r.wall, i: r.items.filter(i => !i.trial).map(i => [i.uid, i.x, i.y, i.rot, i.s, i.on]), wl: r.walls.filter(i => !i.trial).map(i => [i.uid, i.side, i.u, i.s]), av: r.av, gp: r.gp });
   function enterShop(kind) {

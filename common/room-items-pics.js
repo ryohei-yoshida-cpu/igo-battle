@@ -232,6 +232,25 @@
     { id: 'suw_sudare', name: '朝顔のすだれ', style: 'fun', kind: 'wall', w: 1.4, h: 1.4, v: 2.2, price: 200, season: 'summer', draw() {} },
     { id: 'suw_furin', name: '金魚の風鈴', style: 'fun', kind: 'wall', w: 0.6, h: 0.6, v: 3.4, price: 100, season: 'summer', draw() {} },
     { id: 'sur_goza', name: '青海波の丸ござ', style: 'fun', kind: 'flat', w: 2, d: 2, price: 200, season: 'summer', draw() {} },
-    { id: 'sur_nami', name: '波と桜のラグ', style: 'fun', kind: 'flat', w: 2, d: 3, price: 200, season: 'summer', draw() {} }
+    { id: 'sur_nami', name: '波と桜のラグ', style: 'fun', kind: 'flat', w: 2, d: 3, price: 200, season: 'summer', draw() {} },
+    /* 10こ目のセット：お正月（行事の限定） */
+    { id: 'ny_kadomatsu', name: '門松', style: 'fun', kind: 'floor', w: 1, d: 1, price: 300, season: 'newyear', draw() {} },
+    { id: 'ny_kagami', name: '鏡餅', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'newyear', draw() {} },
+    { id: 'ny_byobu', name: '富士と梅の金屏風', style: 'fun', kind: 'floor', w: 2, d: 1, price: 400, season: 'newyear', draw() {} },
+    { id: 'ny_nodate', name: '野点傘の縁台', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'newyear', draw() {} },
+    { id: 'ny_torii', name: '雪の鳥居', style: 'fun', kind: 'floor', w: 3, d: 1, price: 400, season: 'newyear', draw() {} },
+    { id: 'ny_ema', name: '絵馬掛け', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'newyear', draw() {} },
+    { id: 'ny_irori', name: 'お正月の囲炉裏', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'newyear', draw() {} },
+    { id: 'ny_osechi', name: 'おせちの重箱', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'newyear', draw() {} },
+    { id: 'ny_kotatsu', name: 'みかんのこたつ', style: 'fun', kind: 'floor', w: 2, d: 2, price: 300, season: 'newyear', draw() {} },
+    { id: 'ny_andon', name: '梅の行灯', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'newyear', draw() {} },
+    { id: 'ny_shishi', name: '獅子舞', style: 'fun', kind: 'floor', w: 2, d: 1, price: 400, season: 'newyear', draw() {} },
+    { id: 'ny_hagoita', name: '羽子板飾り', style: 'fun', kind: 'floor', w: 1, d: 1, price: 300, season: 'newyear', draw() {} },
+    { id: 'ny_ikebana', name: 'お正月の生け花', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'newyear', draw() {} },
+    { id: 'ny_geishun', name: '迎春の衝立', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'newyear', draw() {} },
+    { id: 'ny_toro', name: '雪の灯籠', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'newyear', draw() {} },
+    { id: 'ny_zoni', name: 'お雑煮', style: 'fun', kind: 'floor', w: 1, d: 1, price: 100, season: 'newyear', draw() {} },
+    { id: 'nyr_ume', name: '梅の花のラグ', style: 'fun', kind: 'flat', w: 2, d: 2, price: 200, season: 'newyear', draw() {} },
+    { id: 'nyr_tsuru', name: '鶴と松のござ', style: 'fun', kind: 'flat', w: 3, d: 2, price: 300, season: 'newyear', draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);

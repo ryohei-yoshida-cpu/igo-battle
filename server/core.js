@@ -49,6 +49,13 @@ export const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,
 export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); }, del: async k => { m.delete(k); } }; }
 import { ITEMS, FLOORS, WALLS, SEASON } from './prices.js';
 // 季節（日本時間）：春 3〜5月・夏 6〜8月・秋 9〜11月・冬 12〜2月
+const EVENTS = { newyear: ['12-26', '01-07'] };   // 行事の限定（common/room-art.js と同じ）
+function limitOpen(tag, t) {
+  if (['spring', 'summer', 'autumn', 'winter'].includes(tag)) return seasonOf(t) === tag;
+  const e = EVENTS[tag]; if (!e) return false;
+  const d = new Date(t + 9 * 3600e3), md = String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+  return e[0] <= e[1] ? md >= e[0] && md <= e[1] : md >= e[0] || md <= e[1];
+}
 const seasonOf = t => { const m = new Date(t + 9 * 3600e3).getUTCMonth() + 1; return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'; };
 import { Social } from './social.js';
 import { cleanName } from './ng.js';
@@ -403,7 +410,7 @@ export class Core {
           addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
         }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
-        else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && SEASON[m.item] !== seasonOf(this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
+        else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }
         else if (m.roomAdd) {
