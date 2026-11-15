@@ -970,7 +970,7 @@
 
   let roomFrom = null;   // 'shop'：ショップから来た（もどるでショップへ）
   // 置いているクロークの数（全部の部屋。試し置きは数えない）
-  function cloaks() { if (!S.room) return 0; let n = 0; for (const r of [S.room].concat(S.room.extra || [])) for (const it of r.items || []) if (!it.trial && cat(it.k) && cat(it.k).cloak) n++; return n; }
+  function cloaks() { if (!S.room) return 0; let n = 0; for (const r of [S.room].concat(S.room.extra || [])) for (const it of (r.items || []).concat(r.walls || [])) if (!it.trial && cat(it.k) && cat(it.k).cloak) n++; return n; }
   function open(startTab, back) {
     if (typeof startTab !== 'string') startTab = null;
     roomFrom = back || null;

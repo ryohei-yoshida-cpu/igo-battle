@@ -76,6 +76,30 @@
     { id: 'hime_clock', name: '振り子の大時計', style: 'yo', kind: 'floor', w: 1, d: 1, price: 300, draw() {} },
     { id: 'hime_chest', name: '姫のチェスト', style: 'yo', kind: 'floor', w: 2, d: 1, price: 200, draw() {} },
     { id: 'hime_lamp', name: '姫のフロアランプ', style: 'yo', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
-    { id: 'hime_table', name: '姫のティーテーブル', style: 'yo', kind: 'floor', w: 2, d: 1, price: 200, draw() {} }
+    { id: 'hime_table', name: '姫のティーテーブル', style: 'yo', kind: 'floor', w: 2, d: 1, price: 200, draw() {} },
+    /* 3つ目のセット：クローク（壁ぎわ）と壁掛け */
+    { id: 'cl_theater', name: '劇場のクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_princess', name: '姫のドレスクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_dark', name: '闇のクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_marine', name: 'マリンのクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_kimono', name: '着物のクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_wizard', name: '魔法使いのクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_explorer', name: '探検家のクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'cl_snow', name: '雪のクローク', style: 'yo', kind: 'wall', w: 3.2, h: 3.2, v: 0, price: 400, cloak: true, draw() {} },
+    { id: 'w_deer', name: '鹿の壁飾り', style: 'yo', kind: 'wall', w: 1.4, h: 1.4, v: 3, price: 300, draw() {} },
+    { id: 'w_shield', name: '紋章の盾', style: 'yo', kind: 'wall', w: 1.6, h: 1.6, v: 3, price: 300, draw() {} },
+    { id: 'w_hangclock', name: 'つるし時計', style: 'yo', kind: 'wall', w: 1.4, h: 1.4, v: 3, price: 200, draw() {} },
+    { id: 'w_lantern', name: '壁のランタン', style: 'yo', kind: 'wall', w: 1, h: 1, v: 3, price: 200, draw() {} },
+    { id: 'w_mirror', name: '金縁の鏡', style: 'yo', kind: 'wall', w: 1, h: 1, v: 2.4, price: 200, draw() {} },
+    { id: 'w_dryflower', name: 'ドライフラワー', style: 'yo', kind: 'wall', w: 1.6, h: 1.6, v: 3, price: 100, draw() {} },
+    { id: 'w_map', name: '古地図', style: 'yo', kind: 'wall', w: 1.8, h: 1.8, v: 2.8, price: 200, draw() {} },
+    { id: 'w_roseplanter', name: 'バラの壁掛け鉢', style: 'yo', kind: 'wall', w: 1.2, h: 1.2, v: 2.8, price: 200, draw() {} },
+    { id: 'w_archwindow', name: 'カーテンのアーチ窓', style: 'yo', kind: 'wall', w: 2, h: 2, v: 2, price: 300, draw() {} },
+    { id: 'w_seawindow', name: '海の見える窓', style: 'yo', kind: 'wall', w: 2, h: 2, v: 2, price: 400, draw() {} },
+    { id: 'w_rosewindow', name: 'ステンドグラスの丸窓', style: 'yo', kind: 'wall', w: 1.6, h: 1.6, v: 3, price: 400, draw() {} },
+    { id: 'w_sconce', name: '燭台の壁飾り', style: 'yo', kind: 'wall', w: 1.2, h: 1.2, v: 3, price: 200, draw() {} },
+    { id: 'w_shelf', name: '壁の飾り棚', style: 'yo', kind: 'wall', w: 2, h: 2, v: 3, price: 200, draw() {} },
+    { id: 'w_banner', name: '百合紋のタペストリー', style: 'yo', kind: 'wall', w: 1.3, h: 1.3, v: 2.4, price: 200, draw() {} },
+    { id: 'w_moonwindow', name: '月夜の窓', style: 'yo', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
