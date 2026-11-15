@@ -402,6 +402,7 @@ export class Core {
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
         let price, apply;
+        if (m.av && AV_SEASON[m.av] && !limitOpen(AV_SEASON[m.av], this.now()) && !r.owned.av.includes(m.av)) { reason = 'season'; return; }
         if (m.av && TAMA[m.av]) {
           // 勾玉で買う（勾玉限定のアイテム）。半額サービスはなし
           if (r.owned.av.includes(m.av)) { reason = 'have'; return; }
@@ -409,7 +410,6 @@ export class Core {
           if (tamaOf(r, g) < t) { reason = 'tama'; return; }
           addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
         }
-        if (m.av && AV_SEASON[m.av] && !limitOpen(AV_SEASON[m.av], this.now()) && !r.owned.av.includes(m.av)) { reason = 'season'; return; }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
         else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] <= 0) { reason = 'item'; return; }   // 碁盤・ごほうびの家具は売っていない
         else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
