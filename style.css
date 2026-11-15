@@ -640,11 +640,7 @@ body.washi .bd-grain { display: none; }
 .wide-btn b { grid-area: t; font-size: 17px; font-weight: 900; letter-spacing: .04em; }
 .wide-btn small { grid-area: s; font-size: 12px; color: var(--muted); }
 .wide-btn i { grid-area: a; font-style: normal; font-size: 26px; color: var(--kin); line-height: 1; }
-.gear-fab {
-  position: fixed; z-index: 5;
-  right: max(16px, calc(env(safe-area-inset-right, 0px) + 12px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  width: 44px; height: 44px; background: rgba(20, 13, 8, .85);
-}
+.gear-fab { width: 44px; height: 44px; flex: none; background: rgba(20, 13, 8, .85); }
 
 /* キャラクター画面 */
 #chara, #record { gap: 12px; }
@@ -1107,10 +1103,9 @@ div.tk-item { cursor: default; }
 .room-card > i { display: none; }
 
 /* ---------- プレゼントボックス ---------- */
-.gift-fab { position: fixed; z-index: 5; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 6px; padding: 8px 14px 8px 10px; border-radius: 999px; cursor: pointer;
-  border: 1px solid rgba(255, 220, 190, .4); background: linear-gradient(135deg, #f2a74a, #b0601e); color: #fff6ea; font-weight: 900; box-shadow: 0 8px 20px -8px #f2a74a; }
-.gift-fab span { font-size: 20px; line-height: 1; }
-.gift-fab b { font-size: 13px; }
+.home-tools { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: -4px; }
+.gift-fab { position: relative; display: block; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .45)); }
+.gift-fab img { display: block; height: 44px; width: auto; }
 .gift-fab.has { animation: giftBob 1.6s ease-in-out infinite; }
 @keyframes giftBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px) rotate(-2deg); } }
 .gift-badge { position: absolute; top: -6px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e0302a; color: #fff; font-style: normal; font-size: 12px; font-weight: 900; display: grid; place-items: center; border: 2px solid #fff3dc; }
