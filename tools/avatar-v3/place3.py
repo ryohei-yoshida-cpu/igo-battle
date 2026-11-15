@@ -54,7 +54,8 @@ for k in range(NH):
     heads.append((name, p, 150 / (fx.max() - fx.min()), (fx.min() + fx.max()) / 2, fy.max()))
 med = float(np.median([q[2] for q in heads]))
 for nm, pp, ss, ccx, chin in heads:
-    if abs(ss / med - 1) > .12: print('head scale fix', nm, round(ss / med, 2)); ss = med
+    if abs(ss / med - 1) > .12:   # 顔がうまく測れない（マスク・ひげなど）：大きさはまわりと同じ、あごは絵の下はし
+        print('head scale fix', nm, round(ss / med, 2)); ss = med; chin = np.nonzero(pp[..., 3] > 128)[0].max()
     put(pp, ss, 200 - ccx * ss, 314 - chin * ss, nm); thumb(pp, nm)
 for k in range(NB):
     p = np.asarray(Image.open(f'cut/{PRE}b{k:02d}.png')); name = f'b{B0 + k}'
