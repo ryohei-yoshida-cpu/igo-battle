@@ -369,6 +369,27 @@
     { id: 'rw_zashiki', name: '対局の座敷', style: 'fun', kind: 'floor', w: 2, d: 2, price: -1, reward: true, draw() {} },
     { id: 'rw_kinbyobu', name: '富士と鶴の金屏風', style: 'fun', kind: 'floor', w: 2, d: 1, price: -1, reward: true, draw() {} },
     { id: 'rw_shinbo', name: '深謀遠慮の額', style: 'fun', kind: 'wall', w: 2, h: 2, v: 3.2, price: -1, reward: true, draw() {} },
-    { id: 'rw_gogudana', name: '碁具の飾り棚', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} }
+    { id: 'rw_gogudana', name: '碁具の飾り棚', style: 'fun', kind: 'floor', w: 1, d: 1, price: -1, reward: true, draw() {} },
+    /* 13こ目のセット：冬の家具（バナーにあわせて追加） */
+    { id: 'wi2_cottage', name: '雪の山小屋', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2_snowman', name: 'シルクハットの雪だるま（冬）', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2_bench', name: '雪見の縁台', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'winter', draw() {} },
+    { id: 'wi2_irori', name: '雪の囲炉裏', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2_stall', name: '甘酒の屋台', style: 'fun', kind: 'floor', w: 2, d: 1, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2_yukitsuri', name: '雪吊りの松', style: 'fun', kind: 'floor', w: 1, d: 1, price: 300, season: 'winter', draw() {} },
+    { id: 'wi2_lamp', name: 'リボンの雪の街灯', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2_tsubaki', name: '寒椿のプランター', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2_kamakura', name: 'かまくら', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2_onsen', name: '雪見の岩風呂', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2_andon', name: '雪の結晶の行灯', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2_byobu', name: '雪の松の屏風', style: 'fun', kind: 'floor', w: 2, d: 1, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2w_window', name: '雪景色の丸窓', style: 'fun', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, season: 'winter', draw() {} },
+    { id: 'wi2w_scroll', name: '雪の結晶の掛け軸', style: 'fun', kind: 'wall', w: 1.1, h: 1.1, v: 2.4, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2_nanten', name: '南天の花台', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2_manju', name: '湯気のおまんじゅう', style: 'fun', kind: 'floor', w: 1, d: 1, price: 100, season: 'winter', draw() {} },
+    { id: 'wi2_kotatsu', name: 'みかんのこたつ（冬）', style: 'fun', kind: 'floor', w: 2, d: 2, price: 300, season: 'winter', draw() {} },
+    { id: 'wi2_mikan', name: 'みかんのかご', style: 'fun', kind: 'floor', w: 1, d: 1, price: 100, season: 'winter', draw() {} },
+    { id: 'wi2r_snow', name: '雪の結晶の丸ラグ', style: 'fun', kind: 'flat', w: 2, d: 2, price: 200, season: 'winter', draw() {} },
+    { id: 'wi2r_ume', name: '雪と梅のござ', style: 'fun', kind: 'flat', w: 3, d: 2, price: 200, season: 'winter', draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
