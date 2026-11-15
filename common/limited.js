@@ -25,12 +25,12 @@
   }
   // 大きなシーズンバナー（行事ごとの1枚絵）。その時期だけ、小さなバナーのかわりに出す。タップでショップへ
   //   TEST_PID の人には、時期の前でも出す（見た目のたしかめ用）
-  const BIG = { newyear: 'img/banner/newyear.webp' }, TEST_PID = '561149';
+  const BIG = { newyear: 'img/banner/newyear.webp', hina: 'img/banner/hina.webp', kodomo: 'img/banner/kodomo.webp', tanabata: 'img/banner/tanabata.webp', spring: 'img/banner/spring.webp' }, TEST_PID = '561149';
   function bigHtml() {
     const R = window.ROOMART; if (!R || !R.limitOpen) return '';
     if (window.PROG && !window.PROG.isOpen('av') && !window.PROG.isOpen('room')) return '';
     const tag = Object.keys(BIG).find(k => R.limitOpen(k) || String(S.pid || '') === TEST_PID);
-    return tag ? `<button type="button" class="lim-big" data-big="${tag}"><img src="${BIG[tag]}" alt="${R.EVENTS[tag] ? R.EVENTS[tag].name : ''}のシーズンパック"></button>` : '';
+    return tag ? `<button type="button" class="lim-big" data-big="${tag}"><img src="${BIG[tag]}" alt="${R.EVENTS[tag] ? R.EVENTS[tag].name : R.SEASON_NAME[tag]}のシーズンパック"></button>` : '';
   }
   function html() {
     const big = bigHtml(); if (big) return big;
