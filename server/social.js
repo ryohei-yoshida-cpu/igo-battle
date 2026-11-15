@@ -149,6 +149,8 @@ export class Social {
     const s = fixSoc(await this.store.get('soc:' + id));
     for (const f of s.friends.slice(0, 100)) { const oid = await this.idOf(f.pid); if (oid) await this.notify(oid, Object.assign({}, note)); }
   }
+  // 書きこみの写し（運営用。一言・コメント・碁会所の一言や掲示板。お知らせは残さない）：clog:<ID> に新しい順で500件
+  logPost(id, it) { return this.withKey('clog:' + id, list => { list.unshift(Object.assign({ t: this.core.now() }, it)); if (list.length > 500) list.length = 500; }, () => []); }
   touchActive(pid) { this.active = [pid].concat(this.active.filter(x => x !== pid)).slice(0, 60); }
 
   async handle(sock, info, m) {
@@ -376,16 +378,21 @@ export class Social {
       this.rankAt = this.rankAt || new Map(); this.rankAt.set(id, now);
       if (this.rankAt.size > 5000) this.rankAt.delete(this.rankAt.keys().next().value);
       out({ ok: true });
-      this.notifyFriends(id, { type: 'rank', pid: me, name: myName, av: myAv(), rank: r, t: now }).catch(() => {});
+      const note = { type: 'rank', pid: me, name: myName, av: myAv(), rank: r, t: now };
+      this.notifyFriends(id, note).then(async () => {   // 碁会所のメンバーにも（フレンドには二重に出さない）
+        const fs = (await this.readSoc(id)).friends.map(f => f.pid);
+        await this.core.guild.notifyMembers(id, note, info.game || 'go', fs);
+      }).catch(() => {});
       return;
     }
     if (op === 'comment' || op === 'chat') {
       const t = text(m.text);
       let reason = null, entry = null;
+      const gs = await this.core.guild.shortOf(id, info.game || 'go').catch(() => '');
       const s = await this.withSoc(oid, async s => {
         if (!canWrite(s, pid)) { reason = has(s.blocks, me) ? 'blocked' : 'closed'; return false; }
         reason = gate(t, op); if (reason) return false;
-        const item = { id: s.seq++, pid: me, name: myName, text: t, t: now, av: myAv() };
+        const item = { id: s.seq++, pid: me, name: myName, text: t, t: now, av: myAv(), gs: gs || undefined };
         if (op === 'chat') { s.chat.unshift(item); s.chat = s.chat.slice(0, LIM.chats); return; }
         const d = s.diary.find(d => d.id === (m.did | 0));
         if (!d || !canSee(d, pid === me, has(s.friends, me))) { reason = 'gone'; return false; }
@@ -394,6 +401,7 @@ export class Social {
         d.nc = b.c.length; await this.store.put(`dia:${oid}:${d.id}`, b); entry = b;
       });
       if (reason || !s) { out({ ok: false, reason: reason || 'gone' }); return; }
+      this.logPost(id, { where: op === 'chat' ? `部屋 ${pid} の一言` : `部屋 ${pid} の日記へのコメント`, text: t }).catch(() => {});
       out({ ok: true, entry, chat: s.chat });
       // 部屋の持ち主がつながっていたら、新しい一言コメントをすぐ知らせる（画面上の流れる一行）
       if (op === 'chat') for (const p of this.core.players.values()) if (p.acct === oid && p.sock) { try { p.sock.send(JSON.stringify({ t: 'soc', op: 'push', item: s.chat[0] })); } catch (e) {} }

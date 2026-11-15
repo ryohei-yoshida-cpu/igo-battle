@@ -18,6 +18,13 @@
  *   recall             … 店長がマスターのリコールをはじめる   vote { yes } … メンバーが投票（8割で成立）
  *   say    { text }    … 一言（碁会所のみんなに届く）          frown { id } … ☹️（やだなぁ）をつける／はずす
  *   rank               … 今月の碁会所ランキング
+ *   rec                … おすすめの碁会所（自分の段級位・タグにあうものを5つ）
+ *   create { name, short, lvl, join, talk, idle, board, pr } … つくる／ settings { 同じ } … 設定を変える（マスター）
+ *      lvl：beg 初心者歓迎 / k<N> N級以上 / d<N> N段以上   join：open 誰でも / apply 申請 / invite 招待のみ
+ *      talk：on わいわい（一言を共有）/ off 会話なし   idle：keep 自動バイバイしない / bye 1か月来ない人は自動で退会   board：on / off 掲示板
+ *   join { id } … open なら入会、apply なら申請（マスター・店長のメッセージに届く）   approve / reject { pid } … 申請の承認・おことわり
+ *   invite { pid } … 招待（だれでも。相手のメッセージに届く）   accept { id, n } / decline { n } … 招待をうける・ことわる
+ *   掲示板：threads … スレッド一覧   post { title, text } … スレ立て   reply { tid, text } … 返信   bdel { tid, rid } … 消す（書いた人・マスター・店長）
  *   碁会所内マッチ：gseek { size } / gunseek … ランダム   gcall { pid, hc, auto } … 呼ぶ   gcalls … 一覧
  *                   gok { id } … その手合いでOK（対局開始）   gprop { id, hc } … ハンデの変更を提案   gdrop { id } … やめる
  *
@@ -35,8 +42,17 @@ export const GUILD = {
     total: { need: 100, zeni: 150, per: 'day', name: 'みんなで100局' },
     week: { need: 500, zeni: 300, per: 'week', name: '1週間で500局' }
   },
-  recallRate: 0.8, recallDays: 3
+  recallRate: 0.8, recallDays: 3, idleDays: 30, pr: 60, threads: 40, replies: 100, btitle: 30, btext: 300
 };
+// 碁会所のタグ・設定（そろえる）
+const LVL = v => /^[kd]([1-9]|10)$/.test(v) && !(v[0] === 'd' && +v.slice(1) > 4) ? v : 'beg';
+const LVL_RANK = v => v === 'beg' ? 0 : v[0] === 'k' ? 10 - +v.slice(1) : 9 + +v.slice(1);   // 段級位の番号（0=10級 … 9=1級, 10=初段 …）
+export function cleanSet(m) {
+  return {
+    lvl: LVL(String(m.lvl || 'beg')), join: ['open', 'apply', 'invite'].includes(m.join) ? m.join : 'open',
+    talk: m.talk === 'off' ? 'off' : 'on', idle: m.idle === 'bye' ? 'bye' : 'keep', board: m.board === 'off' ? 'off' : 'on'
+  };
+}
 // 月のランキングのごほうび（碁会所ぜんたいの銭。勝ちの数に応じて山分け、マスターは1.3倍の重み）
 //   1位 10000銭、上位5%ずつの帯で 8000 → 300銭 へなめらかに下がる。上位5%（と1位）はトロフィーも
 export function monthPrize(rank, n) {
@@ -66,8 +82,41 @@ export class Guild {
     if (!g.week || g.week.w !== w) g.week = { w, total: 0 };
     if (!g.month || g.month.m !== m) { if (g.month && g.month.m) g.last = { m: g.month.m, wins: g.month.wins }; g.month = { m, wins: {} }; }
     if (g.recall && t - g.recall.at > GUILD.recallDays * 864e5) g.recall = null;
-    g.chat = g.chat || []; g.seq = g.seq || 1;
+    g.chat = g.chat || []; g.seq = g.seq || 1; g.apps = g.apps || []; g.invites = (g.invites || []).filter(x => t - x.at < 7 * 864e5);
+    if (!g.set) g.set = cleanSet({});
+    if (!g.short) g.short = String(g.name || '').slice(0, 3);
+    // 1か月来ていない人は自動で退会（マスターも。マスターは店長か、いちばん古いメンバーに）
+    if (g.set.idle === 'bye') {
+      const gone = g.members.filter(m => t - (m.seen || m.at || t) > GUILD.idleDays * 864e5);
+      if (gone.length && gone.length < g.members.length) {
+        g.members = g.members.filter(m => !gone.includes(m));
+        if (gone.some(m => m.id === g.manager)) g.manager = null;
+        if (gone.some(m => m.id === g.master)) { g.master = g.manager || g.members[0].id; if (g.master === g.manager) g.manager = null; }
+        g.recall = null;
+      }
+    }
   }
+  // ログインしたとき：メンバーの「最後に来た日」（1日1回だけ書く）
+  async seen(id, game) {
+    const gid = await this.gidOf(id, game); if (!gid) return;
+    const d = dayOf(this.now());
+    await this.withG(gid, g => { const m = g.members.find(x => x.id === id); if (!m || m.seenDay === d) return false; m.seen = this.now(); m.seenDay = d; });
+  }
+  // 一言コメントの名前の前につける、碁会所の省略名
+  async shortOf(id, game) { const gid = await this.gidOf(id, game); if (!gid) return ''; const g = await this.store.get('guild:' + gid); return g && g.members.some(m => m.id === id) ? (g.short || '') : ''; }
+  // 昇級などのお知らせを、碁会所のメンバーにも
+  async notifyMembers(id, note, game, skip) {
+    const gid = await this.gidOf(id, game); if (!gid) return;
+    const g = await this.store.get('guild:' + gid); if (!g) return;
+    for (const m of g.members) if (m.id !== id && !(skip || []).includes(m.pid)) await this.core.social.notify(m.id, Object.assign({}, note, { gs: g.short })).catch(() => {});
+  }
+  // 自分の段級位（9路・13路の高いほう）
+  async rankOf(id) {
+    const r = await this.store.get('acct:' + id); if (!r) return 0;
+    return Math.max(...['go9', 'go13'].map(k => this.h.dispRank(this.h.rateOf(r, k))));
+  }
+  // おすすめ・一覧で見せる形
+  card(g) { this.roll(g); return { id: g.id, name: g.name, short: g.short, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0), set: g.set, pr: g.pr || '', on: g.members.filter(m => this.online(m.id)).length, today: g.day.total }; }
   async gidOf(id, game) { const r = await this.store.get('acct:' + id); return (r && r.guild && r.guild[game || 'go']) || null; }
   online(id) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) return p; return null; }
   sendTo(id, msg) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify(Object.assign({ t: 'guild' }, msg))); } catch (e) {} } }
@@ -86,12 +135,14 @@ export class Guild {
     return {
       id: g.id, name: g.name, at: g.at, role: this.role(g, id), members, max: GUILD.max,
       day: g.day, week: g.week, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0), month: g.month.m,
-      chat: g.chat.slice(0, 40).map(c => this.chatView(c, id, boss)),
+      chat: g.set && g.set.talk === 'off' ? [] : g.chat.slice(0, 40).map(c => this.chatView(c, id, boss)),
       recall: g.recall ? { by: g.recall.by, at: g.recall.at, yes: g.recall.yes.length, no: g.recall.no.length, need: this.recallNeed(g), voted: g.recall.yes.includes(id) ? 'yes' : g.recall.no.includes(id) ? 'no' : '' } : null,
-      last: g.last || null, me: mine ? mine.pid : null
+      last: g.last || null, me: mine ? mine.pid : null,
+      short: g.short, set: g.set, pr: g.pr || '',
+      apps: boss ? g.apps.map(a => ({ pid: a.pid, name: a.name, at: a.at })) : undefined
     };
   }
-  chatView(c, id, boss) { return { id: c.id, t: c.t, pid: c.pid, name: c.name, av: c.av || null, text: c.text, mine: c.from === id || undefined, frowned: (c.frown || []).includes(id) || undefined, frown: boss ? (c.frown || []).length : undefined }; }
+  chatView(c, id, boss) { return { id: c.id, t: c.t, pid: c.pid, name: c.name, gs: c.gs || undefined, av: c.av || null, text: c.text, mine: c.from === id || undefined, frowned: (c.frown || []).includes(id) || undefined, frown: boss ? (c.frown || []).length : undefined }; }
   recallNeed(g) { return Math.max(1, Math.ceil((g.members.length - 1) * GUILD.recallRate)); }   // マスターをのぞいたメンバーの8割
 
   // 自分の受け取り記録
@@ -174,11 +225,48 @@ export class Guild {
       const q = String(m.q || '').trim().slice(0, 20).toUpperCase(), idx = (await this.store.get('guilds:' + game)) || [];
       const hit = idx.filter(it => !q || it.id === q || it.name.toUpperCase().includes(q)).slice(0, 60);
       const list = [];
-      for (const it of hit.slice(0, 30)) { const g = await this.store.get('guild:' + it.id); if (!g) continue; this.roll(g); list.push({ id: g.id, name: g.name, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0) }); }
+      for (const it of hit.slice(0, 30)) { const g = await this.store.get('guild:' + it.id); if (!g) continue; list.push(this.card(g)); }
       list.sort((a, b) => b.wins - a.wins || b.n - a.n);
       out({ ok: true, list, mine: gid });
       return;
     }
+    if (op === 'rec') {
+      // おすすめ：入れる（満員でない・招待のみでない・段級位が足りる）碁会所から、点数の高い5つ
+      const my = await this.rankOf(id), idx = (await this.store.get('guilds:' + game)) || [], rows = [];
+      for (const it of idx.slice(-300)) {
+        const g = await this.store.get('guild:' + it.id); if (!g) continue;
+        const c = this.card(g);
+        if (c.n >= GUILD.max || c.set.join === 'invite' || LVL_RANK(c.set.lvl) > my || g.members.some(x => x.id === id)) continue;
+        let sc = Math.random() * 3 + Math.min(10, c.today / 5) + c.on * 2 + Math.min(6, c.n);
+        if (c.set.lvl === 'beg' && my <= 5) sc += 12;                       // 初心者歓迎 × 10〜5級
+        if (c.set.lvl !== 'beg') sc += 10 - Math.min(10, (my - LVL_RANK(c.set.lvl)) * 2);   // 条件がぎりぎりあう＝同じくらいの強さの集まり
+        if (c.set.join === 'open') sc += 3;
+        if (c.set.talk === 'on') sc += 1;
+        rows.push(Object.assign(c, { sc }));
+      }
+      rows.sort((a, b) => b.sc - a.sc);
+      out({ ok: true, list: rows.slice(0, 5).map(r => { delete r.sc; return r; }), my, mine: gid });
+      return;
+    }
+    if (op === 'accept') {
+      // 招待をうける：招待はどの設定でも有効（段級位の条件も、招待なら入れる）
+      if (gid) return fail('in');
+      const nid = String(m.id || '').slice(0, 8);
+      let why = '';
+      const av = (this.online(id) || {}).av || null;
+      const g = await this.withG(nid, g => {
+        if (!g.invites.some(x => x.to === id)) { why = 'gone'; return false; }
+        if (g.members.length >= GUILD.max) { why = 'full'; return false; }
+        g.invites = g.invites.filter(x => x.to !== id); g.apps = g.apps.filter(x => x.id !== id);
+        g.members.push({ id, pid, name: myName(), av, at: now, seen: now });
+      });
+      if (!g) return fail(why || 'none');
+      await this.core.withAcct(id, async r => { r.guild = r.guild || {}; r.guild[game] = g.id; });
+      await this.index(g); await this.markMail(id, m.n | 0, 'accepted');
+      this.pushAll(g, { kind: 'member', text: `${myName()}さんが入りました` }, id);
+      return reply();
+    }
+    if (op === 'decline') { await this.markMail(id, m.n | 0, 'declined'); return out({ ok: true }); }
     if (op === 'create' || op === 'join') {
       if (gid) return fail('in');
       const gd = await this.store.get('gd:' + id + ':' + game), prog = gd && gd.data && gd.data.prog;
@@ -187,23 +275,38 @@ export class Guild {
       const av = (this.online(id) || {}).av || null, me = { id, pid, name: myName(), av, at: now };
       let g;
       if (op === 'create') {
-        const name = cleanName(String(m.name || '').trim()).slice(0, 12);
+        const name = String(m.name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 12), short = String(m.short || '').replace(/[\s\u0000-\u001f\u007f:：]/g, '').slice(0, 3);
+        const pr = String(m.pr || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.pr);
         if (!name) return fail('name');
-        if (check(name)) return fail('ng');
+        if (!short) return fail('short');
+        if (check(name) || check(short) || (pr && check(pr))) return fail('ng');
         const idx = (await this.store.get('guilds:' + game)) || [];
         if (idx.some(it => it.name === name)) return fail('same');
         let nid; do { nid = newId(); } while (await this.store.get('guild:' + nid));
-        g = { id: nid, game, name, at: now, master: id, manager: null, members: [me], chat: [], seq: 1 };
+        me.seen = now;
+        g = { id: nid, game, name, short, pr, set: cleanSet(m), at: now, master: id, manager: null, members: [me], chat: [], seq: 1 };
         this.roll(g); await this.store.put('guild:' + nid, g);
         await this.core.social.withKey('guilds:' + game, list => { list.push({ id: nid, name, n: 1 }); }, () => []);
       } else {
-        let why = '';
+        let why = '', applied = false;
+        const my = await this.rankOf(id);
+        me.seen = now;
         g = await this.withG(String(m.id || '').slice(0, 8), g => {
           if (g.members.some(x => x.id === id)) return;
           if (g.members.length >= GUILD.max) { why = 'full'; return false; }
+          if (LVL_RANK(g.set.lvl) > my) { why = 'lvl'; return false; }
+          if (g.set.join === 'invite') { why = 'invite'; return false; }
+          if (g.set.join === 'apply') {
+            if (g.apps.some(x => x.id === id)) { why = 'applied'; return false; }
+            g.apps.unshift({ id, pid, name: me.name, at: now }); g.apps = g.apps.slice(0, 30); applied = true; return;
+          }
           g.members.push(me);
         });
         if (!g) return fail(why || 'none');
+        if (applied) {
+          for (const boss of [g.master, g.manager]) if (boss) await this.core.mail.deliver(id, boss, `碁会所「${g.name}」への入会申請が届きました。`, 'apply', { gid: g.id, gname: g.name, pid }).catch(() => {});
+          return out({ ok: true, applied: true, guild: null });
+        }
         this.pushAll(g, { kind: 'member', text: `${me.name}さんが入りました` }, id);
       }
       await this.core.withAcct(id, async r => { r.guild = r.guild || {}; r.guild[game] = g.id; });
@@ -225,6 +328,90 @@ export class Guild {
       if (left) { if (!left.members.length) await this.drop(left); else { await this.index(left); this.pushAll(left, { kind: 'member', text: `${myName()}さんが抜けました` }); } }
       for (const [k, c] of this.calls) if (c.from === id || c.to === id) this.calls.delete(k);
       return out({ ok: true, guild: null });
+    }
+    if (op === 'approve' || op === 'reject') {
+      let why = '', app = null;
+      const g = await this.withG(gid, g => {
+        if (g.master !== id && g.manager !== id) { why = 'role'; return false; }
+        app = g.apps.find(x => x.pid === String(m.pid)); if (!app) { why = 'gone'; return false; }
+        g.apps = g.apps.filter(x => x !== app);
+        if (op === 'reject') return;
+        if (g.members.length >= GUILD.max) { why = 'full'; return false; }
+        g.members.push({ id: app.id, pid: app.pid, name: app.name, av: null, at: now, seen: now });
+      });
+      if (!g) return fail(why);
+      if (op === 'approve') {
+        const ok = await this.core.withAcct(app.id, async r => { r.guild = r.guild || {}; if (r.guild[game]) return false; r.guild[game] = g.id; });
+        if (!ok) { await this.withG(gid, g => { g.members = g.members.filter(x => x.id !== app.id); }); return fail('in'); }
+        await this.index(g);
+        await this.core.mail.deliver(id, app.id, `碁会所「${g.name}」への入会が承認されました。ようこそ！`, 'sys', { gid: g.id, gname: g.name }).catch(() => {});
+        this.pushAll(g, { kind: 'member', text: `${app.name}さんが入りました` });
+      } else await this.core.mail.deliver(id, app.id, `碁会所「${g.name}」への入会申請は、今回は見送りになりました。`, 'sys', { gid: g.id, gname: g.name }).catch(() => {});
+      await this.markMailAll(g, app.pid, op === 'approve' ? 'accepted' : 'declined');
+      return reply();
+    }
+    if (op === 'invite') {
+      const oid = await this.core.social.idOf(m.pid);
+      if (!oid || oid === id) return fail('who');
+      const os = await this.core.social.readSoc(oid), ms = await this.core.social.readSoc(id);
+      if (os.blocks.some(b => b.pid === pid) || ms.blocks.some(b => b.pid === String(m.pid))) return fail('blocked');
+      if (await this.gidOf(oid, game)) return fail('theirs');
+      let why = '';
+      const g = await this.withG(gid, g => {
+        if (g.invites.some(x => x.to === oid)) { why = 'invited'; return false; }
+        if (g.invites.filter(x => x.by === id).length >= 10) { why = 'many'; return false; }
+        g.invites.push({ to: oid, by: id, at: now });
+      });
+      if (!g) return fail(why);
+      await this.core.mail.deliver(id, oid, `碁会所「${g.name}」に招待されました。${g.pr ? '\n「' + g.pr + '」' : ''}`, 'invite', { gid: g.id, gname: g.name });
+      return out({ ok: true });
+    }
+    if (op === 'settings') {
+      let why = '';
+      const pr = String(m.pr || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.pr), short = String(m.short || '').replace(/[\s\u0000-\u001f\u007f:：]/g, '').slice(0, 3);
+      if ((pr && check(pr)) || (short && check(short))) return fail('ng');
+      const g = await this.withG(gid, g => {
+        if (g.master !== id) { why = 'role'; return false; }
+        g.set = cleanSet(m); g.pr = pr; if (short) g.short = short;
+        if (g.set.talk === 'off') g.chat = g.chat.slice(0, 0);
+      });
+      if (!g) return fail(why);
+      return reply();
+    }
+    if (op === 'threads' || op === 'post' || op === 'reply' || op === 'bdel') {
+      const g0 = await this.store.get('guild:' + gid);
+      if (!g0 || !g0.members.some(x => x.id === id)) return fail('none');
+      if (g0.set && g0.set.board === 'off') return fail('board');
+      const boss = g0.master === id || g0.manager === id, key = 'gboard:' + gid;
+      const clean = (v, n) => String(v || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, n);
+      let why = '';
+      if (op === 'post' || op === 'reply') {
+        const title = clean(m.title, GUILD.btitle), text = clean(m.text, GUILD.btext);
+        if (!text || (op === 'post' && !title)) return fail('empty');
+        if (check(text) || (title && check(title))) return fail('ng');
+        this.saidAt = this.saidAt || new Map();
+        if (now - (this.saidAt.get(id) || 0) < 4000) return fail('fast');
+        this.saidAt.set(id, now);
+        const r = await this.core.social.withKey(key, b => {
+          b.seq = (b.seq || 0) + 1;
+          const it = { id: b.seq, t: now, pid, name: myName(), text };
+          if (op === 'post') { b.threads.unshift(Object.assign(it, { title, replies: [], last: now })); b.threads = b.threads.slice(0, GUILD.threads); return; }
+          const th = b.threads.find(x => x.id === (m.tid | 0)); if (!th) { why = 'gone'; return false; }
+          th.replies.push(it); th.replies = th.replies.slice(-GUILD.replies); th.last = now;
+          b.threads = [th].concat(b.threads.filter(x => x !== th));
+        }, () => ({ seq: 0, threads: [] }));
+        if (!r) return fail(why);
+        this.archive(id, op === 'post' ? `[掲示板] ${title}：${text}` : `[掲示板の返信] ${text}`, g0).catch(() => {});
+      } else if (op === 'bdel') {
+        const r = await this.core.social.withKey(key, b => {
+          const th = b.threads.find(x => x.id === (m.tid | 0)); if (!th) { why = 'gone'; return false; }
+          if (m.rid) { const rp = th.replies.find(x => x.id === (m.rid | 0)); if (!rp || (rp.pid !== pid && !boss)) { why = 'role'; return false; } th.replies = th.replies.filter(x => x !== rp); }
+          else { if (th.pid !== pid && !boss) { why = 'role'; return false; } b.threads = b.threads.filter(x => x !== th); }
+        }, null);
+        if (!r) return fail(why || 'gone');
+      }
+      const b = (await this.store.get(key)) || { threads: [] };
+      return out({ ok: true, threads: b.threads, me: pid, boss });
     }
     if (op === 'boss') {
       let why = '';
@@ -311,6 +498,8 @@ export class Guild {
       return reply({ recalled: !!done });
     }
     if (op === 'say') {
+      const g0 = await this.store.get('guild:' + gid);
+      if (g0 && g0.set && g0.set.talk === 'off') return fail('talkoff');
       const text = String(m.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
       if (!text) return fail('empty');
       if (text.length > GUILD.text) return fail('long');
@@ -321,10 +510,11 @@ export class Guild {
       let item = null;
       const g = await this.withG(gid, g => {
         if (!g.members.some(x => x.id === id)) return false;
-        item = { id: g.seq++, t: now, from: id, pid, name: myName(), av: (this.online(id) || {}).av || null, text, frown: [] };
+        item = { id: g.seq++, t: now, from: id, pid, name: myName(), gs: g.short, av: (this.online(id) || {}).av || null, text, frown: [] };
         g.chat.unshift(item); g.chat = g.chat.slice(0, GUILD.chat);
       });
       if (!g) return fail('none');
+      this.archive(id, text, g).catch(() => {});
       for (const mm of g.members) { const boss = g.master === mm.id || g.manager === mm.id; this.sendTo(mm.id, { op: 'push', kind: 'say', item: this.chatView(item, mm.id, boss), guild: g.name }); }
       return out({ ok: true });
     }
@@ -424,6 +614,13 @@ export class Guild {
   }
   async index(g) {
     await this.core.social.withKey('guilds:' + (g.game || 'go'), list => { const it = list.find(x => x.id === g.id); if (it) { it.name = g.name; it.n = g.members.length; } else list.push({ id: g.id, name: g.name, n: g.members.length }); }, () => []);
+  }
+  // 一言・掲示板の書きこみを、運営用に残す（あとで消されても分かるように）
+  archive(id, text, g) { return this.core.social.logPost(id, { where: `碁会所「${g.name}」`, text }); }
+  // メッセージの申請・招待を「すんだ」にする
+  async markMail(id, n, done) { if (!n) return; await this.core.social.withKey('mbox:' + id, b => { const x = b.items.find(x => x.n === n); if (!x) return false; x.done = done; x.read = true; }, null); }
+  async markMailAll(g, appPid, done) {
+    for (const boss of [g.master, g.manager]) if (boss) await this.core.social.withKey('mbox:' + boss, b => { let ch = false; for (const x of b.items) if (x.kind === 'apply' && x.extra && x.extra.gid === g.id && x.extra.pid === appPid && !x.done) { x.done = done; x.read = true; ch = true; } if (!ch) return false; }, null);
   }
   async drop(g) {
     await this.core.social.withKey('guilds:' + (g.game || 'go'), list => { const l = list.filter(x => x.id !== g.id); list.length = 0; list.push(...l); }, () => []);

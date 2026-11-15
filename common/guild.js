@@ -21,10 +21,46 @@
     same: '同じ名前の碁会所があります', full: 'いっぱいです', none: '見つかりませんでした', role: 'できるのはマスター・店長だけです', who: 'その人には、できません',
     twice: '今日はもう、その人におくりました', many: '今日おくれるのは5人までです', yet: 'まだ達成していません', got: 'もう受け取りました', already: 'もう始まっています',
     empty: '一言を入れてください', long: '40字までです', fast: '少し待ってから送ってください', mine: '自分の一言です', gone: 'その呼びかけは、もうありません',
-    turn: '相手の返事を待っています', off: '相手がオンラインではありません', busy: 'どちらかが対局中です', net: 'つながっていません', auth: 'アカウントが必要です'
+    turn: '相手の返事を待っています', off: '相手がオンラインではありません', busy: 'どちらかが対局中です', net: 'つながっていません', auth: 'アカウントが必要です',
+    short: '省略名（3文字まで）を入れてください', lvl: '段級位の条件に届いていません', invite: '招待された人だけが入れる碁会所です', applied: 'もう申請しています',
+    blocked: 'ブロックしているか、されているので招待できません', theirs: 'その人は、もうほかの碁会所に入っています', invited: 'もう招待しています', talkoff: 'この碁会所は会話なしの設定です', board: '掲示板は使わない設定です'
   };
   const why = r => WHY[r && r.reason] || 'うまくいきませんでした';
   const ROLE = { master: 'マスター', manager: '店長', member: '' };
+  // タグ
+  const LVLS = [['beg', '初心者歓迎']].concat([10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(n => ['k' + n, n + '級以上のみ']), [1, 2, 3, 4].map(n => ['d' + n, ['初', '二', '三', '四'][n - 1] + '段以上のみ']));
+  const LVL_NAME = Object.fromEntries(LVLS);
+  const SETS = {
+    join: [['open', '誰でも歓迎'], ['apply', '申請歓迎'], ['invite', '招待のみ']],
+    talk: [['on', 'わいわいしよう'], ['off', '碁会所内の会話なし']],
+    idle: [['keep', '自動バイバイしない'], ['bye', '非活動はバイバイ']],
+    board: [['on', '碁会所掲示板を有効'], ['off', '掲示板は使わない']]
+  };
+  const tagName = (k, v) => (SETS[k].find(x => x[0] === v) || [])[1] || '';
+  const tags = set => set ? `<span class="gk-tags"><i class="lv">${esc(LVL_NAME[set.lvl] || '初心者歓迎')}</i><i>${tagName('join', set.join)}</i><i>${tagName('talk', set.talk)}</i>${set.idle === 'bye' ? '<i>非活動はバイバイ</i>' : ''}${set.board === 'on' ? '<i>掲示板</i>' : ''}</span>` : '';
+  // つくる・設定の入力欄
+  function setForm(g, create) {
+    const v = g || { name: '', short: '', pr: '', set: { lvl: 'beg', join: 'open', talk: 'on', idle: 'keep', board: 'on' } };
+    const chips = (k, list) => `<div class="chips gk-set" role="radiogroup" data-k="${k}">${list.map(([x, t]) => `<button type="button" role="radio" data-setv="${x}" aria-checked="${v.set[k] === x}">${t}</button>`).join('')}</div>`;
+    return `<div class="sc-sec gk-form" id="gkForm">
+      ${create ? `<label class="gk-pick"><small>名前（12字まで）</small><input type="text" class="gk-in" id="gfName" maxlength="12" value="${esc(v.name)}" placeholder="例：ヤブシラズ碁会所"></label>` : ''}
+      <label class="gk-pick"><small>省略名（3文字まで。一言の名前の前につきます：例「ヤブシ:こはる」）</small><input type="text" class="gk-in" id="gfShort" maxlength="3" value="${esc(v.short)}" placeholder="例：ヤブシ"></label>
+      <div class="gk-pick"><small>強さ（おすすめに出る条件になります）</small><select class="select" id="gfLvl">${LVLS.map(([x, t]) => `<option value="${x}"${v.set.lvl === x ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="gk-pick"><small>入会のしかた</small>${chips('join', SETS.join)}<span class="gk-note">誰でも歓迎：申請したらすぐ入会／申請歓迎：マスター・店長が承認したら入会（申請はメッセージに届きます）／招待のみ：招待された人だけ（招待はどの設定でもできます）</span></div>
+      <div class="gk-pick"><small>碁会所内の会話</small>${chips('talk', SETS.talk)}<span class="gk-note">会話なしにすると、一言コメントに碁会所の一言が出ません（昇級などのお知らせは出ます）</span></div>
+      <div class="gk-pick"><small>来なくなった人</small>${chips('idle', SETS.idle)}<span class="gk-note">非活動はバイバイ：1か月以上ログインしていない人は、自動で退会します</span></div>
+      <div class="gk-pick"><small>掲示板</small>${chips('board', SETS.board)}</div>
+      <label class="gk-pick"><small>勧誘メッセージ（60字まで）</small><textarea class="gk-in" id="gfPr" maxlength="60" rows="2" placeholder="例：のんびり打てる人、大歓迎！">${esc(v.pr)}</textarea></label>
+      <button type="button" class="btn primary" data-act="${create ? 'create' : 'saveset'}">${create ? 'この内容で碁会所をつくる' : '設定を保存する'}</button>
+      ${create ? '<small class="gk-note">つくった人が「マスター」になります。</small>' : ''}
+    </div>`;
+  }
+  function readForm() {
+    const f = $('#gkForm'), val = k => { const b = f.querySelector(`[data-k="${k}"] [aria-checked="true"]`); return b ? b.dataset.setv : undefined; };
+    return { name: f.querySelector('#gfName') ? f.querySelector('#gfName').value.trim() : undefined, short: f.querySelector('#gfShort').value.trim(), pr: f.querySelector('#gfPr').value.trim(),
+      lvl: f.querySelector('#gfLvl').value, join: val('join'), talk: val('talk'), idle: val('idle'), board: val('board') };
+  }
+  let recs = null, making = false, board = null, bOpen = null;
 
   let G = null, tab = 'home', calls = [], seeking = false, rank = null, list = null, back = 'home', open = null, busy = false;
   // 呼ぶとき・ハンデを提案するときの手合い：mode even 互先 / me 自分がもらう / them 相手がもらう / auto 階級差で
@@ -48,28 +84,52 @@
     $('#gkZeni').textContent = `${(S.zeni | 0).toLocaleString()} 銭`;
     if (!P.online()) { G = null; $('#gkTabs').hidden = true; $('#gkBody').innerHTML = `<p class="rm-help">${WHY.offline}。</p>`; return; }
     if (!G) $('#gkBody').innerHTML = '<p class="rm-help">読みこみ中……</p>';
-    req('me', {}, r => { if (!r.ok) { $('#gkBody').innerHTML = `<p class="rm-help">${why(r)}</p>`; return; } render(); if (G && tab === 'match') loadCalls(); if (tab === 'rank' || !G) loadRank(); });
+    req('me', {}, r => { if (!r.ok) { $('#gkBody').innerHTML = `<p class="rm-help">${why(r)}</p>`; return; } render(); if (G && tab === 'match') loadCalls(); if (G && tab === 'board') loadBoard(); if (tab === 'rank') loadRank(); if (!G) { making = false; P.guild('rec', {}, r2 => { recs = r2.ok ? r2.list : []; render(); }); } });
   }
   function render() {
     if ($('#guild').hidden) return;
     $('#gkTitle').textContent = G ? G.name : WORD;
     $('#gkTabs').hidden = !G;
+    const bt = $('#gkTabs [data-tab="board"]'); if (bt) bt.hidden = !(G && G.set && G.set.board === 'on');
+    $('#gkTabs').style.gridTemplateColumns = `repeat(${G && G.set && G.set.board === 'on' ? 5 : 4}, 1fr)`;
+    if (tab === 'board' && !(G && G.set && G.set.board === 'on')) tab = 'home';
     for (const b of document.querySelectorAll('#gkTabs button')) {
       b.setAttribute('aria-checked', String(b.dataset.tab === tab));
       b.classList.toggle('dot', b.dataset.tab === 'match' && calls.some(c => c.myTurn) || b.dataset.tab === 'mission' && G && canClaim().length > 0);
     }
     const body = $('#gkBody');
     if (!G) { body.innerHTML = joinView(); return; }
-    body.innerHTML = tab === 'match' ? matchView() : tab === 'mission' ? missionView() : tab === 'rank' ? rankView() : homeView();
+    body.innerHTML = tab === 'match' ? matchView() : tab === 'mission' ? missionView() : tab === 'rank' ? rankView() : tab === 'board' ? boardView() : homeView();
   }
 
   // 入っていない：つくる・さがす
+  const gkCard = x => `<li class="gk-card"><div><b>${esc(x.name)}${x.short ? `<small class="gk-short">${esc(x.short)}</small>` : ''}</b>${tags(x.set)}${x.pr ? `<p>「${esc(x.pr)}」</p>` : ''}<small>ID ${esc(x.id)}・${x.n}/20人・オンライン ${x.on | 0}人・今月 ${x.wins}勝</small></div>
+    ${x.n >= 20 ? '<em>満員</em>' : x.set && x.set.join === 'invite' ? '<em>招待のみ</em>' : `<button type="button" class="btn primary small" data-join="${esc(x.id)}">${x.set && x.set.join === 'apply' ? '申請する' : '入る'}</button>`}</li>`;
   function joinView() {
-    let h = `<div class="gk-hero"><b>碁会所</b><p>仲間と集まって打つ場所です。メンバーどうしで銭をおくったり、みんなの対局数でミッションを達成したり、月ごとに碁会所どうしで勝ち数をきそったりできます（20人まで）。</p></div>
-      <div class="sc-sec"><b>碁会所をつくる</b><div class="sc-line"><input type="text" id="gkName" maxlength="12" placeholder="碁会所の名前（12字まで）"><button type="button" class="btn primary small" data-act="create">つくる</button></div><small class="gk-note">つくった人が「マスター」になります。</small></div>
-      <div class="sc-sec"><b>碁会所をさがす</b><div class="sc-line"><input type="text" id="gkQ" maxlength="20" placeholder="名前か ID（6文字）"><button type="button" class="btn lac small" data-act="search">さがす</button></div>`;
-    h += list ? (list.length ? `<ul class="gk-list">${list.map(x => `<li><span><b>${esc(x.name)}</b><small>ID ${esc(x.id)}・${x.n}/20人・今月 ${x.wins}勝</small></span>${x.n >= 20 ? '<em>満員</em>' : `<button type="button" class="btn primary small" data-join="${esc(x.id)}">入る</button>`}</li>`).join('')}</ul>` : '<p class="rm-help">見つかりませんでした。</p>') : '';
-    return h + '</div>';
+    if (making) return `<div class="gk-hero"><b>碁会所をつくる</b><p>名前・省略名・タグ・勧誘メッセージを決めます。タグは、おすすめに出るかどうかの目安になります。</p></div>${setForm(null, true)}<button type="button" class="btn lac small" data-act="unmake">もどる</button>`;
+    let h = `<div class="gk-hero"><b>碁会所</b><p>仲間と集まって打つ場所です。メンバーどうしで銭をおくったり、みんなの対局数でミッションを達成したり、月ごとに碁会所どうしで勝ち数をきそったりできます（20人まで）。</p></div>`;
+    h += `<div class="sc-sec"><b>おすすめの碁会所</b>${recs ? (recs.length ? `<ul class="gk-list">${recs.map(gkCard).join('')}</ul>` : '<p class="rm-help">いま入れるおすすめの碁会所がありません。つくってみませんか？</p>') : '<p class="rm-help">読みこみ中……</p>'}</div>`;
+    h += `<div class="sc-sec"><b>碁会所をさがす</b><div class="sc-line"><input type="text" id="gkQ" maxlength="20" placeholder="名前か ID（6文字）"><button type="button" class="btn lac small" data-act="search">さがす</button></div>`;
+    h += list ? (list.length ? `<ul class="gk-list">${list.map(gkCard).join('')}</ul>` : '<p class="rm-help">見つかりませんでした。</p>') : '';
+    h += '</div><button type="button" class="btn primary gk-make" data-act="make">＋ 碁会所をつくる</button>';
+    return h;
+  }
+  /* ---------- 掲示板 ---------- */
+  function loadBoard() { req('threads', {}, r => { board = r.ok ? r : { threads: [], err: r.reason }; render(); }); }
+  function boardView() {
+    if (!board) return '<p class="rm-help">読みこみ中……</p>';
+    if (board.err) return `<p class="rm-help">${why({ reason: board.err })}</p>`;
+    const dt = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    if (bOpen) {
+      const th = board.threads.find(x => x.id === bOpen); if (!th) { bOpen = null; return boardView(); }
+      const del = (it, rid) => (it.pid === board.me || board.boss) ? `<button type="button" class="sc-x" data-bdel="${th.id}" data-rid="${rid || ''}">消す</button>` : '';
+      return `<button type="button" class="btn lac small" data-bback="1">← スレッド一覧</button>
+        <div class="sc-sec gk-th"><b>${esc(th.title)}</b><p class="gk-post"><small>${esc(th.name)}・${dt(th.t)}</small>${esc(th.text)}</p>${del(th)}</div>
+        <ul class="gk-replies">${th.replies.map((x, i) => `<li><small>${i + 1}. ${esc(x.name)}・${dt(x.t)}</small><p>${esc(x.text)}</p>${del(x, x.id)}</li>`).join('')}</ul>
+        <div class="sc-sec"><textarea class="gk-in" id="gbReply" maxlength="300" rows="3" placeholder="返信（300字まで）"></textarea><button type="button" class="btn primary small" data-breply="${th.id}">返信する</button></div>`;
+    }
+    return `<div class="sc-sec"><b>スレッドを立てる</b><input type="text" class="gk-in" id="gbTitle" maxlength="30" placeholder="タイトル（30字まで）"><textarea class="gk-in" id="gbText" maxlength="300" rows="3" placeholder="本文（300字まで）"></textarea><button type="button" class="btn primary small" data-act="bpost">立てる</button></div>
+      <ul class="gk-threads">${board.threads.length ? board.threads.map(x => `<li><button type="button" data-bopen="${x.id}"><b>${esc(x.title)}</b><small>${esc(x.name)}・返信 ${x.replies.length}・${dt(x.last)}</small></button></li>`).join('') : '<li class="gk-none">まだスレッドはありません</li>'}</ul>`;
   }
 
   function homeView() {
@@ -91,14 +151,18 @@
       </li>`;
     }
     h += '</ul></div>';
-    h += `<div class="sc-sec"><b>一言（碁会所のみんなへ）</b><div class="sc-line"><input type="text" id="gkSay" maxlength="40" placeholder="一言（40字まで）"><button type="button" class="btn primary small" data-act="say">送る</button></div>
+    if (boss && g.apps && g.apps.length) h += `<div class="sc-sec hi"><b>入会申請（${g.apps.length}）</b><ul class="gk-list">${g.apps.map(a => `<li><span><b>${esc(a.name)}</b><small>部屋番号 ${esc(a.pid)}</small></span><button type="button" class="btn lac small" data-visit="${esc(a.pid)}">部屋へ</button><button type="button" class="btn primary small" data-approve="${esc(a.pid)}">承認</button><button type="button" class="btn lac small" data-reject="${esc(a.pid)}">おことわり</button></li>`).join('')}</ul></div>`;
+    h += `<div class="sc-sec"><b>招待する</b><div class="sc-line"><input type="text" id="gkInv" inputmode="numeric" maxlength="6" placeholder="相手の部屋番号（6けた）"><button type="button" class="btn primary small" data-act="invite">招待</button></div><small class="gk-note">招待は相手のメッセージに届きます。相手の部屋の「この人」からも招待できます。</small></div>`;
+    if (g.set && g.set.talk === 'off') h += '<p class="gk-note">この碁会所は「碁会所内の会話なし」の設定です。</p>';
+    else h += `<div class="sc-sec"><b>一言（碁会所のみんなへ）</b><div class="sc-line"><input type="text" id="gkSay" maxlength="40" placeholder="一言（40字まで）"><button type="button" class="btn primary small" data-act="say">送る</button></div>
       <ul class="gk-chat">${g.chat.length ? g.chat.slice(0, 15).map(chatLi).join('') : '<li class="gk-none">まだ一言はありません</li>'}</ul><small class="gk-note">画面の一番上の一行をタップしても、一言を送れます。</small></div>`;
+    h += `<div class="sc-sec"><b>碁会所の設定</b>${tags(g.set)}<p class="gk-note">省略名「${esc(g.short || '')}」${g.pr ? `・勧誘「${esc(g.pr)}」` : ''}</p>${g.role === 'master' ? (open === 'set' ? setForm(g, false) : '<button type="button" class="btn lac small" data-act="editset">設定を変える</button>') : ''}</div>`;
     h += `<div class="gk-foot">${g.role === 'manager' && !g.recall ? '<button type="button" class="btn lac small" data-act="recall">マスターをリコールする</button>' : ''}<button type="button" class="btn danger small" data-act="leave">碁会所を抜ける</button></div>`;
     return h;
   }
   function chatLi(c) {
     const boss = G && (G.role === 'master' || G.role === 'manager');
-    return `<li><b>${esc(c.name)}</b><span>${esc(c.text)}</span>${c.mine ? '' : `<button type="button" class="gk-fr${c.frowned ? ' on' : ''}" data-frown="${c.id}" aria-label="やだなぁ">☹️${boss && c.frown ? c.frown : ''}</button>`}</li>`;
+    return `<li><b>${c.gs ? esc(c.gs) + ':' : ''}${esc(c.name)}</b><span>${esc(c.text)}</span>${c.mine ? '' : `<button type="button" class="gk-fr${c.frowned ? ' on' : ''}" data-frown="${c.id}" aria-label="やだなぁ">☹️${boss && c.frown ? c.frown : ''}</button>`}</li>`;
   }
 
   /* ---------- マッチ ---------- */
@@ -175,23 +239,35 @@
   $('#gkBack').onclick = () => { P.sound('tap'); if (seeking) { seeking = false; P.guild('gunseek', {}); } if (back === 'pvp') P.openPvp(); else { P.showScreen('home'); P.renderHome(); } };
   for (const b of document.querySelectorAll('#gkTabs button')) b.onclick = () => {
     P.sound('stone'); tab = b.dataset.tab; open = null; render();
-    if (tab === 'match') loadCalls(); else if (tab === 'rank') loadRank(); else req('me', {}, () => render());
+    if (tab === 'match') loadCalls(); else if (tab === 'rank') loadRank(); else if (tab === 'board') { bOpen = null; loadBoard(); } else req('me', {}, () => render());
   };
   $('#gkBody').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || busy) return;
     const d = b.dataset;
     const done = (r, msg) => { busy = false; if (!r.ok) { fail(r); render(); return; } if (msg) P.toast(msg); P.sound('ok'); render(); };
     const go = (op, data, msg, cb) => { busy = true; req(op, data, r => { done(r, msg); if (cb && r.ok) cb(r); }); };
-    if (d.act === 'create') { const name = $('#gkName').value.trim(); if (!name) { P.toast(WHY.name); return; } go('create', { name }, `碁会所「${name}」をつくりました！ あなたがマスターです`); }
+    if (d.act === 'create') { const f = readForm(); if (!f.name) { P.toast(WHY.name); return; } if (!f.short) { P.toast(WHY.short); return; } go('create', f, `碁会所「${f.name}」をつくりました！ あなたがマスターです`, () => { making = false; }); }
+    else if (d.act === 'make') { P.sound('stone'); making = true; render(); $('#gkBody').scrollTop = 0; window.scrollTo(0, 0); }
+    else if (d.act === 'unmake') { P.sound('tap'); making = false; render(); }
+    else if (d.setv) { P.sound('tap'); for (const x of b.parentElement.children) x.setAttribute('aria-checked', String(x === b)); }
+    else if (d.act === 'editset') { P.sound('tap'); open = 'set'; render(); }
+    else if (d.act === 'saveset') { const f = readForm(); delete f.name; go('settings', f, '設定を保存しました', () => { open = null; }); }
+    else if (d.act === 'invite') { const pid = $('#gkInv').value.replace(/\D/g, ''); if (pid.length !== 6) { P.toast('部屋番号（6けた）を入れてください'); return; } busy = true; P.guild('invite', { pid }, r => { busy = false; if (!r.ok) { fail(r); return; } P.sound('ok'); P.toast('招待しました（相手のメッセージに届きます）'); $('#gkInv').value = ''; }); }
+    else if (d.approve || d.reject) go(d.approve ? 'approve' : 'reject', { pid: d.approve || d.reject }, d.approve ? '入会を承認しました' : 'おことわりしました');
+    else if (d.bopen) { P.sound('tap'); bOpen = +d.bopen; render(); }
+    else if (d.bback) { P.sound('tap'); bOpen = null; render(); }
+    else if (d.act === 'bpost') { const title = $('#gbTitle').value.trim(), text = $('#gbText').value.trim(); if (!title || !text) { P.toast('タイトルと本文を入れてください'); return; } busy = true; req('post', { title, text }, r => { busy = false; if (!r.ok) { fail(r); return; } board = r; P.sound('ok'); render(); }); }
+    else if (d.breply) { const text = $('#gbReply').value.trim(); if (!text) return; busy = true; req('reply', { tid: +d.breply, text }, r => { busy = false; if (!r.ok) { fail(r); return; } board = r; P.sound('ok'); render(); }); }
+    else if (d.bdel) P.confirmBox('この書きこみを消しますか？', () => req('bdel', { tid: +d.bdel, rid: +d.rid || 0 }, r => { if (!r.ok) { fail(r); return; } board = r; if (!d.rid) bOpen = null; render(); }));
     else if (d.act === 'search') { P.sound('tap'); P.guild('list', { q: $('#gkQ').value.trim() }, r => { list = r.ok ? r.list : []; render(); }); }
-    else if (d.join) go('join', { id: d.join }, '碁会所に入りました！');
+    else if (d.join) { busy = true; req('join', { id: d.join }, r => { busy = false; if (!r.ok) { fail(r); render(); return; } P.sound('ok'); P.toast(r.applied ? '入会を申請しました。承認されるとメッセージが届きます' : '碁会所に入りました！', 3500); render(); }); }
     else if (d.more) { P.sound('tap'); open = open === d.more ? null : d.more; render(); }
     else if (d.give) go('give', { pid: d.give }, '50銭をおくりました');
     else if (d.visit) { P.sound('stone'); window.ROOM.visit(d.visit); }
     else if (d.callto) { P.sound('stone'); hcSt.pid = d.callto; keepHc(); tab = 'match'; open = null; loadCalls(); }
     else if (d.boss !== undefined) { const m = G.members.find(x => x.pid === d.boss); P.confirmBox(d.boss ? `${m ? m.name : ''}さんを店長にしますか？（店長は1人だけ。前の店長は交代します）` : '店長をやめてもらいますか？', () => go('boss', { pid: d.boss }, d.boss ? '店長をえらびました' : '店長をやめてもらいました')); }
     else if (d.kick) { const m = G.members.find(x => x.pid === d.kick); P.confirmBox(`${m ? m.name : ''}さんを碁会所から追放しますか？`, () => { open = null; go('kick', { pid: d.kick }, '追放しました'); }, null, { yes: '追放する', no: 'やめる' }); }
-    else if (d.act === 'leave') P.confirmBox(G.role === 'master' ? '碁会所を抜けますか？（マスターは店長に、店長がいなければいちばん古いメンバーに引きつがれます）' : '碁会所を抜けますか？', () => go('leave', {}, '碁会所を抜けました', () => { tab = 'home'; list = null; loadRank(); }), null, { yes: '抜ける', no: 'やめる' });
+    else if (d.act === 'leave') P.confirmBox(G.role === 'master' ? '碁会所を抜けますか？（マスターは店長に、店長がいなければいちばん古いメンバーに引きつがれます）' : '碁会所を抜けますか？', () => go('leave', {}, '碁会所を抜けました', () => { tab = 'home'; list = null; recs = null; P.guild('rec', {}, r2 => { recs = r2.ok ? r2.list : []; render(); }); }), null, { yes: '抜ける', no: 'やめる' });
     else if (d.act === 'recall') P.confirmBox('マスターのリコール投票をはじめますか？（3日以内に、マスターをのぞくメンバーの8割が賛成すると、マスターは碁会所を外れ、あなたがマスターになります）', () => go('recall', {}, 'リコール投票をはじめました'));
     else if (d.vote !== undefined) go('vote', { yes: d.vote === '1' }, d.vote === '1' ? '賛成しました' : '反対しました', r => { if (r.recalled) P.toast('リコールが成立しました', 4000); });
     else if (d.act === 'say') { const text = $('#gkSay').value.trim(); if (!text) return; go('say', { text }, null, () => { req('me', {}, () => render()); }); }
@@ -239,6 +315,7 @@
   $('#goGuild').onclick = () => { P.sound('stone'); openGuild(G ? 'match' : 'home', 'pvp'); };
   window.GUILD = {
     open: openGuild, push, info: () => G,
+    invite(pid, cb) { P.guild('invite', { pid }, r => { if (!r.ok) fail(r); else { P.sound('ok'); P.toast('碁会所に招待しました（相手のメッセージに届きます）'); } if (cb) cb(r); }); },
     say(text, cb) { req('say', { text }, r => { if (!r.ok) fail(r); if (cb) cb(r); }); },
     frown(id, cb) { req('frown', { id }, r => { if (!r.ok) fail(r); if (cb) cb(r); }); }
   };

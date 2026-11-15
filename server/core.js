@@ -59,6 +59,8 @@ function limitOpen(tag, t) {
 const seasonOf = t => { const m = new Date(t + 9 * 3600e3).getUTCMonth() + 1; return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'; };
 import { Social } from './social.js';
 import { Guild } from './guild.js';
+import { Mail } from './mail.js';
+import { Admin } from './admin.js';
 import { cleanName } from './ng.js';
 import '../common/avatar-art.js';
 const AVP = globalThis.AVATAR.PRICE, AVATAR_CLEAN = globalThis.AVATAR.clean, AV_SEASON = globalThis.AVATAR.SEASON || {};
@@ -79,7 +81,9 @@ export class Core {
     this.sockInfo = new Map();  // sock → { acct }
     this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
     this.guild = new Guild(this, { rateOf, dispRank });   // 碁会所（ギルド）
-    this.social = new Social(this);   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
+    this.social = new Social(this);
+    this.mail = new Mail(this);       // メッセージ（全ゲーム共通）
+    this.admin = new Admin(this);     // 運営の画面   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
   }
 
   /* ---------- 接続 ---------- */
@@ -133,6 +137,7 @@ export class Core {
     if (ECON.includes(m.t)) return this.econ(sock, m);
     if (raw.length > 4000) return;
     if (m.t === 'soc') { const info = this.sockInfo.get(sock); return info && this.social.handle(sock, info, m); }
+    if (m.t === 'mail' || m.t === 'admin') { const info = this.sockInfo.get(sock); return info && this[m.t].handle(sock, info, m).catch(e => console.error(m.t, e)); }
     if (m.t === 'guild') { const info = this.sockInfo.get(sock); return info && this.guild.handle(sock, info, m).catch(e => console.error('guild', e)); }
     if (m.t === 'hello') return this.hello(sock, m);
     const cid = this.socks.get(sock); if (!cid) return;
@@ -201,7 +206,9 @@ export class Core {
       const id = normCode(m.id), pass = normCode(m.pass);
       const rec = id && await this.store.get('acct:' + id);
       if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
+      if (rec.ban) { out({ t: 'banned', reason: rec.ban.reason || '' }); return; }   // 利用停止のアカウント
       info.game = game; this.bindAcct(sock, info, id);
+      this.guild.seen(id, game).catch(() => {});
       let welcome = false;
       const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } await this.testReset(id, r, game); return true; });
       const gd = await this.gameData(id, rec2 || rec, game);
@@ -293,6 +300,10 @@ export class Core {
       info.rates = rec ? { go9: rateOf(rec, 'go9').rating, go13: rateOf(rec, 'go13').rating } : null;
       const p = cid && this.players.get(cid); if (p && p.acct === id) { p.pid = pid; p.av = info.av; p.rates = info.rates; if (info.rates) p.rating = info.rates.go9; }
     }).catch(() => {});
+  }
+  // 利用停止にしたアカウントを、いまの接続から外す
+  kickAcct(id) {
+    for (const [sock, info] of this.sockInfo) if (info && info.acct === id) { try { sock.send(JSON.stringify({ t: 'banned' })); } catch (e) {} info.acct = null; }
   }
   // 同じアカウントの読み書きが重ならないよう、順番に処理する
   withAcct(id, fn) {

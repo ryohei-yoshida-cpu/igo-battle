@@ -24,7 +24,8 @@
     return AV.thumb(it.mine ? myAv() : (it.av || AV.PRESETS.girl), 'icon');
   }
   function html(it) {
-    const who = it.pid ? link('room:' + it.pid, it.name) : esc(it.name);
+    const nm = (it.gs ? it.gs + ':' : '') + (it.name || '');   // 碁会所に入っている人は「省略名:名前」
+    const who = it.pid ? link('room:' + it.pid, nm) : esc(nm);
     if (it.kind === 'chat') return `<b>${who}</b>${esc(it.text)}`;
     if (it.kind === 'gchat') return `<b><i class="tk-gk">碁会所</i>${who}</b>${esc(it.text)}`;
     switch (it.type) {

@@ -391,7 +391,7 @@
   $('#recTabs').addEventListener('click', e => { const b = e.target.closest('[data-rt]'); if (!b) return; recTab = b.dataset.rt; sound('tap'); renderRecord(); });
 
   /* ---------- 画面の切り替え ---------- */
-  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'kotto', 'friends', 'explore', 'diaryHub', 'guild'];
+  const SCREENS = ['home', 'game', 'solo', 'reader', 'lesson', 'chara', 'record', 'myroom', 'pvp', 'friend', 'hub', 'avatar', 'shop', 'kotto', 'friends', 'explore', 'diaryHub', 'guild', 'mail', 'admin'];
   // 対局のアイコン：アバターの顔（右下に相棒のキャラ）。Bot はキャラそのもの
   function setPb(el, look, ci) {
     const AVT = window.AVATAR;
@@ -1047,7 +1047,7 @@
     else if (m.gained && m.why === 'episode') toast(`エピソードクリア！ ＋${m.gained} 銭`, 4000);
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
-  let buyReq = 0; const buyCb = {}, socCb = {}, giftCb = {}, guildCb = {};
+  let buyReq = 0; const buyCb = {}, socCb = {}, giftCb = {}, guildCb = {}, mailCb = {}, adminCb = {};
   const APP_SOC = (op, data, cb) => { const req = ++buyReq; if (cb) socCb[req] = cb; netSend(Object.assign({ t: 'soc', op, req }, data || {})); };
   function onAccount(m) {
     NET.authed = true;
@@ -1146,6 +1146,11 @@
       case 'soc':
         if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
         if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
+      case 'mail':
+        if (m.op === 'push') { if (window.MAIL) window.MAIL.push(m); break; }
+        if (mailCb[m.req]) { mailCb[m.req](m); delete mailCb[m.req]; } break;
+      case 'admin': if (adminCb[m.req]) { adminCb[m.req](m); delete adminCb[m.req]; } break;
+      case 'banned': onBanned(m); break;
       case 'guild':
         if (m.op === 'push') { if (window.GUILD) window.GUILD.push(m); break; }
         if (guildCb[m.req]) { guildCb[m.req](m); delete guildCb[m.req]; } break;
@@ -1158,6 +1163,13 @@
         }
         break;
     }
+  }
+  // 利用停止のアカウント：つながらないようにして、知らせる
+  function onBanned(m) {
+    NET.authed = false; NET.banned = true;
+    let el = $('#bannedBox');
+    if (!el) { el = document.createElement('div'); el.id = 'bannedBox'; el.className = 'banned-box'; document.body.append(el); }
+    el.innerHTML = `<div><b>このアカウントは利用停止になっています</b><p>利用規約に反する行為があったため、オンラインの機能（対人戦・交流・メッセージ・碁会所など）が使えません。${m.reason ? '<br>理由：' + String(m.reason).replace(/[&<>"']/g, '') : ''}</p><a class="btn lac small" href="terms.html">利用規約</a> <button type="button" class="btn lac small" onclick="this.closest('.banned-box').remove()">とじる</button></div>`;
   }
   function onlineEnd(m) {
     if (isMine(m.g)) {
@@ -1396,7 +1408,7 @@
     S.name = v || defName(); save(); renderHome();
   });
   $('#optBgm').addEventListener('change', () => { if (!window.BGM) return; if (S.settings.bgm) window.BGM.start(); else window.BGM.stop(); });
-  $('#adminRep').onclick = () => window.REPORT.admin();
+  $('#adminRep').onclick = () => { $('#settings').hidden = true; window.ADMIN.open(); };
   $('#startTut').onclick = () => { $('#settings').hidden = true; window.TUTORIAL.start(false); };
   $('#optTickerMine').addEventListener('change', e => { S.settings.tickerMine = e.target.checked; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
   $('#optTicker').addEventListener('change', () => { S.settings.tickerMode = $('#optTicker').value; saveLocal(); if (window.TICKER) window.TICKER.draw(); });
@@ -1720,6 +1732,17 @@
       netSend(Object.assign({ t: 'soc', op, req }, data || {}));
     },
     online: () => econOn(),
+    // メッセージ・運営の画面
+    mail(op, data, cb) {
+      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
+      const req = ++buyReq; if (cb) mailCb[req] = cb;
+      netSend(Object.assign({ t: 'mail', op, req }, data || {}));
+    },
+    admin(op, data, cb) {
+      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
+      const req = ++buyReq; if (cb) adminCb[req] = cb;
+      netSend(Object.assign({ t: 'admin', op, req }, data || {}));
+    },
     // 碁会所（ギルド）。サーバーにつながっていないときは reason: 'offline'
     guild(op, data, cb) {
       if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }

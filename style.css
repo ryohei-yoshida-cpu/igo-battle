@@ -1983,3 +1983,75 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 .tk-say { position: sticky; bottom: -6px; display: flex; gap: 6px; padding: 6px; margin: 2px -6px -6px; background: rgba(14, 9, 6, .98); border-top: 1px solid var(--line); }
 .tk-say input { flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--text); background: rgba(255, 246, 234, .08); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; }
 .gk-mode { display: grid; grid-template-columns: 1fr 1fr; }
+
+/* ---------- メッセージ ---------- */
+.mail-fab { position: relative; width: 40px; height: 40px; flex: none; background: rgba(20, 13, 8, .85); font-size: 19px; padding: 0; display: grid; place-items: center; }
+.mail-fab .gift-badge { top: -6px; right: -6px; }
+.ml-body { display: flex; flex-direction: column; gap: 10px; }
+.ml-note { margin: 0; font-size: 11.5px; line-height: 1.6; color: var(--muted); }
+.ml-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.ml-pick .btn small { display: block; font-size: 10px; color: var(--muted); }
+.ml-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ml-row { width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-areas: "n t" "s c"; gap: 2px 8px; text-align: left; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(0, 0, 0, .22); color: var(--text); font: inherit; cursor: pointer; }
+.ml-row.new { border-color: var(--kin); }
+.ml-row b { grid-area: n; font-size: 14px; }
+.ml-row span { grid-area: s; min-width: 0; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-row time { grid-area: t; font-size: 11px; color: var(--muted); }
+.ml-row i { grid-area: c; justify-self: end; font-style: normal; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #e0302a; color: #fff; font-size: 12px; font-weight: 900; display: grid; place-items: center; }
+.ml-sys { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; background: rgba(91, 127, 160, .16); border: 1px solid var(--line); }
+.ml-sys.new { border-color: var(--kin); }
+.ml-sys small { font-size: 11px; color: var(--muted); }
+.ml-sys p { margin: 2px 0 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.ml-done { font-style: normal; font-size: 12px; color: var(--muted); }
+.ml-thread { display: flex; flex-direction: column; gap: 8px; max-height: 55dvh; overflow-y: auto; padding: 4px 2px; }
+.ml-msg { align-self: flex-start; max-width: 82%; display: flex; flex-direction: column; gap: 2px; }
+.ml-msg p { margin: 0; padding: 8px 12px; border-radius: 16px 16px 16px 4px; background: rgba(255, 246, 234, .1); font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ml-msg.mine { align-self: flex-end; align-items: flex-end; }
+.ml-msg.mine p { border-radius: 16px 16px 4px 16px; background: linear-gradient(135deg, #f06a50, var(--shu)); color: #fff6ea; }
+.ml-msg small { font-size: 10.5px; color: var(--muted); }
+.ml-rep { font: inherit; font-size: 10.5px; color: #ffb3a6; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.ml-send { display: flex; gap: 6px; align-items: flex-end; }
+.ml-send textarea, .gk-in { flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--text); background: rgba(0, 0, 0, .3); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; resize: vertical; }
+.ml-foot { justify-content: space-between; }
+/* 碁会所：タグ・カード・つくる・掲示板 */
+.gk-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0; }
+.gk-tags i { font-style: normal; font-size: 10.5px; font-weight: 800; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.gk-tags i.lv { color: #2a1a10; background: var(--kin); border-color: transparent; }
+.gk-card { align-items: flex-start !important; }
+.gk-card > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gk-card p { margin: 2px 0; font-size: 12.5px; line-height: 1.5; }
+.gk-short { margin-left: 6px; font-size: 11px; color: #9fc3e6; font-weight: 900; }
+.gk-make { align-self: stretch; }
+.gk-form { gap: 10px; }
+.gk-form .gk-pick { gap: 4px; }
+.gk-set button { min-width: 0; font-size: 12.5px; }
+.gk-threads, .gk-replies { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gk-threads button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, .22); color: var(--text); font: inherit; cursor: pointer; }
+.gk-threads b { font-size: 14px; } .gk-threads small, .gk-replies small, .gk-post small { font-size: 11px; color: var(--muted); display: block; }
+.gk-replies li { padding: 8px 12px; border-radius: 12px; background: rgba(255, 246, 234, .05); }
+.gk-replies p, .gk-post { margin: 2px 0 0; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gk-th > b { font-size: 16px; }
+/* 運営 */
+.ad-item { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px dashed rgba(226, 191, 106, .2); }
+.ad-item small, .ad-ctx small { font-size: 11px; color: var(--muted); }
+.ad-item p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.ad-ctx { margin: 2px 0; font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.ad-ctx.mine { color: var(--muted); }
+.ad-ban { margin: 0; color: #ffb3a6; font-weight: 900; font-size: 13px; }
+details summary { cursor: pointer; font-size: 12px; color: var(--kin); }
+/* 利用停止・同意 */
+.banned-box, .agree-back { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 20px max(16px, env(safe-area-inset-left, 0px)); background: rgba(8, 5, 3, .82); }
+.banned-box > div, .agree { width: min(440px, 100%); max-height: 90dvh; overflow-y: auto; padding: 18px 20px; border-radius: 20px; background: #1d140d; border: 1px solid var(--kin); color: var(--text); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
+.banned-box b { display: block; font-size: 17px; color: #ffb3a6; margin-bottom: 6px; }
+.banned-box p { font-size: 13px; line-height: 1.7; }
+.agree h2 { margin: 0 0 8px; font-size: 19px; color: var(--kin); }
+.agree p { margin: 0 0 8px; font-size: 13px; line-height: 1.7; }
+.agree ul { margin: 0 0 10px; padding-left: 1.2em; font-size: 13px; line-height: 1.75; }
+.agree-note { color: var(--muted); font-size: 12px !important; }
+.agree-chk { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 12px; font-size: 13px; line-height: 1.6; }
+.agree-chk input { width: 20px; height: 20px; flex: none; margin-top: 2px; }
+.agree a { color: #ffd98a; }
+.agree .btn { width: 100%; }
+.agree .btn:disabled { opacity: .45; }
+.gk-tabs button { white-space: nowrap; padding-left: 2px; padding-right: 2px; font-size: clamp(11px, 3.2vw, 13px); }
+.gk-th .sc-x, .gk-replies .sc-x { align-self: flex-start; }
