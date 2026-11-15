@@ -49,7 +49,7 @@ export const normCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,
 export function memStore() { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); }, del: async k => { m.delete(k); } }; }
 import { ITEMS, FLOORS, WALLS, SEASON } from './prices.js';
 // 季節（日本時間）：春 3〜5月・夏 6〜8月・秋 9〜11月・冬 12〜2月
-const EVENTS = { newyear: ['12-26', '01-07'] };   // 行事の限定（common/room-art.js と同じ）
+const EVENTS = { newyear: ['12-26', '01-07'], hina: ['02-15', '03-03'], kodomo: ['04-20', '05-05'], tanabata: ['06-25', '07-07'], tsukimi: ['09-01', '09-30'], halloween: ['10-15', '10-31'], xmas: ['12-01', '12-25'] };   // 行事の限定（common/room-art.js と同じ）
 function limitOpen(tag, t) {
   if (['spring', 'summer', 'autumn', 'winter'].includes(tag)) return seasonOf(t) === tag;
   const e = EVENTS[tag]; if (!e) return false;
