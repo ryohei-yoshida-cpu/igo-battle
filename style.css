@@ -1895,3 +1895,9 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 
 /* 時期の大きなお知らせバナー（ショップの上） */
 .big-banner { grid-column: 1 / -1; display: block; width: 100%; height: auto; aspect-ratio: 1200 / 560; border-radius: 12px; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+
+/* 大きなシーズンバナー（ホーム・マイルーム・ショップの一番下） */
+.lim-big { display: block; width: 100%; padding: 0; border: 2px solid #e8c15a; border-radius: 14px; overflow: hidden; background: #000; cursor: pointer; box-shadow: 0 6px 16px rgba(0, 0, 0, .4); position: relative; }
+.lim-big img { display: block; width: 100%; height: auto; aspect-ratio: 1839 / 855; }
+.lim-big::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .25) 50%, transparent 60%); transform: translateX(-100%); animation: lbShine 6s ease-in-out 1s infinite; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .lim-big::after { animation: none; } }

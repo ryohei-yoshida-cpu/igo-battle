@@ -23,7 +23,17 @@
     if (end < today) { end = Date.UTC(y + 1, m - 1, dd); if (tag === 'winter') end = Date.UTC(y + 1, 2, 1) - 86400e3; }
     return Math.round((end - today) / 86400e3);
   }
+  // 大きなシーズンバナー（行事ごとの1枚絵）。その時期だけ、小さなバナーのかわりに出す。タップでショップへ
+  //   TEST_PID の人には、時期の前でも出す（見た目のたしかめ用）
+  const BIG = { newyear: 'img/banner/newyear.webp' }, TEST_PID = '561149';
+  function bigHtml() {
+    const R = window.ROOMART; if (!R || !R.limitOpen) return '';
+    if (window.PROG && !window.PROG.isOpen('av') && !window.PROG.isOpen('room')) return '';
+    const tag = Object.keys(BIG).find(k => R.limitOpen(k) || String(S.pid || '') === TEST_PID);
+    return tag ? `<button type="button" class="lim-big" data-big="${tag}"><img src="${BIG[tag]}" alt="${R.EVENTS[tag] ? R.EVENTS[tag].name : ''}のシーズンパック"></button>` : '';
+  }
   function html() {
+    const big = bigHtml(); if (big) return big;
     const R = window.ROOMART; if (!R || !R.openLimits || !window.ROOM) return '';
     const roomOk = !window.PROG || window.PROG.isOpen('room'), avOk = !window.PROG || window.PROG.isOpen('av');
     const now = Date.now(), lim = R.openLimits(now);
@@ -46,6 +56,7 @@
     for (const el of document.querySelectorAll('.lim-slot')) { if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; } el.hidden = !h; }
   }
   document.addEventListener('click', e => {
+    if (e.target.closest('.lim-big')) { P.sound && P.sound('stone'); if (window.SHOP) window.SHOP.open(); return; }
     const b = e.target.closest('.lim-banner'); if (!b) return;
     P.sound && P.sound('stone');
     if (goAv && window.AVATAR_UI) window.AVATAR_UI.open('shop', 'body', 'shop'); else window.ROOM.openShop('season');
