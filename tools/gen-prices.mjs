@@ -2,7 +2,7 @@
 //   node tools/gen-prices.mjs
 import fs from 'node:fs';
 const g = globalThis; g.window = g;
-for (const f of ['common/room-items-more.js', 'common/room-items-pics.js', 'common/room-art.js']) (0, eval)(fs.readFileSync(f, 'utf8'));
+for (const f of ['common/room-items-pics.js', 'common/room-art.js']) (0, eval)(fs.readFileSync(f, 'utf8'));
 const R = g.ROOMART;
 const ITEMS = {}; for (const c of R.CATALOG) ITEMS[c.id] = [c.price, c.kind === 'wall' ? 'w' : c.kind === 'flat' ? 'f' : 'b'];
 const FLOORS = {}, WALLS = {};

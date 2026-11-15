@@ -1636,7 +1636,7 @@
     // 開放のおくりもの（id：rec / av / room / kotto）。つながっていないときは、この端末で受け取る
     claimUnlock(id) {
       if (econOn()) { netSend({ t: 'claim', kind: 'unlock', id }); return; }
-      const G2 = { rec: { av: ['tool:t13'] }, av: { av: ['body:b05'] }, room: { items: ['goban'] }, kotto: { items: ['tsubo'] } }[id]; if (!G2) return;
+      const G2 = { rec: { av: ['tool:t13'] }, av: { av: ['body:b05'] }, room: { items: ['goban'] }, kotto: { items: ['makie_goke'] } }[id]; if (!G2) return;
       S.unlockGot = S.unlockGot || {}; if (S.unlockGot[id]) return; S.unlockGot[id] = 1;
       for (const k of G2.av || []) if (!(S.avOwned || []).includes(k)) S.avOwned = (S.avOwned || []).concat(k);
       for (const k of G2.items || []) if (S.room && S.room.ownedItems) S.room.ownedItems[k] = (S.room.ownedItems[k] || 0) + 1;

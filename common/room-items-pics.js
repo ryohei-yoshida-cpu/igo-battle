@@ -20,7 +20,7 @@
     { id: 'goban_hon', name: '本榧の碁盤', style: 'wa', kind: 'floor', w: 2, d: 2, price: 400, draw() {} },
     { id: 'makie_goke', name: '蒔絵の碁笥箱', style: 'wa', kind: 'floor', w: 1, d: 1, price: 400, draw() {} },
     { id: 'zaisu_seigaiha', name: '青海波の座椅子', style: 'wa', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
-    { id: 'chataku', name: '茶托の台', style: 'wa', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
+    { id: 'chatakudai', name: '茶托の台', style: 'wa', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
     { id: 'hondana_hana', name: '花の本棚', style: 'wa', kind: 'floor', w: 2, d: 1, price: 200, draw() {} },
     { id: 'goishi_kazari', name: '碁石の飾り台', style: 'wa', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },
     { id: 'shobu_dai', name: '花菖蒲の鉢台', style: 'wa', kind: 'floor', w: 1, d: 1, price: 200, draw() {} },

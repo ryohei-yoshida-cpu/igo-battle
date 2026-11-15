@@ -18,7 +18,7 @@
   function guestRooms() {
     const g = guest.room || (guest.room = DEF_ROOM());
     const list = [g].concat(Array.isArray(guest.rooms2) ? guest.rooms2 : []);
-    for (const x of list) { x.items = x.items || []; x.walls = x.walls || []; }
+    for (const x of list) { x.items = x.items || []; x.walls = x.walls || []; clean(x); }
     return list;
   }
   function allRooms() { if (guest) return guestRooms(); const b = base(); return [b].concat(b.extra); }
@@ -30,8 +30,16 @@
       if (cur > b.extra.length) cur = 0;
       if (!cur) r = b; else { r = b.extra[cur - 1]; r.items = r.items || []; r.walls = r.walls || []; }
     }
+    clean(r);
     N = r.n || R.N;
     return r;
+  }
+  // もう売っていない家具（取りやめた家具）は、部屋から外す
+  function clean(r) {
+    if (!r) return;
+    const ok = it => it && cat(it.k);
+    if (Array.isArray(r.items) && !r.items.every(ok)) r.items = r.items.filter(ok);
+    if (Array.isArray(r.walls) && !r.walls.every(ok)) r.walls = r.walls.filter(ok);
   }
   // 家の中での部屋の位置（画面のずれ）と、低くする壁（つながっている側）
   const houseOf = () => { const list = allRooms(); return { list, L: R.layout(list) }; };
@@ -52,8 +60,10 @@
       for (const [k, n] of Object.entries(r.inv || {})) r.ownedItems[k] = (r.ownedItems[k] || 0) + n;
     }
     delete r.inv;
+    for (const k of Object.keys(r.ownedItems)) if (!cat(k)) delete r.ownedItems[k];
     r.seq = r.seq || 2;
     r.extra = Array.isArray(r.extra) ? r.extra : [];
+    clean(r); r.extra.forEach(clean);
     if (r.sizeV !== 2) { r.sizeV = 2; refit(r); }
     return r;
   }
