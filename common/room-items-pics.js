@@ -163,6 +163,24 @@
     { id: 'c_stool', name: '鼓のいす', style: 'chu', kind: 'floor', w: 1, d: 1, price: 100, draw() {} },
     { id: 'c_hanglantern', name: '宮灯', style: 'chu', kind: 'wall', w: 1.2, h: 1.2, v: 4, price: 200, draw() {} },
     { id: 'c_walllantern', name: '壁の提灯', style: 'chu', kind: 'wall', w: 1.1, h: 1.1, v: 3, price: 100, draw() {} },
-    { id: 'c_rug', name: '龍紋の絨毯', style: 'chu', kind: 'flat', w: 3, d: 3, price: 300, draw() {} }
+    { id: 'c_rug', name: '龍紋の絨毯', style: 'chu', kind: 'flat', w: 3, d: 3, price: 300, draw() {} },
+    /* 8つ目のセット：春のアイテム */
+    { id: 's_sakuratree', name: '桜の木', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'spring', draw() {} },
+    { id: 's_rosearch', name: '花のアーチ', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'spring', draw() {} },
+    { id: 's_fujibench', name: '藤棚のベンチ', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'spring', draw() {} },
+    { id: 's_fountain', name: '小鳥の噴水', style: 'fun', kind: 'floor', w: 2, d: 2, price: 400, season: 'spring', draw() {} },
+    { id: 's_flowercart', name: '花屋のワゴン', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'spring', draw() {} },
+    { id: 's_cafeset', name: '春のカフェセット', style: 'fun', kind: 'floor', w: 2, d: 2, price: 300, season: 'spring', draw() {} },
+    { id: 's_tulipbox', name: 'チューリップのプランター', style: 'fun', kind: 'floor', w: 2, d: 1, price: 200, season: 'spring', draw() {} },
+    { id: 's_lamppost', name: '桜の街灯', style: 'fun', kind: 'floor', w: 1, d: 1, price: 200, season: 'spring', draw() {} },
+    { id: 's_banner', name: '桜ののぼり', style: 'fun', kind: 'floor', w: 1, d: 1, price: 100, season: 'spring', draw() {} },
+    { id: 's_byobu', name: '桜の衝立', style: 'fun', kind: 'floor', w: 2, d: 1, price: 300, season: 'spring', draw() {} },
+    { id: 'sw_basket', name: '花かごの壁掛け', style: 'fun', kind: 'wall', w: 1.6, h: 1.6, v: 2.6, price: 200, season: 'spring', draw() {} },
+    { id: 'sw_window', name: '花いっぱいの窓', style: 'fun', kind: 'wall', w: 2, h: 2, v: 1.6, price: 400, season: 'spring', draw() {} },
+    { id: 'sw_uguisu', name: '桜とうぐいすの掛け軸', style: 'fun', kind: 'wall', w: 1.1, h: 1.1, v: 2.4, price: 200, season: 'spring', draw() {} },
+    { id: 'sw_wreath', name: '桜のリース', style: 'fun', kind: 'wall', w: 1.3, h: 1.3, v: 3, price: 200, season: 'spring', draw() {} },
+    { id: 's_picnic', name: 'お花見ピクニック', style: 'fun', kind: 'floor', w: 2, d: 2, price: 300, season: 'spring', draw() {} },
+    { id: 'sr_sakura', name: '桜の花びらラグ', style: 'fun', kind: 'flat', w: 2, d: 2, price: 200, season: 'spring', draw() {} },
+    { id: 'sr_grass', name: '花の芝生ラグ', style: 'fun', kind: 'flat', w: 2, d: 2, price: 200, season: 'spring', draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
