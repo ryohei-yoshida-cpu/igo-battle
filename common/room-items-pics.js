@@ -109,6 +109,23 @@
     { id: 'clf_sakura', name: '桜の箪笥', style: 'wa', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
     { id: 'clf_magic', name: '魔法の小物棚', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
     { id: 'clf_wardrobe', name: '金具のワードローブ', style: 'yo', kind: 'floor', w: 2, d: 1, price: 400, cloak: true, draw() {} },
-    { id: 'clf_rack', name: '真鍮のオープンラック', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} }
+    { id: 'clf_rack', name: '真鍮のオープンラック', style: 'yo', kind: 'floor', w: 2, d: 1, price: 300, cloak: true, draw() {} },
+    /* 5つ目のセット：和の壁掛けとラグ */
+    { id: 'r_tatami', name: '紫べりの畳ござ', style: 'wa', kind: 'flat', w: 3, d: 2, price: 300, draw() {} },
+    { id: 'r_momiji', name: '紅葉と流水のラグ', style: 'wa', kind: 'flat', w: 2, d: 2, price: 300, draw() {} },
+    { id: 'r_botan', name: '牡丹と麻の葉のラグ', style: 'wa', kind: 'flat', w: 2, d: 2, price: 400, draw() {} },
+    { id: 'r_ayame', name: 'あやめの雲形ラグ', style: 'wa', kind: 'flat', w: 2, d: 2, price: 300, draw() {} },
+    { id: 'r_seigaiha', name: '桜と青海波のござ', style: 'wa', kind: 'flat', w: 3, d: 2, price: 300, draw() {} },
+    { id: 'r_koi', name: '鯉と紅葉のラグ', style: 'wa', kind: 'flat', w: 2, d: 2, price: 400, draw() {} },
+    { id: 'r_take', name: '竹のござ', style: 'wa', kind: 'flat', w: 3, d: 2, price: 200, draw() {} },
+    { id: 'r_sakura', name: '桜の花形ラグ', style: 'wa', kind: 'flat', w: 2, d: 2, price: 300, draw() {} },
+    { id: 'w_noren', name: '月とうさぎののれん', style: 'wa', kind: 'wall', w: 2, h: 2, v: 2.6, price: 200, draw() {} },
+    { id: 'w_fujimado', name: '藤の丸窓', style: 'wa', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, draw() {} },
+    { id: 'w_byobu', name: '紅白梅の屏風', style: 'wa', kind: 'wall', w: 3, h: 3, v: 0, price: 400, draw() {} },
+    { id: 'w_marudana', name: '丸い壁棚', style: 'wa', kind: 'wall', w: 1.8, h: 1.8, v: 2.4, price: 300, draw() {} },
+    { id: 'w_sakuramado', name: '桜の丸窓', style: 'wa', kind: 'wall', w: 1.8, h: 1.8, v: 2, price: 400, draw() {} },
+    { id: 'w_tsuru', name: '鶴の掛け軸', style: 'wa', kind: 'wall', w: 1.2, h: 1.2, v: 2.2, price: 300, draw() {} },
+    { id: 'w_sensu', name: '桜と扇の飾り', style: 'wa', kind: 'wall', w: 1.8, h: 1.8, v: 2.6, price: 200, draw() {} },
+    { id: 'w_momijitoro', name: '紅葉の吊り灯籠', style: 'wa', kind: 'wall', w: 1.2, h: 1.2, v: 3, price: 200, draw() {} }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
