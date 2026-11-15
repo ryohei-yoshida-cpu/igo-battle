@@ -10,7 +10,13 @@
   const $ = s => document.querySelector(s);
   let look = null, slot = 'face', mode = 'shop', from = 'hub';
 
-  const myLook = () => AV.clean(S.av || AV.PRESETS.girl);
+  // いまの姿。持っていない物（取りやめた服など）を着ていたら、その場所は最初のものにもどす
+  const myLook = () => {
+    const l = AV.clean(S.av || AV.PRESETS.girl), base = AV.PRESETS[l.head === 'h32' ? 'boy' : 'girl'];
+    for (const [sl] of AV.SLOTS) if (l[sl] && l[sl] !== 'none' && !owned(sl, l[sl])) l[sl] = base[sl] || 'none';
+    if (l.ln) for (const k of Object.keys(l.ln)) if (!lineOwned(l.ln[k])) delete l.ln[k];
+    return l;
+  };
   const owned = (sl, id) => AV.PRICE[sl + ':' + (id || 'none')] === 0 || (S.avOwned || []).includes(sl + ':' + id);
   const tamaOf = (sl, id) => AV.TAMA[sl + ':' + id] || 0;   // 勾玉限定なら、その数
   const zeniText = () => `${(S.zeni || 0).toLocaleString()} 銭`;
@@ -59,7 +65,7 @@
     if (mode === 'closet' && changed()) P.confirmBox('着がえを保存せずに、服ショップへ行きますか？', go); else go();
   }
   $('#avSwitch').onclick = switchMode;
-  function changed() { return JSON.stringify(AV.clean(look)) !== JSON.stringify(myLook()); }
+  function changed() { return JSON.stringify(AV.clean(look)) !== JSON.stringify(AV.clean(S.av || AV.PRESETS.girl)); }
   function unowned() { return AV.SLOTS.map(([sl]) => sl).filter(sl => !owned(sl, look[sl])); }
   // タブの中身：髪のタブは「髪型」と「髪の色」
   // 元の絵の服（色を買う）と、素材シートの服（形ごと買う）を分けて並べる
