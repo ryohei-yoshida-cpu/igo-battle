@@ -1572,13 +1572,29 @@
     showScreen('home'); renderHome();
     if (window.PROG) setTimeout(() => window.PROG.start(), 900);   // はじめての人には小春が登場。対局数で開く場所のたしかめ
   }
-  // タイトル：キャラクター総出演（扇のように並べる）
+  // タイトル：キャラクター総出演（扇のように並べる）。カードをタップすると、そのキャラが真ん中に来て名前が出る
   (() => {
     const order = ['mike', 'shima', 'koharu', 'hinata', 'gensai', 'tomoe', 'tono'], n = order.length;
+    let sel = order.indexOf('koharu');
     $('#ttCast').innerHTML = order.map((k, j) => {
       const i = A.VARIANTS.findIndex(v => v.key === k), t = j - (n - 1) / 2;
-      return `<figure class="tt-card" style="--t:${t};--d:${(j * 0.09).toFixed(2)}s;z-index:${10 - Math.abs(Math.round(t))}"><img src="${A.charaUri(i)}" alt=""><figcaption>${A.VARIANTS[i].name}</figcaption></figure>`;
+      return `<figure class="tt-card" data-j="${j}" style="--t:${t};--d:${(j * 0.09).toFixed(2)}s;z-index:${10 - Math.abs(Math.round(t))}"><img src="${A.charaUri(i)}" alt=""><figcaption>${A.VARIANTS[i].name}</figcaption></figure>`;
     }).join('');
+    $('#ttCast').insertAdjacentHTML('afterend', '<div class="tt-name" id="ttName"></div>');
+    const cards = [...document.querySelectorAll('.tt-card')];
+    cards.forEach(c => c.addEventListener('animationend', () => c.classList.add('in'), { once: true }));
+    function focus(j, say) {
+      sel = j;
+      cards.forEach((c, k) => { const t = k - j; c.style.setProperty('--t', t); c.style.zIndex = 10 - Math.abs(t); c.classList.toggle('sel', k === j && !!say); });
+      if (!say) return;
+      const v = A.VARIANTS[A.VARIANTS.findIndex(x => x.key === order[j])], el = $('#ttName');
+      el.innerHTML = `<b>${v.name}</b><small>${v.note || ''}</small>`; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    }
+    $('#ttCast').addEventListener('click', e => {
+      const c = e.target.closest('.tt-card'); if (!c) return;
+      e.stopPropagation(); cards.forEach(x => x.classList.add('in'));
+      focus(+c.dataset.j, true); sound('stone');
+    });
   })();
   $('#title').addEventListener('click', leaveTitle);
   $('#title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') leaveTitle(); });

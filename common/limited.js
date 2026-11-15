@@ -32,10 +32,9 @@
     const pick = items.filter(c => c.season === top.tag && c.kind === 'floor').slice(0, 3);
     const other = lim.slice(1).map(x => x.name + 'の限定').join('・');
     return `<button type="button" class="lim-banner" style="--lb-bg:${th[0]};--lb-edge:${th[1]};--lb-fg:${th[2]}">
-      <span class="lb-text"><small>期間限定 ${top.when}${left <= 7 ? `<em>あと${left === 0 ? '今日まで' : left + '日'}</em>` : ''}</small>
-        <b>${top.name}の限定</b><span>${th[3]}${other ? `　＋${other}` : ''}</span></span>
+      <span class="lb-text"><b>${top.name}の限定${other ? `<i>＋${other}</i>` : ''}</b><small>${top.when}${left <= 7 ? `<em>あと${left === 0 ? '今日まで' : left + '日'}</em>` : ''}</small></span>
       <span class="lb-items">${pick.map(c => window.ROOM.thumb(c.id)).join('')}</span>
-      <span class="lb-go">見に行く</span></button>`;
+      <span class="lb-go">見る</span></button>`;
   }
   function refresh() {
     const h = html();
