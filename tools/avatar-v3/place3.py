@@ -45,7 +45,7 @@ print('hand y', HAND_Y, 'hand span', HAND_W)
 import sys
 PRE, NH, H0, NB, B0 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
 FEETONLY = 'feet' in sys.argv[6:]   # 足まで描いてある服は、首から足でそろえる（手で合わせると浮く）
-FIX3 = {'h95': (1.1, 40)}   # 目で見て直したもの（大きさ・下へ）。花粉症の女の子は、たれた髪の先があごより下
+FIX3 = {'h95': (1.1, 0)}   # 目で見て直したもの（大きさ・下へ）
 heads = []
 for k in range(NH):
     p = np.asarray(Image.open(f'cut/{PRE}h{k:02d}.png')); name = f'h{H0 + k}'
@@ -55,8 +55,11 @@ for k in range(NH):
     heads.append((name, p, 150 / (fx.max() - fx.min()), (fx.min() + fx.max()) / 2, fy.max()))
 med = float(np.median([q[2] for q in heads]))
 for nm, pp, ss, ccx, chin in heads:
-    if abs(ss / med - 1) > .12:   # 顔がうまく測れない（マスク・ひげなど）：大きさはまわりと同じ、あごは絵の下はし
-        print('head scale fix', nm, round(ss / med, 2)); ss = med; chin = np.nonzero(pp[..., 3] > 128)[0].max()
+    if abs(ss / med - 1) > .12:   # 顔がうまく測れない（マスク・ひげなど）：大きさはまわりと同じ
+        print('head scale fix', nm, round(ss / med, 2)); ss = med
+    # あご：絵の横まん中 5分の1 のはばで、いちばん下の点（ここを身体の首にくっつける）
+    A_ = pp[..., 3] > 128; W_ = A_.shape[1]; band = A_[:, int(W_ * .4):int(W_ * .6)]
+    chin = np.nonzero(band.any(1))[0].max()
     f, dy = FIX3.get(nm, (1, 0)); cy = 314 - chin * ss; ss2 = ss * f
     put(pp, ss2, 200 - ccx * ss2, cy - chin * (ss2 - ss) + dy, nm); thumb(pp, nm)
 for k in range(NB):
