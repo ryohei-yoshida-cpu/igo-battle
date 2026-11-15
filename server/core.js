@@ -232,6 +232,13 @@ export class Core {
 
   // テスト用（2026/11/14）：部屋番号 561149 のアカウントを1回だけ初期化（ID・パスワード・部屋番号・交流はそのまま。銭・持ち物・部屋・アバター・レート・セーブデータは新しく）
   async testReset(id, r, game) {
+    if (game === 'go' && String(r.pid || '') === '561149' && r.allOwn1 && !r.fixOnly1) {
+      // 試し用：服を、手直ししたものだけにする（1回だけ）
+      r.fixOnly1 = 1; ensureEcon(r);
+      r.owned.av = ['h16', 'h36', 'h61', 'h74', 'h92', 'h97', 'h101', 'h109', 'h117', 'h118', 'h145', 'h193', 'h194', 'h203', 'h209', 'h226'].map(k => 'head:' + k)
+        .concat(['b59', 'b78', 'b90', 'b97', 'b116', 'b119', 'b138', 'b142', 'b143', 'b164', 'b170'].map(k => 'body:' + k));
+      if (r.av) r.av = AVATAR_CLEAN(Object.assign({}, r.av, { head: 'h32', body: 'b32', full: 'none' }));
+    }
     if (game === 'go' && String(r.pid || '') === '561149' && r.fullReset2 && !r.allOwn1) {
       // 試し用：服・台詞・家具・床・壁紙を、ぜんぶ持っていることにする（1回だけ）
       r.allOwn1 = 1; ensureEcon(r);
