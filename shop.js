@@ -95,6 +95,7 @@
       P.sell(what, res => {
         if (!res.ok) { kTalk(K_NG[res.reason] || K_NG.item); P.sound('bad'); renderKotto(); return; }
         P.sound('coin'); kTalk(pick(K_SOLD)); P.toast(`＋${(res.got | 0).toLocaleString()} 銭`); renderKotto();
+        document.dispatchEvent(new CustomEvent('kuro9sold', { detail: what.item || what.av }));   // 特別ミッション（骨董屋で売ろう）
         const g = res.offer && giftThumb(res.offer);
         if (!g) return;
         setTimeout(() => window.FANFARE.clerk({

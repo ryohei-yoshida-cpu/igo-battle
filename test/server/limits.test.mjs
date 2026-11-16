@@ -27,3 +27,23 @@ test('1部屋に100個は保存できない（99個ならできる）', async ()
   const good = await a.call({ t: 'room', room: { items: items.slice(0, 99), walls: [] } }, 'roomsaved');
   assert.equal(good.ok, true);
 });
+
+test('開放のイベントのもらいもの：直接わたす（扇子・300銭・800銭・ドライフラワー）。2回目はもらえない', async () => {
+  const { core } = makeCore();
+  const a = await user(core, 1);
+  const z0 = (await core.store.get('acct:' + a.id)).zeni;
+  for (const id of ['rec', 'av', 'room', 'kotto']) assert.ok((await a.call({ t: 'claim', kind: 'unlock', id }, 'claimed')).econ);
+  const r = await core.store.get('acct:' + a.id);
+  assert.ok(r.owned.av.includes('tool:t13'));
+  assert.equal(r.zeni, z0 + 1100);
+  assert.equal(r.owned.items.w_dryflower, 1);
+  await a.call({ t: 'claim', kind: 'unlock', id: 'av' }, 'zeni');
+  assert.equal((await core.store.get('acct:' + a.id)).zeni, z0 + 1100);
+});
+test('碁盤は800銭で買える', async () => {
+  const { core } = makeCore();
+  const a = await user(core, 1);
+  await core.withAcct(a.id, async r => { r.zeni = 800; });
+  const res = await a.call({ t: 'buy', item: 'goban' }, 'bought');
+  assert.equal(res.ok, true); assert.equal(res.econ.zeni, 0);
+});

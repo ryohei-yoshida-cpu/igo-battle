@@ -74,11 +74,14 @@ export function cleanStats(s) {
   return out;
 }
 // 新しい場所が開いたとき（対局数）に、キャラからもらえるもの
+// 開放のイベントでもらうもの。すぐ使えるように、プレゼントボックスを通さずに直接わたす
+//   rec：「戦歴」を見たら、巴からお駄賃の扇子 ／ av：ひなたからお祝いの300銭 ／ room：静馬の800銭のクーポン券（碁盤が買える）
+//   kotto：玄斎が投げ捨てたドライフラワー（壁の家具。骨董屋で売ってみる）
 export const UNLOCK_GIFT = {
-  rec: { label: '巴からのおくりもの（扇子）', av: ['tool:t13'] },
-  av: { label: 'ひなたのお近づきキャンペーン品（ネオンパーカー）', av: ['body:b05'] },
-  room: { label: '静馬からのおわびの品（碁盤）', items: ['goban'] },
-  kotto: { label: '玄斎からの近づきのしるし（蒔絵の碁笥箱）', items: ['makie_goke'] }
+  rec: { label: '巴からのお駄賃（扇子）', av: ['tool:t13'] },
+  av: { label: 'ひなたからのお祝い', zeni: 300 },
+  room: { label: '静馬のクーポン券', zeni: 800 },
+  kotto: { label: '玄斎が投げ捨てた花束', items: ['w_dryflower'] }
 };
 // はじめてそのゲームのアプリに入ったら、そのゲームの記念品（ほかのゲームでも使える）をプレゼントボックスへ
 export const GAME_PACK = {
@@ -213,11 +216,18 @@ export class EconMethods {
         const list = r.claims[kind] = r.claims[kind] || [];
         if (list.includes(cid) || list.length >= limit) return;
         list.push(cid);
-        if (kind === 'unlock') { const u = UNLOCK_GIFT[cid]; if (!u) return false; addGift(r, 'pack', 0, u.label, this.now(), { av: u.av, items: u.items }); gained = -1; return; }   // 新しい場所が開いたときの、キャラからのおくりもの
+        if (kind === 'unlock') {   // 開放のイベント：直接わたす
+          const u = UNLOCK_GIFT[cid]; if (!u) return false;
+          if (u.zeni) r.zeni += u.zeni;
+          for (const a of u.av || []) if (!r.owned.av.includes(a)) r.owned.av.push(a);
+          for (const k of u.items || []) if (ITEMS[k]) r.owned.items[k] = Math.min(ROOM_LIM.perKind, (r.owned.items[k] || 0) + 1);
+          gained = -2; return;
+        }   // 新しい場所が開いたときの、キャラからのおくりもの
         if (kind === 'tutorial') { addGift(r, 'welcome', amount, 'チュートリアルを最後まで受けたお礼（小春より）', this.now()); gained = -1; return; }   // チュートリアル完走（ゲームごとに1回）はプレゼントボックスへ
         r.zeni += amount; gained = amount;
       });
-      if (rec && gained === -1) out({ t: 'gifts', gifts: rec.gifts || [], zeni: rec.zeni });
+      if (rec && gained === -2) out({ t: 'claimed', req: m.req, kind, id: cid, econ: pubEcon(rec) });
+      else if (rec && gained === -1) out({ t: 'gifts', gifts: rec.gifts || [], zeni: rec.zeni });
       else if (rec) out({ t: 'zeni', zeni: rec.zeni, gained, why: kind });
     } else if (m.t === 'dm') {   // 今日のデイリーミッション
       const r = await this.store.get('acct:' + id);
@@ -271,7 +281,7 @@ export class EconMethods {
           addTama(r, g, -t); r.owned.av.push(m.av); ok = true; return;
         }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
-        else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] <= 0) { reason = 'item'; return; }   // 碁盤・ごほうびの家具は売っていない
+        else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] <= 0) { reason = 'item'; return; }   // ごほうびの家具は売っていない
         else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } if ((r.owned.items[m.item] || 0) >= ROOM_LIM.perKind) { reason = 'cap'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }

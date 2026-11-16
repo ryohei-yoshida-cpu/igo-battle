@@ -276,3 +276,12 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 .agree a { color: #ffd98a; }
 .agree .btn { width: 100%; }
 .agree .btn:disabled { opacity: .45; }
+
+/* 特別ミッションの「やってみよう」案内：光っている場所だけ押せる */
+.tut-block { position: fixed; pointer-events: none; }
+.tut.live { pointer-events: none; cursor: default; }
+.tut.live .tut-block, .tut.live .tut-top { pointer-events: auto; }
+.tut.live .tut-next { color: #ffd98a; animation: tutBlink 1.3s ease-in-out infinite; }
+@keyframes tutBlink { 50% { opacity: .45; } }
+.tut.away { pointer-events: none; }
+.tut.away > * { visibility: hidden; }

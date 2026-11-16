@@ -903,7 +903,7 @@
   }
   function leaveMode(quiet) {
     if (mode === 'shop') { clearTrials(); restoreSnap(); snaps = {}; tryInts = {}; mode = 'view'; sel = null; return; }
-    if (mode === 'edit') { flush(); mode = 'view'; sel = null; }
+    if (mode === 'edit') { flush(); mode = 'view'; sel = null; if (!gk && !guest) document.dispatchEvent(new CustomEvent('kuro9room', { detail: 'editdone' })); }   // 目標（家具を置こう）
   }
   // まとめて買う → 「今の模様替えを反映する？」はい：そのまま／いいえ：配置を戻して、買った家具は倉庫へ
   function buyCart() {
@@ -1134,5 +1134,8 @@
     flush(); P.sound('stone');
     window.FRIEND.inviteTo(to);
   };
-  window.ROOM = { LIM, openGuild: openGuildRoom, open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
+  // 目標（特別ミッション）の案内用：いまの様子
+  const placedCount = k => { if (!S.room) return 0; let n = 0; for (const r of [S.room].concat(S.room.extra || [])) for (const it of (r.items || []).concat(r.walls || [])) if (it.k === k && !it.trial) n++; return n; };
+  const state = () => ({ mode, shopKind, mine: !gk && !guest, open: !$('#myroom').hidden, owned: k => ((S.room && S.room.ownedItems) || {})[k] | 0, placed: placedCount, trying: k => !!(S.room && [S.room].concat(S.room.extra || []).some(r => (r.items || []).concat(r.walls || []).some(it => it.k === k && it.trial))) });
+  window.ROOM = { LIM, openGuild: openGuildRoom, open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, state, info: () => ({ guest: !!guest }) };
 })();

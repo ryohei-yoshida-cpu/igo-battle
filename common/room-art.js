@@ -105,7 +105,7 @@
   const WOOD = '#9a6a3c', DARKWOOD = '#5c3a22', KAYA = '#d9b26b', RED = '#b8322a', GOLD = '#d9a93a';
   const CATALOG = [
     /* 和 */
-    { id: 'goban', name: '碁盤', style: 'wa', kind: 'floor', w: 2, d: 2, price: 0, note: 'タップで対局',
+    { id: 'goban', name: '碁盤', style: 'wa', kind: 'floor', w: 2, d: 2, price: 800, note: 'タップで対局',
       draw(m, o) {
         for (const [x, y] of [[.35, .35], [1.45, .35], [.35, 1.45], [1.45, 1.45]]) m.box(x, y, 0, .2, .2, .35, DARKWOOD);
         const b = m.box(.15, .15, .35, 1.7, 1.7, .65, KAYA);

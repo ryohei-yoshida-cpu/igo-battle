@@ -1,18 +1,26 @@
 /* 囲碁BLITZ — はじめての人の「開放」の流れ
  *   はじめ：小春が登場して「囲碁のルール、知ってる？」→ 初心者／経験者モードでソロモードへ
  *   ソロ「春告げの一局」を読み終える → 対人戦が開く（小春からお礼の1000銭・アタリ碁で最初の一局）
- *   3局 → 戦歴・検討（巴）／ 5局 → アバター・服ショップ（ひなた）／ 10局 → マイルームなど（静馬）／ 20局 → 骨董屋（玄斎）／ 50局 → 碁会所（玄斎）
- *   前から遊んでいる人は、ぜんぶ開いたまま。
+ *   3局 → 巴（戦歴・検討・クローク）→ 特別ミッション「戦歴を見よう」→ お駄賃の扇子 →「クロークで扇子を持とう」
+ *   5局 か「ひなたのエピソード」を読む → ひなた（服ショップ・お祝い300銭）→「服ショップでネオンパーカーを買おう」
+ *   10局 か「静馬のエピソード」を読む → 静馬（マイルームなど・800銭のクーポン券）→「碁盤を買おう」→「碁盤を置こう」
+ *   20局 か「闇落ち玄斎」を読む → 玄斎（骨董屋・投げ捨てたドライフラワー）→「骨董屋で売ろう」
+ *   骨董屋が開いてから30局 → 碁会所（玄斎）
+ *   開放は順番どおり（前のキャラに会っていないと、次のキャラは来ない）。
+ *   特別ミッション：キャラの登場のあとに、その場所の使い方を「やってみよう」で案内する（TUTORIAL.guide）。
+ *     終わるまでホームの目標に出る。「あとで」にしても、ホームからまた案内できる。
  */
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
   const $ = window.U.$;
-  const NEED = { rec: 3, av: 5, room: 10, kotto: 20, gk: 50 };
+  const NEED = { rec: 3, av: 5, room: 10, kotto: 20 }, GK_AFTER = 30;   // 碁会所は、骨董屋が開いてから30局
+  const ORDER = ['rec', 'av', 'room', 'kotto', 'gk'];
   const LOCKS = [
     ['pvp', ['#startMatch']],
     ['rec', ['#openRecord', '#openReview', '#meChip']],
-    ['av', ['#openHub', '#openShop', '#openAvShop', '#openAvatar', '#shopAvatar']],
+    ['cloak', ['#openHub', '#openAvatar']],
+    ['av', ['#openShop', '#openAvShop', '#shopAvatar']],
     ['room', ['#openRoom', '#openChara', '#openFriends', '#openExplore', '#openDiary', '#homeDiary', '#shopRoom']],
     ['kotto', ['#shopKotto']],
     ['gk', ['#openGuild', '#goGuild']]
@@ -27,14 +35,35 @@
     S.prog.seen = S.prog.seen || {};
     return S.prog;
   }
+  const read = id => !!(S.solo && S.solo.read && S.solo.read[id]);
+  const beginner = () => !S.solo || S.solo.mode !== 'expert';
+  // 開いているか（イベントの条件）。前のキャラに会っていないと、次は開かない
+  function ready(k) {
+    const g = prog(), n = g.games | 0;
+    if (k === 'rec') return n >= NEED.rec;
+    if (k === 'av') return !!g.seen.rec && (n >= NEED.av || read('ep_hinata'));
+    if (k === 'room') return !!g.seen.av && (n >= NEED.room || read('ep_shima'));
+    if (k === 'kotto') return !!g.seen.room && (n >= NEED.kotto || read('ep_dgensai'));
+    if (k === 'gk') return !!g.seen.kotto && n >= (g.kottoAt | 0) + GK_AFTER;
+    return false;
+  }
   function isOpen(k) {
     const g = prog();
     if (g.all) return true;
-    if (k === 'pvp') return !!(S.solo && S.solo.read && S.solo.read.haru);
+    if (k === 'pvp') return read('haru');
+    if (k === 'cloak') return !!g.seen.rec;
     if (k === 'gk' && S.gkFree) return true;   // 試し用にあけた碁会所
-    return (g.games | 0) >= (NEED[k] || 0);
+    return !!g.seen[k];
   }
-  const lockText = k => k === 'pvp' ? 'ソロモード「春告げの一局」を読むと開きます' : `あと ${Math.max(0, NEED[k] - (prog().games | 0))} 局で開きます`;
+  // 次のキャラが来るまで、あと何局
+  function gamesLeft(k) { const g = prog(); return Math.max(0, (k === 'gk' ? (g.kottoAt | 0) + GK_AFTER : NEED[k]) - (g.games | 0)); }
+  function lockText(k) {
+    if (k === 'pvp') return 'ソロモード「春告げの一局」を読むと開きます';
+    if (k === 'cloak') return `巴に会うと開きます（あと ${gamesLeft('rec')} 局）`;
+    const prev = ORDER[ORDER.indexOf(k) - 1], g = prog();
+    if (prev && !g.seen[prev]) return 'もう少し先で開きます';
+    return `あと ${gamesLeft(k)} 局で開きます`;
+  }
   function refresh() {
     for (const [k, sels] of LOCKS) for (const s of sels) {
       const el = $(s); if (!el) continue;
@@ -140,15 +169,15 @@
         { text: 'なによ！ ……あ、ごめん。負けて泣いてるの、見られたのが恥ずかしかったのよ。' },
         { text: 'ふ、ふん！ こんなの、なんでもないわ！ 負けて強くなるんだから。戦いの数だけ、私は強くなるの！' },
         { text: 'ここで勉強して、過去をいっぱい学ぶんだから！' },
-        Object.assign(gift(avThumb('tool', 't13'), '扇子'), { text: 'これ、あげる！ あんたも強くなりなさいよ！' })
+        { text: '……そうだ。あんたも自分の「戦歴」、ちゃんと見ておきなさいよ。見たら、いいものあげるわ！' }
       ]
     }),
     av: () => ({
-      who: 'hinata', toast: '「ルーム（アバター）」と「ショップ」が開きました！',
+      who: 'hinata', toast: '「ショップ」と「服ショップ」が開きました！',
       steps: [
-        { text: '君が噂の新人くん？ あはは、やっと会えた！ 楽しみにしてたんだー♪' },
+        { text: read('ep_hinata') ? 'やっほー！ 夏祭りから帰ってきたよー！ 君が噂の新人くん？ あはは、やっと会えた！' : '君が噂の新人くん？ あはは、やっと会えた！ 楽しみにしてたんだー♪' },
         { text: '私、ここで服屋さんのお手伝いをしてるの！ 服を選びたくなったら、ここに来てね♪' },
-        Object.assign(gift(avThumb('body', 'b05'), 'ネオンパーカー'), { text: 'これ、お近づきのキャンペーン品！ 試してみてね♪' })
+        Object.assign(gift('<span class="ff-emoji">💰</span>', '300銭'), { text: 'これ、来てくれたお祝い！ 好きな服を買ってみて♪' })
       ]
     }),
     room: () => ({
@@ -156,23 +185,23 @@
       steps: [
         { text: 'おっと……すまない、怪我はないか？' },
         { text: '仕入れの帰りで、ぼーっとしてしまった……すまない。' },
-        Object.assign(gift(window.ROOM ? window.ROOM.thumb('goban') : '', '碁盤'), { text: 'これは詫びだ……。俺はそこで、家具を扱っている。……興味あるのか。……嬉しいな。良かったら、買い物に来てくれ……。' })
+        Object.assign(gift('<span class="ff-emoji">🎫</span>', '800銭のクーポン券'), { text: '詫びだ……。俺はそこで、家具を扱っている。この券で、何か買っていってくれ。……碁盤なんか、どうだ。' })
       ]
     }),
+    // 玄斎：また振られて、花束を投げ捨てる → 拾う → 小春「売っちゃいましょうか」（特別ミッション sell_flower）
     kotto: () => ({
       who: 'gensai', toast: 'ショップに「骨董屋」が開きました！',
       steps: [
-        { text: 'よう。……二十局も打ったか。いい面構えになってきたじゃねえか。' },
-        { text: '俺は玄斎。この幽玄亭の主だ。小春の師匠なんて呼ばれてるが……まあ、ただの碁打ちさ。' },
-        { text: 'ついでに、奥で骨董屋なんてもんもやっててな。いらなくなった服や家具があったら持ってきな。値段の3分の1で引きとってやる。' },
-        { text: '店の奥からは、ときどき掘り出し物も出てくる。……お前さんになら、譲ってやってもいい。' },
-        Object.assign(gift(window.ROOM ? window.ROOM.thumb('makie_goke') : '', '蒔絵の碁笥箱'), { text: 'ほれ、近づきのしるしだ。いい碁石が入ってる。大事にしな。' })
+        { text: '……ちっ。また振られちまった。' },
+        { text: 'なじみの店の子にやろうと思ってな……「枯れた花なんていらない」だとよ。ドライフラワーだっての。' },
+        { text: '……もう、こんなもん、いらねえ！' },
+        Object.assign(gift(window.ROOM ? window.ROOM.thumb('w_dryflower') : '', 'ドライフラワー'), { text: '（玄斎は花束を放り投げて、店の奥へ行ってしまった……）', title: '投げ捨てられた花束を拾った', party: false })
       ]
     }),
     gk: () => ({
       who: 'gensai', toast: '「碁会所」が開きました！ ホームと対人戦の画面から行けます',
       steps: [
-        { text: '五十局か。……もう立派な常連だな。' },
+        { text: 'よう。……すっかり、ここの常連だな。' },
         { text: '碁ってのは、ひとりで強くなるもんじゃねえ。仲間と打って、笑って、悔しがって強くなるんだ。' },
         { text: 'お前さんも「碁会所」を開いてみるか？ 気の合う連中を集めて、月ごとにほかの碁会所と勝ち数をきそうのも面白えぞ。' },
         { text: 'ほかの碁会所に入れてもらうのもいい。……ま、好きにやんな。' }
@@ -183,13 +212,166 @@
   function check() {
     const g = prog(); refresh();
     if (g.all || playing || !g.intro) return;
-    const k = ['rec', 'av', 'room', 'kotto', 'gk'].find(k => !g.seen[k] && (g.games | 0) >= NEED[k]);
-    if (!k) { const t = pendingTour(); if (t) tour(t, () => setTimeout(check, 600)); return; }
-    P.claimUnlock(k);   // おくりものはサーバーで1回だけ（もう一度呼んでも二重にはならない）
+    const k = ORDER.find(k => !g.seen[k] && ready(k));
+    if (!k) {
+      const t = pendingTour(); if (t) { tour(t, () => setTimeout(check, 600)); return; }
+      if (S.sp && !spBusy) spCheck();
+      return;
+    }
     const sc = SCENES[k]();
     playing = true;
-    window.FANFARE.scene({ who: sc.who, doors: true, steps: sc.steps, then: () => { playing = false; g.seen[k] = 1; P.save(); refresh(); P.toast(sc.toast, 4500); tour(k, () => setTimeout(check, 600)); } });
+    window.FANFARE.scene({ who: sc.who, doors: true, steps: sc.steps, then: () => {
+      playing = false; g.seen[k] = 1;
+      if (k === 'kotto') g.kottoAt = g.games | 0;   // 碁会所は、ここから30局
+      P.save(); refresh(); P.toast(sc.toast, 4500);
+      const go = () => setTimeout(check, 600);
+      // キャラの登場のあと：案内 → 特別ミッション
+      if (k === 'rec') tour('rec', () => special('rec_look'));
+      else if (k === 'av') { P.claimUnlock('av'); doneTour('av'); special('buy_parka'); }
+      else if (k === 'room') { P.claimUnlock('room'); tour('room', () => special('buy_goban')); }
+      else if (k === 'kotto') { doneTour('kotto'); P.claimUnlock('kotto', () => special('sell_flower')); }
+      else tour(k, go);
+    } });
   }
+  const doneTour = k => { S.tutDone = S.tutDone || {}; S.tutDone[k] = 1; P.save(); };
+
+  /* ---------- 特別ミッション：その場所の使い方を「やってみよう」で ----------
+   *   S.sp：いまの特別ミッション、S.spQ：あとに控えているもの（つづけてキャラが来たとき）
+   *   done()：できたか。guide：案内（TUTORIAL.guide）。lines：できたあとのセリフ
+   *   案内なしで自分でできたときも、done() を見て、セリフを出して次へ */
+  const $$ = s => document.querySelector(s);
+  const home = () => { for (const id of ['result', 'settings']) { const e = $$('#' + id); if (e) e.hidden = true; } P.showScreen('home'); P.renderHome(); };
+  const RM = () => window.ROOM.state();
+  const avTab = sl => !!$$(`#avTabs [data-slot="${sl}"][aria-pressed="true"]`);
+  const avIs = t => !$$('#avatar').hidden && $$('#avTitle').textContent === t;
+  const SP = {
+    rec_look: {
+      title: '「戦歴」を見てみよう', who: 'koharu',
+      done: () => !!S.spSeen,
+      steps: [{ go: home, at: '#openRecord', say: '巴ちゃんの言っていた「戦歴」を、開いてみましょう！', until: () => !!S.spSeen }],
+      after(then) {
+        // 巴からお駄賃（扇子）→ 初心者は、ひなたのエピソードが読めるように
+        window.FANFARE.scene({ who: 'tomoe', steps: [
+          { text: 'ちゃんと見たわね！ ……自分の碁をふり返れる人は、強くなるわ。' },
+          Object.assign(gift(avThumb('tool', 't13'), '扇子'), { text: 'はい、お駄賃。扇子よ。……あんたも、強くなりなさいよね！' })
+        ], then: () => {
+          prog().seen.recLook = 1; P.save();
+          P.claimUnlock('rec', () => {
+            if (beginner()) P.toast('ソロモードで「ひなたの夏祭り囲碁大作戦」が読めるようになりました！', 4500);
+            then('equip_fan');
+          });
+        } });
+      }
+    },
+    equip_fan: {
+      title: 'クロークで扇子を持ってみよう', who: 'koharu',
+      done: () => !!(S.av && S.av.tool === 't13'),
+      steps: [
+        { go: home, say: '巴ちゃんから扇子をもらいましたね！ さっそく、アバターに持たせてみましょう！' },
+        { go: home, at: '#openHub', say: 'まずは「ルーム」を開いてください。', until: () => !$$('#hub').hidden },
+        { go: () => window.AVATAR_UI.openHub(), at: '#openAvatar', say: '「クローク」をタップ！ 持っている服に着がえられる場所です。', until: () => avIs('クローク') },
+        { go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avTabs [data-slot="tool"]', say: '「道具」のタブを開いて……', until: () => avTab('tool'), skip: () => avTab('tool') },
+        { at: '#avGrid2 [data-sl="tool"][data-id="t13"]', say: '扇子をタップ！', until: () => !!$$('#avGrid2 [data-sl="tool"][data-id="t13"].on') },
+        { at: '#avSave', say: '「この姿にする」で決まりです！', until: () => !!(S.av && S.av.tool === 't13') }
+      ],
+      lines: ['とってもお似合いです！ 扇子を持つと、なんだか強そうに見えますね。',
+        'お店で新しい服も買えるのですが……店員のひなたさん、今はお休みみたいですね。この街に新人さんが来るの、一番楽しみにしていたのに。夏祭りにでも行っちゃったかなぁ。']
+    },
+    buy_parka: {
+      title: '服ショップで服を買ってみよう', who: 'hinata',
+      done: () => (S.avOwned || []).includes('body:b05'),
+      steps: [
+        { go: home, say: 'お祝いの300銭で、さっそくお買い物してみよっか！ お店はこっちだよ♪' },
+        { go: home, at: '#openShop', say: 'まずは「ショップ」！', until: () => !$$('#shop').hidden },
+        { go: () => window.SHOP.open(), at: '#shopAvatar', say: '私の「服ショップ」はここ！', until: () => avIs('服ショップ') },
+        { go: () => window.AVATAR_UI.open('shop', null, 'home'), at: '#avTabs [data-slot="body"]', say: '「身体」のタブをタップしてね。', until: () => avTab('body'), skip: () => avTab('body') },
+        { at: '#avGrid2 [data-sl="body"][data-id="b05"]', say: 'おすすめは、この「ネオンパーカー」！ タップすると試着できるよ♪', until: () => !!$$('#avGrid2 [data-sl="body"][data-id="b05"].on') || (S.avOwned || []).includes('body:b05') },
+        { at: '#avGrid2 [data-sl="body"][data-id="b05"]', say: '似合ってる！ もう一度タップすると、買えるよ！', until: () => (S.avOwned || []).includes('body:b05') }
+      ],
+      lines: ['お買い上げ、ありがとう！ すっごく似合ってるよ♪', '新しい服が入ったら、また見に来てね！']
+    },
+    buy_goban: {
+      title: '家具を買ってみよう（碁盤）', who: 'shima',
+      done: () => RM().owned('goban') >= 1,
+      steps: [
+        { go: home, say: '……クーポン券、使ってくれるのか。俺の店に案内しよう。' },
+        { go: home, at: '#openHub', say: 'まずは「ルーム」を開いてくれ。', until: () => !$$('#hub').hidden || !$$('#myroom').hidden },
+        { go: () => window.AVATAR_UI.openHub(), at: '#openRoom', say: '「マイルーム」へ。', until: () => !$$('#myroom').hidden },
+        { go: () => window.ROOM.open(), at: '#roomDock [data-dock="shop"]', say: '下の「ショップ」が、俺の店だ。', until: () => RM().mode === 'shop' },
+        { at: '#rsNav [data-kind="floor"]', say: '「床の家具」を見てくれ。', until: () => RM().shopKind === 'floor', skip: () => RM().shopKind === 'floor' },
+        { at: '#rsGrid [data-try="goban"]', say: '……碁盤だ。タップすると、部屋に試し置きできる。', until: () => RM().trying('goban') || RM().owned('goban') >= 1 },
+        { at: '#rsCart .rs-buy', say: 'よければ「購入」を押してくれ。', until: () => RM().owned('goban') >= 1 }
+      ],
+      lines: ['……ありがとう。いい碁盤だ。大事にしてくれ。'],
+      next: 'place_goban'
+    },
+    place_goban: {
+      title: '家具を置いてみよう', who: 'koharu',
+      done: () => !!S.spSeen,
+      steps: [
+        { say: '碁盤、買えましたね！ 次は、お部屋に置いてみましょう！' },
+        { go: () => window.ROOM.open(), at: '#roomDock [data-dock="edit"]', say: '「もようがえ」をタップ！', until: () => RM().mode === 'edit' },
+        { at: '[data-place="goban"]', say: '倉庫の碁盤をタップすると、お部屋に置けます。', until: () => RM().placed('goban') >= 1, skip: () => RM().placed('goban') >= 1 },
+        { say: '置いた家具は、ドラッグで好きな場所に動かせますよ。' },
+        { at: '.rm-edit-h [data-dock="edit"]', say: 'できたら「もようがえを終わる」をタップ！', until: () => { if (RM().mode === 'view' && RM().placed('goban') >= 1) S.spSeen = 1; return !!S.spSeen; } }
+      ],
+      lines: ['すてきなお部屋になりましたね！ 碁盤をタップすると、対人戦にも行けますよ。']
+    },
+    sell_flower: {
+      title: '骨董屋で売ってみよう', who: 'koharu',
+      done: () => !!S.spSeen,
+      steps: [
+        { go: home, say: '……あれ？ それ、師匠が投げた花束ですか？' },
+        { say: '縁起でもないですし……売っちゃいましょうか。あの人、この先で骨董屋もやってるんです。' },
+        { go: home, at: '#openShop', say: '「ショップ」へ行きましょう！', until: () => !$$('#shop').hidden },
+        { go: () => window.SHOP.open(), at: '#shopKotto', say: '奥の「骨董屋」です。', until: () => !$$('#kotto').hidden },
+        { go: () => window.SHOP.openKotto(), at: '#kottoGrid [data-sell-item="w_dryflower"]', say: 'ドライフラワーをタップして、売ってみてください。', until: () => !!S.spSeen }
+      ],
+      lines: ['売れましたね！',
+        '玄斎さんは勾玉のコレクターで、勾玉も売っているんですが……貴重な品だそうで、しっかりとした大人しか買えないんです。興味があったら、のぞいてみてくださいね。']
+    }
+  };
+  let spBusy = false;
+  // 特別ミッションを始める（ほかのが残っていたら、あとに並べる）
+  function special(id) {
+    if (S.sp && S.sp !== id) { S.spQ = (S.spQ || []).filter(x => x !== id).concat(id); P.save(); setTimeout(check, 600); return; }
+    S.sp = id; S.spSeen = 0; P.save(); P.renderHome();
+    runSpecial();
+  }
+  // 案内する（ホームの目標をタップしたときも）
+  function runSpecial() {
+    const d = SP[S.sp]; if (!d || spBusy || playing) return;
+    if (d.done()) { spDone(); return; }
+    if (!window.TUTORIAL || window.TUTORIAL.busy()) return;
+    spBusy = true;
+    const steps = d.steps.concat((d.lines || []).map(t => ({ say: t })));
+    window.TUTORIAL.guide({ who: d.who, steps, then: () => { spBusy = false; spDone(true); }, later: () => { spBusy = false; home(); } });
+  }
+  // できた：セリフ（案内なしでできたとき）→ 次の特別ミッション
+  function spDone(said) {
+    const id = S.sp, d = SP[id]; if (!d) return;
+    if (!d.done()) return;
+    S.sp = null; S.spSeen = 0; P.save();
+    const next = nx => {
+      const n = nx || d.next || (S.spQ || []).shift();
+      P.save();
+      if (n) setTimeout(() => special(n), 500); else { home(); setTimeout(check, 600); }
+    };
+    const after = () => d.after ? d.after(next) : next();
+    if (!said && d.lines) { spBusy = true; window.FANFARE.scene({ who: d.who === 'shima' ? 'shima' : d.who, steps: d.lines.map(text => ({ text })), then: () => { spBusy = false; after(); } }); }
+    else after();
+  }
+  // 自分でできたかの見張り（ホームにもどったとき・画面を移ったとき）
+  function spCheck() { const d = SP[S.sp]; if (d && !spBusy && !playing && d.done()) spDone(); }
+  document.addEventListener('kuro9screen', e => {
+    if (S.sp === 'rec_look' && e.detail === 'record' && !S.spSeen) { S.spSeen = 1; P.save(); }
+    if (e.detail === 'home') setTimeout(spCheck, 300);
+  });
+  document.addEventListener('kuro9room', e => { if (S.sp === 'place_goban' && e.detail === 'editdone' && RM().placed('goban') >= 1) { S.spSeen = 1; P.save(); } });
+  document.addEventListener('kuro9sold', e => { if (S.sp === 'sell_flower' && e.detail === 'w_dryflower') { S.spSeen = 1; P.save(); } });
+  // ホームの目標用
+  function spInfo() { const d = SP[S.sp]; return d ? { id: S.sp, title: d.title } : null; }
+
   // 小春の案内（開いた場所の分だけ）。案内のあいだは、ほかの登場をまつ
   function tour(sec, then) {
     if (!window.TUTORIAL || prog().all) { if (then) then(); return; }
@@ -216,5 +398,5 @@
     check();
   }
 
-  window.PROG = { isOpen, refresh, check, start, haruDone, intro };
+  window.PROG = { isOpen, ready, refresh, check, start, haruDone, intro, gamesLeft, spInfo, runSpecial, beginner, NEED, GK_AFTER };
 })();

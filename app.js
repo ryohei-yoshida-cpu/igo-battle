@@ -337,6 +337,7 @@
       }   // ホームでないときは覚えておかない（次にホームが出たときに聞く）
     } else if (S.charaOpenN !== nOpen) { S.charaOpenN = nOpen; saveLocal(); }
     if (window.ROOM && !document.body.classList.contains('on-title')) window.ROOM.todayVisitor();
+    if (window.GOALS) window.GOALS.render();   // 次の目標
     if (window.AVATAR) $('#chipFace').innerHTML = window.AVATAR.thumb(S.av || window.AVATAR.PRESETS.girl, 'icon');
     $('#homeName').textContent = S.name;
     const dr = displayRank();
@@ -1245,6 +1246,7 @@
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
       case 'dm': if (!answer(m) && window.DM) window.DM.push(m); break;   // デイリーミッション
+      case 'claimed': applyEcon(m.econ, false); answer(m); break;   // 開放のイベントのもらいもの
       case 'delacct': onDelAcct(m); break;
       case 'busy': toast(m.what === 'login' ? 'ログインの失敗が多すぎます。1時間ほどたってから、もう一度ためしてください' : 'アカウントの作成が多すぎます。しばらくたってから、もう一度ためしてください', 5000); break;
       case 'gifts': if (m.econ) applyEcon(m.econ, false); if (!answer(m) && window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
@@ -1769,13 +1771,16 @@
 
   // ソロモード（solo.js）から使う機能
   window.APP = {
-    E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
+    E: E9, A, S, save, RANKS, TH, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch, openPvp, askChara,
-    rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq: request, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
+    rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq: request, charaOpen, UNLOCK,
+    // キャラクター戦の強さ（目標から「〇〇と対局」を押したとき）
+    setBotLevel(v) { S.botLevel = v; save(); for (const s of [$('#botLevel'), $('#botLevelQuick')]) if (s) s.value = String(v); }, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // ---------- 銭・持ち物（サーバーが正。つながっていないときは使えない） ----------
     // レクチャー初クリア・ドリル正解・開放・チュートリアルの銭：サーバーが1回だけ出す。つながっていなければ、つながったときに送る
     claim(kind, id) { claimSend({ t: 'claim', kind, id }); },
-    claimUnlock(id) { claimSend({ t: 'claim', kind: 'unlock', id }); },
+    // 開放のイベントのもらいもの（直接わたされる）。cb は受けとったあと（つながっていないときは、つながったときに）
+    claimUnlock(id, cb) { if (econOn()) request({ t: 'claim', kind: 'unlock', id }, m => { if (cb) cb(m); }); else { claimSend({ t: 'claim', kind: 'unlock', id }); if (cb) cb(null); } },
     claimTutorial() { claimSend({ t: 'claim', kind: 'tutorial', id: 'go' }); },
     // 買い物：what は { item } / { floor } / { wall } / { av } / { roomAdd } / { roomBig }。cb({ ok, reason, half, paid })
     buy(what, price, cb) {

@@ -3,6 +3,13 @@
  *   設定の「チュートリアルを受ける」で、開いている場所をぜんぶもう一度。
  *   小春が画面の3分の1くらいの大きさで、説明する場所をよけて立つ（歩くようにフェードで移動・向きも変える）。
  *   どこをタップしても次へ。「スキップ」でいつでも終われる。
+ *
+ * guide({ who, steps, then, later }) … 特別ミッションの「やってみよう」案内（小春・ひなた・静馬が案内する）
+ *   steps：{ go, at, say, until, skip }
+ *     until があるステップは、光っている場所だけさわれる（ほかは押せない）。until() が true になったら自動で次へ
+ *     確認・お礼などの画面が出ているあいだは、案内は引っこんでじゃましない
+ *     skip() が true のステップはとばす
+ *   「あとで」で中断できる（later()）。ホームの特別ミッションから、また最初から案内する
  */
 (function () {
   'use strict';
@@ -10,7 +17,7 @@
   const $ = window.U.$;
 
   // 1歩ずつ：go（画面を開く）、at（光らせる場所）、say（小春のセリフ）
-  const home = () => { P.showScreen('home'); P.renderHome(); };
+  const home = () => { for (const id of ['result', 'settings']) { const e = $('#' + id); if (e) e.hidden = true; } P.showScreen('home'); P.renderHome(); };
   // 開いた場所ごとに区切る。sec の場所が開いたら、その区切りだけ案内する
   const SECS = {
     base: [
@@ -62,6 +69,8 @@
   const END = { go: home, say: 'これで案内はおしまいです！ 最後まで聞いてくれて、ありがとうございました。これから、よろしくお願いしますね！', last: true };
   const PART_END = { go: home, say: 'ここの案内はおしまいです。また新しい場所が開いたら、案内しますね！', last: true };
   let STEPS = [], cur = null, onEnd = null;   // cur：いま案内している区切り（全部なら 'all'）
+  let GD = null;   // guide() のとき：{ who, later, poll, lost }
+  const WHO = { koharu: '小春', hinata: 'ひなた', shima: '静馬', tomoe: '巴', gensai: '玄斎' };
   function build(sec) {
     if (sec === 'all') {
       const open = ORDER.filter(k => k === 'base' || !window.PROG || window.PROG.isOpen(k));
@@ -72,12 +81,13 @@
   }
 
   let el = null, i = -1, typing = 0, full = '', busy = false, pos = null;
-  function buildEl() {
+  function buildEl(who) {
+    who = WHO[who] ? who : 'koharu';
     el = document.createElement('div'); el.className = 'tut';
-    el.innerHTML = `<div class="tut-hole" hidden></div>
-      <div class="tut-k"><img src="img/visit_koharu.webp" alt="小春"></div>
-      <div class="tut-say"><b>小春</b><p></p><small class="tut-next">タップで次へ ▶</small></div>
-      <div class="tut-top"><span class="tut-n"></span><button type="button" class="tut-skip">スキップ</button></div>`;
+    el.innerHTML = `<div class="tut-hole" hidden></div>${GD ? '<i class="tut-block"></i><i class="tut-block"></i><i class="tut-block"></i><i class="tut-block"></i>' : ''}
+      <div class="tut-k"><img src="img/visit_${who}.webp" alt="${WHO[who]}"></div>
+      <div class="tut-say"><b>${WHO[who]}</b><p></p><small class="tut-next">タップで次へ ▶</small></div>
+      <div class="tut-top"><span class="tut-n"></span><button type="button" class="tut-skip">${GD ? 'あとで' : 'スキップ'}</button></div>`;
     document.body.append(el);
     el.addEventListener('click', e => {
       if (e.target.closest('.tut-skip')) { e.stopPropagation(); skip(); return; }
@@ -152,8 +162,11 @@
   }
   async function show(n) {
     busy = true;
-    S.tutStep = n; S.tutSec = cur; P.saveLocal();   // 途中で落ちても、ここから再開できるように
+    if (!GD) { S.tutStep = n; S.tutSec = cur; P.saveLocal(); }   // 途中で落ちても、ここから再開できるように
     const st = STEPS[n];
+    if (GD && st.skip && st.skip()) { busy = false; i = n; nextStep(); return; }
+    el.classList.toggle('live', !!st.until);
+    el.querySelector('.tut-next').textContent = st.until ? 'やってみてね' : 'タップで次へ ▶';
         el.querySelector('.tut-n').textContent = `${n + 1} / ${STEPS.length}`;
     el.querySelector('.tut-say').classList.remove('in');
     el.querySelector('.tut-hole').hidden = true;
@@ -168,11 +181,43 @@
     if (!el) return;
     speak(st.say);
     if (n > 0) P.sound('tap');
+    if (st.until) block(r);
     busy = false;
+  }
+  // 「やってみよう」：光っている場所のまわりを、4つの板でふさぐ（光っている場所だけ押せる）
+  function block(r) {
+    const bs = el.querySelectorAll('.tut-block'); if (!bs.length) return;
+    const W = window.innerWidth, H = window.innerHeight, pad = 6;
+    if (!r) { Object.assign(bs[0].style, { left: 0, top: 0, width: W + 'px', height: H + 'px' }); for (const b of [bs[1], bs[2], bs[3]]) b.style.width = '0'; return; }
+    const L = Math.max(0, r.left - pad), T = Math.max(0, r.top - pad), R = Math.min(W, r.right + pad), Bt = Math.min(H, r.bottom + pad);
+    Object.assign(bs[0].style, { left: 0, top: 0, width: W + 'px', height: T + 'px' });
+    Object.assign(bs[1].style, { left: 0, top: Bt + 'px', width: W + 'px', height: (H - Bt) + 'px' });
+    Object.assign(bs[2].style, { left: 0, top: T + 'px', width: L + 'px', height: (Bt - T) + 'px' });
+    Object.assign(bs[3].style, { left: R + 'px', top: T + 'px', width: (W - R) + 'px', height: (Bt - T) + 'px' });
+  }
+  // ほかの画面（確認・お礼・お店の登場など）が上に出ているか
+  const modalOpen = () => !!document.querySelector('#confirm:not([hidden]), .sj, .ff, #fxStamp:not([hidden]), #giftBox:not([hidden])');
+  // 「やってみよう」のステップを見張る：できたら次へ。光らせる場所が動いたら追いかける
+  function watch() {
+    if (!el || !GD || busy || i < 0) return;
+    const st = STEPS[i], m = modalOpen();
+    el.classList.toggle('away', m);   // ほかの画面が出ているあいだは引っこむ（セリフだけのステップでも）
+    if (!st || !st.until) return;
+    if (st.until()) { nextStep(); return; }
+    if (m) return;
+    const r = rectOf(st.at);
+    if (r) { GD.lost = 0; hole(r); block(r); }
+    else if (++GD.lost > 8 && st.go) { GD.lost = 0; try { st.go(); } catch (e) {} }   // 場所が見つからない（別の画面に行った）：もう一度案内する
+  }
+  function nextStep() {
+    i++;
+    if (i >= STEPS.length) { finish(true); return; }
+    show(i);
   }
   const wait = ms => new Promise(r => setTimeout(r, ms));
   function next() {
     if (busy || !el) return;
+    if (GD && STEPS[i] && STEPS[i].until) return;   // 「やってみよう」は、できるまで進まない
     const p = el.querySelector('.tut-say p');
     if (p.textContent.length < full.length) { clearInterval(typing); p.textContent = full; return; }   // まず全部表示
     if (STEPS[i] && STEPS[i].last) { finish(true); return; }
@@ -181,7 +226,8 @@
     show(i);
   }
   function close() {
-    clearInterval(typing); delete S.tutStep; delete S.tutSec; P.saveLocal();
+    clearInterval(typing);
+    if (GD) { clearInterval(GD.poll); } else { delete S.tutStep; delete S.tutSec; P.saveLocal(); }
     if (!el) return;
     el.classList.add('out'); document.body.classList.remove('tut-on');
     const e = el; el = null; pos = null;
@@ -194,20 +240,26 @@
   }
   function end() { const f = onEnd; onEnd = null; if (f) setTimeout(f, 400); }
   function skip() {
+    if (GD) {
+      P.confirmBox('案内をいったん終わりますか？（ホームの「特別ミッション」から、また案内します）', () => { const f = GD.later; close(); GD = null; onEnd = null; if (f) setTimeout(f, 300); }, null, { yes: 'あとで', no: 'つづける' });
+      return;
+    }
     P.confirmBox('案内をスキップしますか？（設定の「チュートリアルを受ける」で、いつでももう一度見られます）', () => {
       markDone(); if (!S.tut) S.tut = 'skip'; P.save(); close(); home(); end();
     }, null, { yes: 'スキップ', no: 'つづける' });
   }
   function finish() {
+    if (GD) { close(); GD = null; end(); return; }
     markDone(); if (cur === 'all' || cur === 'kotto') S.tut = 'done';
     P.save(); close(); home();
     P.toast('案内はおしまいです。おつかれさまでした！');
     end();
   }
-  function open(sec, n, then) {
+  function open(sec, n, then, who) {
     if (el) { if (then) then(); return; }
-    cur = sec; STEPS = build(sec); onEnd = then || null;
-    buildEl(); i = Math.max(-1, Math.min(STEPS.length - 1, (n | 0) - 1)); full = ''; busy = false; document.body.classList.add('tut-on');
+    if (sec !== 'guide') { cur = sec; STEPS = build(sec); }
+    onEnd = then || null;
+    buildEl(who); i = Math.max(-1, Math.min(STEPS.length - 1, (n | 0) - 1)); full = ''; busy = false; document.body.classList.add('tut-on');
     requestAnimationFrame(() => el.classList.add('on'));
     setTimeout(next, 300);
   }
@@ -221,5 +273,13 @@
   window.addEventListener('resize', () => { if (el && i >= 0 && !busy) { const r = rectOf(STEPS[i].at); hole(r); const p = place(r); pos = null; moveTo(p); } });
   // 途中から再開（アプリを開き直したとき）
   function resume(n, then) { open(S.tutSec && (S.tutSec === 'all' || SECS[S.tutSec]) ? S.tutSec : 'all', n, then); }
-  window.TUTORIAL = { start, run, resume, SECS: Object.keys(SECS) };
+  // 特別ミッションの案内
+  function guide(o) {
+    if (el) return false;
+    GD = { who: o.who || 'koharu', later: o.later || null, lost: 0, poll: setInterval(watch, 300) };
+    cur = 'guide'; STEPS = o.steps.slice();
+    open('guide', 0, o.then, GD.who);
+    return true;
+  }
+  window.TUTORIAL = { start, run, resume, guide, busy: () => !!el, SECS: Object.keys(SECS) };
 })();

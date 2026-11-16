@@ -142,6 +142,14 @@
         b.querySelector('small').textContent = st.sub;
         list.append(b); continue;
       }
+      // 初心者：キャラクターのエピソードは、巴に「戦歴」を見せてお駄賃をもらうまで読めない（ひなたのお話から順番に）
+      if (st.chara && !S.soloFree && S.solo.mode !== 'expert' && !(S.prog && (S.prog.all || (S.prog.seen && S.prog.seen.recLook))) && !done) {
+        b.disabled = true; b.classList.add('locked');
+        b.innerHTML = '<b></b><small></small><span class="st-state">対局を重ねて、巴に会うと読めます</span>';
+        b.querySelector('b').textContent = '🔒 ' + st.title;
+        b.querySelector('small').textContent = st.sub;
+        list.append(b); continue;
+      }
       if (st.need && !S.soloFree && P.displayRank() < st.need) {
         b.disabled = true; b.classList.add('locked');
         b.innerHTML = '<b></b><small></small><span class="st-state"></span>';
@@ -336,6 +344,7 @@
       if (first) P.claim('episode', st.id, 500);   // エピソードを初めて読み終えたら 500銭
       S.solo.read[st.id] = true; P.save();
       if (st.id === 'haru' && window.PROG) setTimeout(() => window.PROG.haruDone(), 2600);   // 対人戦が開く
+      else if (window.PROG) setTimeout(() => window.PROG.check(), 3200);   // ひなた・静馬・闇落ち玄斎のお話で、キャラがやってくる
       if (window.FX) window.FX.stamp({ kicker: 'エピソードクリア', stamp: '読了', title: st.title, sub: '最後まで読んでくれて、ありがとうございました！', rewards: first ? ['ごほうび 500銭'] : [], chara: st.chara || (st.user ? null : 'koharu'), kind: 'clear' });
       const r = $('#rdStage').getBoundingClientRect(); A.burst(r.left + r.width / 2, r.top + r.height / 2, 'win'); P.sound('ok');
       for (const el of document.querySelectorAll('.rd-actor')) el.classList.remove('speak');

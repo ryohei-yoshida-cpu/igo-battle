@@ -277,3 +277,17 @@
 .dm-gauge i { display: block; height: 100%; background: linear-gradient(90deg, #e8c46e, #f0a640); }
 .dm-n { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-weight: 900; color: var(--kin); font-size: 14px; }
 .dm-n small { font-size: 10.5px; color: var(--muted); font-weight: 700; }
+
+/* 次の目標（特別・初心者／キャラクター・共通） */
+.goal-box { display: flex; flex-direction: column; gap: 6px; }
+.goal { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border-radius: 14px; border: 1px solid rgba(232, 196, 110, .35); background: linear-gradient(90deg, rgba(58, 36, 20, .92), rgba(36, 22, 12, .92)); color: var(--fg, #f4e9d8); text-align: left; cursor: pointer; }
+.goal > i { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: rgba(232, 196, 110, .16); font-style: normal; font-size: 15px; }
+.goal span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.goal small { font-size: 10.5px; color: var(--kin); letter-spacing: .06em; }
+.goal b { font-size: 13.5px; line-height: 1.45; }
+.goal em { flex: none; font-style: normal; font-weight: 900; color: var(--kin); font-size: 13px; }
+.goal s { flex: none; text-decoration: none; opacity: .6; }
+.goal.sp { border-color: #ffd98a; background: linear-gradient(90deg, rgba(120, 64, 18, .95), rgba(70, 36, 12, .95)); box-shadow: 0 0 0 1px rgba(255, 217, 138, .35) inset, 0 0 16px rgba(255, 196, 90, .25); animation: goalGlow 2.4s ease-in-out infinite; }
+.goal.sp > i { background: #ffd98a; color: #5a2e08; }
+@keyframes goalGlow { 50% { box-shadow: 0 0 0 1px rgba(255, 217, 138, .55) inset, 0 0 22px rgba(255, 196, 90, .45); } }
+@media (prefers-reduced-motion: reduce) { .goal.sp { animation: none; } }
