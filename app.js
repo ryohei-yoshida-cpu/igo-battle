@@ -907,7 +907,7 @@
 
   /* ---------- 対人戦サーバー（Cloudflare） ---------- */
   // 同じサイトの /ws につなぐ（Cloudflare で公開したとき）。別の場所で開くときは config.js で指定
-  const NET_URL = window.KURO9_WS || ((/\.workers\.dev$/.test(location.hostname) || location.port === '8787') ? (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' : '');
+  const NET_URL = window.KURO9_WS || ((/\.workers\.dev$/.test(location.hostname) || /^(localhost|127\.)/.test(location.hostname)) ? (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' : '');
   const ONLINE_WAIT_MS = 20000;   // 人が見つからないときに Bot に切り替えるまで
   if (!S.cid) { S.cid = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); save(); }
   const NET = { ws: null, ok: false, retry: 0, online: 0, seeking: 0, pingT: 0 };

@@ -1,0 +1,10 @@
+// コードの書きまちがいチェック（npm run lint）
+const node = { globalThis: 'readonly', crypto: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', TextEncoder: 'readonly', Response: 'readonly', WebSocketPair: 'readonly', URL: 'readonly', process: 'readonly', Buffer: 'readonly', fetch: 'readonly' };
+const browser = { window: 'readonly', document: 'readonly', localStorage: 'readonly', location: 'readonly', navigator: 'readonly', requestAnimationFrame: 'readonly', getComputedStyle: 'readonly', Image: 'readonly', Audio: 'readonly', WebSocket: 'readonly', Storage: 'readonly', performance: 'readonly', alert: 'readonly', HTMLElement: 'readonly', Event: 'readonly', CustomEvent: 'readonly', Blob: 'readonly', FileReader: 'readonly', AudioContext: 'readonly', OffscreenCanvas: 'readonly', Worker: 'readonly', self: 'readonly', caches: 'readonly', history: 'readonly', screen: 'readonly', matchMedia: 'readonly', devicePixelRatio: 'readonly', cancelAnimationFrame: 'readonly', ResizeObserver: 'readonly', IntersectionObserver: 'readonly', MutationObserver: 'readonly', DOMParser: 'readonly', btoa: 'readonly', atob: 'readonly', encodeURIComponent: 'readonly', structuredClone: 'readonly' };
+const rules = { 'no-undef': 'error', 'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }], 'no-dupe-keys': 'error', 'no-unreachable': 'error', 'no-redeclare': 'error', 'no-const-assign': 'error', 'no-dupe-else-if': 'error', 'no-self-assign': 'error' };
+export default [
+  { ignores: ['tools/**', 'ai/**', 'node_modules/**', '.wrangler/**'] },
+  // アプリ（ブラウザ）：ふつうの <script>。ファイルどうしは window.〇〇 でやりとりする
+  { files: ['*.js', 'common/**/*.js'], languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: Object.assign({ addScript: 'readonly', importScripts: 'readonly' }, node, browser) }, rules },
+  { files: ['server/**/*.js', 'server/**/*.mjs', 'test/**/*.mjs'], languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: Object.assign({}, node, browser) }, rules },
+];

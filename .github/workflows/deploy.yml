@@ -1,12 +1,31 @@
-# main に push されたら、Cloudflare Workers に自動で公開する
+# main に push されたら、テストをして、通ったら Cloudflare Workers に公開する
 # 必要な GitHub の Secrets: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID
-name: Deploy to Cloudflare
+name: Test and Deploy
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: コードの書きまちがいチェック
+        run: npm run lint
+      - name: サーバーのテスト
+        run: npm test
+      - name: ブラウザのテスト
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
   deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -411,17 +411,6 @@
       const today = S.visitDay && guests.find(g => g.key === S.visitDay.key);
       curGuest = today || guests[Math.floor(Math.random() * guests.length)] || null;
     }
-    return;
-    const list = unlocked().sort(() => Math.random() - .5).slice(0, 2);
-    const busy = new Set();
-    for (const it of room().items) if (cat(it.k).kind !== 'flat') { const f = rectOf(it); for (let x = f.x; x < f.x + f.w; x++) for (let y = f.y; y < f.y + f.d; y++) busy.add(x + ',' + y); }
-    for (const u of list) {
-      for (let t = 0; t < 60; t++) {
-        const x = 2 + ((Math.random() * (N - 3)) | 0), y = 2 + ((Math.random() * (N - 3)) | 0);
-        if (busy.has(x + ',' + y)) continue;
-        busy.add(x + ',' + y); visitors.push({ key: u.v.key, idx: u.idx, name: u.v.name, x, y }); break;
-      }
-    }
   }
   // 今の部屋に合うセリフを選ぶ（家具や雰囲気に関係あるものを出やすく、最近のものは出さない）
   function facts() {
@@ -1173,5 +1162,5 @@
     flush(); P.sound('stone');
     window.FRIEND.inviteTo(to);
   };
-  window.ROOM = { thumb: k => thumb(k), LIM, openGuild: openGuildRoom, open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
+  window.ROOM = { LIM, openGuild: openGuildRoom, open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
 })();
