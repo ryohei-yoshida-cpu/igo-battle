@@ -17,6 +17,7 @@
  */
 import { check, cleanName } from './ng.js';
 import { ageState } from './age.js';
+import { KEEP_MS } from './social.js';
 
 export const MAIL = { text: 200, box: 300, gapMs: 3000, perDay: 150 };
 const NG = { sexual: 'ng', violent: 'ng', abuse: 'ng', contact: 'contact' };
@@ -29,6 +30,19 @@ export class Mail {
   day() { return new Date(this.now() + 9 * 3600e3).toISOString().slice(0, 10); }
   sendTo(id, msg) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify(Object.assign({ t: 'mail' }, msg))); } catch (e) {} } }
   async box(id) { return (await this.store.get('mbox:' + id)) || { items: [] }; }
+  // メッセージの原本（msg:<番号>）は、1年たったら古い順に消す（ログインのときに、1時間に1回まで・1回に200通まで）
+  async purge() {
+    const now = this.now(); if (this.purgedAt && now - this.purgedAt < 3600e3) return; this.purgedAt = now;
+    const top = ((await this.store.get('msgseq')) || {}).n | 0, st = (await this.store.get('msgpurge')) || { n: 0 };
+    let n = st.n | 0, k = 0;
+    while (n < top && k < 200) {
+      const x = await this.store.get('msg:' + (n + 1));
+      if (x && !(x.t < now - KEEP_MS)) break;   // ここから先は、まだ1年たっていない
+      if (x) await this.store.del('msg:' + (n + 1));
+      n++; k++;
+    }
+    if (n !== st.n) await this.store.put('msgpurge', { n });
+  }
   unread(b) { return b.items.filter(x => !x.mine && !x.read).length; }
 
   // 1通を、両方の箱と原本に入れる（system：碁会所の申請・招待など。from は送り主）
@@ -39,8 +53,9 @@ export class Mail {
     const n = await this.soc.withKey('msgseq', c => { c.n = (c.n || 0) + 1; }, () => ({ n: 0 })).then(c => c.n);
     await this.store.put('msg:' + n, { n, t, from: fromId, to: toId, fromPid: fp, toPid: tp, fromName: fname, text, kind: kind || 'msg', extra: extra || null });
     const item = mine => ({ n, t, peer: mine ? tp : fp, name: mine ? tname : fname, mine, text, kind: kind || 'msg', read: mine, extra: extra || undefined });
-    if (fromId !== toId && (kind || 'msg') === 'msg') await this.soc.withKey('mbox:' + fromId, b => { b.items.unshift(item(true)); b.items = b.items.slice(0, MAIL.box); }, () => ({ items: [] }));
-    const b = await this.soc.withKey('mbox:' + toId, b => { b.items.unshift(item(false)); b.items = b.items.slice(0, MAIL.box); }, () => ({ items: [] }));
+    const keep = x => !(x.t < t - KEEP_MS);   // 1年たったメッセージは消す
+    if (fromId !== toId && (kind || 'msg') === 'msg') await this.soc.withKey('mbox:' + fromId, b => { b.items.unshift(item(true)); b.items = b.items.filter(keep).slice(0, MAIL.box); }, () => ({ items: [] }));
+    const b = await this.soc.withKey('mbox:' + toId, b => { b.items.unshift(item(false)); b.items = b.items.filter(keep).slice(0, MAIL.box); }, () => ({ items: [] }));
     this.sendTo(toId, { op: 'push', item: item(false), unread: this.unread(b) });
     return n;
   }

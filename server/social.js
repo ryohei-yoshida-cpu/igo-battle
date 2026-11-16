@@ -40,6 +40,8 @@ const LIM = {
   diaryDays: 180, diaries: 180, pubdia: 300, pubrooms: 100, comments: 15, chats: 40, foot: 20, friends: 100, blocks: 200, freq: 30,
   postGapMs: 4000, postsPerDay: 80
 };
+export const KEEP_MS = 365 * 24 * 3600e3;   // 書きこみ・メッセージ・通報の保管期間（1年）
+const KEEP_LISTS = ['reports', 'mrep'];
 const NG_MSG = { sexual: 'sexual', violent: 'violent', abuse: 'abuse', contact: 'contact' };
 
 const newSoc = () => ({ hito: '', diary: [], diaryDay: '', rpub: true, chat: [], visits: { total: 0, day: '', today: 0, seen: [] }, foot: [], cset: 'all', blocks: [], friends: [], freq: [], notes: [], seq: 1 });
@@ -105,6 +107,17 @@ export class Social {
     await this.dropList('pubdia', x => x.oid === id);
     await this.dropList('pubrooms', x => x.pid === pid);
   }
+  // アカウント削除：日記・一言・部屋の公開をすべて消し、フレンドの一覧からも外す。部屋番号も使えなくする
+  async deleteAll(id, pid) {
+    const s = await this.readSoc(id);
+    for (const d of s.diary) if (this.store.del) await this.store.del(`dia:${id}:${d.id}`);
+    for (const f of s.friends.concat(s.freq || [])) { const oid = await this.idOf(f.pid); if (oid) await this.withSoc(oid, x => { x.friends = x.friends.filter(y => y.pid !== pid); x.freq = (x.freq || []).filter(y => y.pid !== pid); }).catch(() => {}); }
+    await this.dropList('pubdia', x => x.oid === id);
+    await this.dropList('pubrooms', x => x.pid === pid);
+    await this.store.del('soc:' + id);
+    if (pid) await this.store.del('pid:' + pid);
+    this.active = (this.active || []).filter(x => x !== pid);
+  }
   // 読むだけ（前の形が残っていたら、一度だけ書きかえる）
   async readSoc(id) {
     const s = fixSoc(await this.store.get('soc:' + id));
@@ -113,7 +126,9 @@ export class Social {
   }
   // 公開の一覧（みんなの日記・みんなの部屋）。新しいものを先頭に、古いものから消える
   pushList(key, item, same, max) {
-    return this.withKey(key, list => { const l = list.filter(x => !same(x)); l.unshift(item); list.length = 0; list.push(...l.slice(0, max)); }, () => []);
+    // 通報の一覧は、1年たったら消す（プライバシーポリシーの保管期間）
+    const old = KEEP_LISTS.includes(key) ? this.core.now() - KEEP_MS : -Infinity;
+    return this.withKey(key, list => { const l = list.filter(x => !same(x) && !(x.t < old)); l.unshift(item); list.length = 0; list.push(...l.slice(0, max)); }, () => []);
   }
   dropList(key, same) { return this.withKey(key, list => { const l = list.filter(x => !same(x)); if (l.length === list.length) return false; list.length = 0; list.push(...l); }, null); }
   // もようがえを終えたとき（core.js から）：公開の部屋なら「みんなのルーム探訪」の一覧へ
@@ -151,7 +166,8 @@ export class Social {
     for (const f of s.friends.slice(0, 100)) { const oid = await this.idOf(f.pid); if (oid) await this.notify(oid, Object.assign({}, note)); }
   }
   // 書きこみの写し（運営用。一言・コメント・碁会所の一言や掲示板。お知らせは残さない）：clog:<ID> に新しい順で500件
-  logPost(id, it) { return this.withKey('clog:' + id, list => { list.unshift(Object.assign({ t: this.core.now() }, it)); if (list.length > 500) list.length = 500; }, () => []); }
+  // 書きこみの写し（消したあとも、運営が1年間保管する。1年たったものは消す）
+  logPost(id, it) { const now = this.core.now(); return this.withKey('clog:' + id, list => { const l = list.filter(x => !(x.t < now - KEEP_MS)); l.unshift(Object.assign({ t: now }, it)); list.length = 0; list.push(...l.slice(0, 500)); }, () => []); }
   touchActive(pid) { this.active = [pid].concat(this.active.filter(x => x !== pid)).slice(0, 60); }
 
   async handle(sock, info, m) {

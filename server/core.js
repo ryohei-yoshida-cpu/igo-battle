@@ -61,6 +61,7 @@ import { Social } from './social.js';
 import { Guild } from './guild.js';
 import { Mail } from './mail.js';
 import { Admin } from './admin.js';
+import * as GO from './gorules.js';
 import { cleanName } from './ng.js';
 import '../common/avatar-art.js';
 const AVP = globalThis.AVATAR.PRICE, AVATAR_CLEAN = globalThis.AVATAR.clean, AV_SEASON = globalThis.AVATAR.SEASON || {};
@@ -134,6 +135,7 @@ export class Core {
     if (typeof raw !== 'string' || raw.length > LIMIT.syncBytes) return;
     const m = JSON.parse(raw);
     if (m.t === 'register' || m.t === 'login' || m.t === 'sync') return this.account(sock, m, ip);
+    if (m.t === 'delacct') return this.deleteAcct(sock, m);
     if (ECON.includes(m.t)) return this.econ(sock, m);
     if (raw.length > 4000) return;
     if (m.t === 'soc') { const info = this.sockInfo.get(sock); return info && this.social.handle(sock, info, m); }
@@ -152,7 +154,7 @@ export class Core {
       case 'cancel': pl.seekAt = 0; this.lobby(); break;
       case 'move': this.move(pl, m); break;
       case 'resign': { const g = this.gameOf(pl, m.g); if (g && !g.over) this.finish(g, 3 - g.colorOf[pl.cid], '中押し'); break; }
-      case 'score': { const g = this.gameOf(pl, m.g); if (g && g.scoring && !g.over) this.finish(g, m.res && [0, 1, 2].includes(m.res.winner) ? m.res.winner : 0, '整地', m.res || null); break; }
+      case 'score': { const g = this.gameOf(pl, m.g); if (g && g.scoring && !g.over) this.scoreIn(g, g.colorOf[pl.cid], m.res); break; }
       case 'decline': { const g = this.gameOf(pl, m.g); if (g && !g.over && g.moves.length === 0) this.abort(g); break; }
     }
   }
@@ -217,6 +219,7 @@ export class Core {
       if (rec.ban) { out({ t: 'banned', reason: rec.ban.reason || '' }); return; }   // 利用停止のアカウント
       info.game = game; this.bindAcct(sock, info, id);
       this.guild.seen(id, game).catch(() => {});
+      this.mail.purge().catch(() => {});
       let welcome = false;
       const rec2 = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); gamePack(r, game, this.now()); if (r.welcome) { welcome = true; delete r.welcome; } await this.testReset(id, r, game); return true; });
       const gd = await this.gameData(id, rec2 || rec, game);
@@ -313,6 +316,29 @@ export class Core {
   waitFor(kind, id, gap) { this.lastAt = this.lastAt || new Map(); const t = this.lastAt.get(kind + ':' + id) || 0, left = gap - (this.now() - t); return left > 0 ? Math.ceil(left / 1000) : 0; }
   stamp(kind, id) { this.lastAt = this.lastAt || new Map(); this.lastAt.set(kind + ':' + id, this.now()); if (this.lastAt.size > 20000) this.lastAt.delete(this.lastAt.keys().next().value); }
   // 利用停止にしたアカウントを、いまの接続から外す
+  /* ---------- アカウント削除（アプリの設定から。Google Play のきまり） ----------
+   * 消すもの：アカウント（銭・勾玉・持ち物・部屋・アバター・レート）、ゲームのセーブ、日記・一言・フレンド、受信箱、碁会所の所属、部屋番号
+   * 残すもの：書きこみとメッセージの写し・通報（違反への対応のため。1年たったら自動で消える。プライバシーポリシー6）
+   * 本人のパスワードを、もう一度確かめてから消す */
+  async deleteAcct(sock, m) {
+    const info = this.sockInfo.get(sock), out = msg => { try { sock.send(JSON.stringify(Object.assign({ t: 'delacct', req: m.req }, msg))); } catch (e) {} };
+    const id = info && info.acct; if (!id) return out({ ok: false, reason: 'auth' });
+    const rec = await this.store.get('acct:' + id);
+    if (!rec || rec.h !== await sha(id + ':' + normCode(m.pass))) return out({ ok: false, reason: 'pass' });
+    const pid = rec.pid || null;
+    await this.guild.leaveAll(id, rec.guild).catch(() => {});
+    await this.social.deleteAll(id, pid).catch(() => {});
+    const games = new Set(['go'].concat(Object.keys(rec.stats || {}), Object.keys(rec.tama || {}), Object.keys(rec.guild || {})));
+    for (const g of games) await this.store.del('gd:' + id + ':' + g);
+    await this.store.del('mbox:' + id);
+    // 同じアカウントの処理が終わるのを待ってから消す
+    await this.withAcct(id, async () => false).catch(() => {});
+    await this.store.del('acct:' + id);
+    await this.social.withKey('deleted', list => { list.unshift({ t: this.now(), pid }); if (list.length > 1000) list.length = 1000; }, () => []);
+    out({ ok: true });
+    for (const [s2, inf] of this.sockInfo) if (inf && inf.acct === id) { inf.acct = null; if (s2 !== sock) { try { s2.send(JSON.stringify({ t: 'delacct', ok: true, other: true })); } catch (e) {} } }
+    for (const [cid, p] of this.players) if (p.acct === id) { p.acct = null; p.pid = null; }
+  }
   kickAcct(id) {
     for (const [sock, info] of this.sockInfo) if (info && info.acct === id) { try { sock.send(JSON.stringify({ t: 'banned' })); } catch (e) {} info.acct = null; }
   }
@@ -619,7 +645,9 @@ export class Core {
       id, players: { 1: black.cid, 2: white.cid }, colorOf: { [black.cid]: 1, [white.cid]: 2 },
       hc: hc || null, host: hc ? a.cid : null, size, gk: gk || null,
       moves: [], clock: { 1: main, 2: main }, toPlay: hc && hc.h >= 2 ? 2 : 1, turnStart: this.now() + START_DELAY_MS,
-      passes: 0, over: false, scoring: false, away: { 1: null, 2: null }, timer: null, acked: {}, endMsg: null
+      passes: 0, over: false, scoring: false, away: { 1: null, 2: null }, timer: null, acked: {}, endMsg: null,
+      // サーバーも盤面を持って、ルールどおりの手か確かめる（置き石も同じ位置に）
+      board: GO.start(size, hc && hc.h >= 2 ? hc.h : 0), ko: -1, komi: hc ? (hc.komi | 0) : KOMI, scores: {}
     };
     this.games.set(id, g);
     for (const p of [black, white]) { p.seekAt = 0; p.game = id; this.closeRoom(p); }
@@ -652,6 +680,10 @@ export class Core {
     const c = g.colorOf[pl.cid];
     if (g.toPlay !== c || (m.n | 0) !== g.moves.length) return;          // 手番ちがい・二重送信
     const p = m.p | 0; if (p < -1 || p >= (g.size || 9) ** 2) return;
+    if (p >= 0) {   // 石のあるところ・自殺手・コウは打てない（改造したアプリの手は受けつけない）
+      const r = GO.play(g.board, g.size || 9, p, c, g.ko); if (!r) return;
+      g.board = r.board; g.ko = r.ko;
+    } else g.ko = -1;
     const used = Math.max(0, this.now() - g.turnStart);
     if (g.clock[c] - used <= 0) { this.finish(g, 3 - c, '時間切れ'); return; }
     g.clock[c] = g.clock[c] - used + INC_MS;
@@ -661,8 +693,8 @@ export class Core {
     const msg = { t: 'move', g: g.id, n: g.moves.length - 1, p, c, clock: this.clocks(g) };
     for (const cc of [1, 2]) this.send(g.players[cc], msg);
     if (g.scoring) {
-      // 黒番のアプリが整地して送ってくる。来なければ白番、それも来なければ持碁
-      g.timer = this.setTimeout(() => { if (!g.over) this.finish(g, 0, '整地', null); }, 30000);
+      // 両方のアプリが整地して送ってくる（scoreIn）。30秒たっても来なければ、来たほう、どちらも来なければ持碁
+      g.timer = this.setTimeout(() => { if (!g.over) this.scoreDone(g); }, 30000);
     } else this.arm(g);
   }
 
@@ -721,6 +753,33 @@ export class Core {
     this.create(host, guest, g.hc, black, null, g.gk);
   }
 
+  /* ---------- 整地：アプリの言う「勝ち負け」はそのまま使わない ----------
+   * それぞれのアプリから「死に石」の位置だけをもらい、サーバーが自分の盤面で地を数えなおす。
+   * 両方そろって勝ち負けが同じならその結果。食いちがったら「無効試合」（レートも碁会所の勝ちも動かない）。
+   * 片方しか来なかったとき（相手が切断など）は、来たほうの死に石で数える。 */
+  scoreIn(g, c, res) {
+    if (!c || g.scores[c]) return;
+    g.scores[c] = GO.score(g.board, g.size || 9, res && Array.isArray(res.dead) ? res.dead : [], g.komi);
+    if (g.scores[1] && g.scores[2]) this.scoreDone(g);
+    else { this.clearTimeout(g.timer); g.timer = this.setTimeout(() => { if (!g.over) this.scoreDone(g); }, 15000); }
+  }
+  scoreDone(g) {
+    if (g.over) return;
+    const a = g.scores[1], b = g.scores[2];
+    if (a && b && a.winner !== b.winner) {
+      this.dispute(g).catch(() => {});
+      return this.finish(g, 0, '無効試合', Object.assign({}, a, { winner: 0, void: true }), { void: true });
+    }
+    const r = a || b;
+    if (!r) return this.finish(g, 0, '整地', null);
+    this.finish(g, r.winner, '整地', r);
+  }
+  // 整地が食いちがった記録（運営が見る。同じ人が何度も起こしていたら、改造アプリのうたがい）
+  async dispute(g) {
+    const ps = [1, 2].map(c => this.players.get(g.players[c]));
+    await this.social.withKey('disputes', list => { list.unshift({ t: this.now(), g: g.id, pids: ps.map(p => p && p.pid || null), accts: ps.map(p => p && p.acct || null), moves: g.moves.slice(), dead: [g.scores[1].dead, g.scores[2].dead] }); if (list.length > 300) list.length = 300; }, () => []);
+  }
+
   // 対人戦のレート：両方のアカウントのサーバーのレートで計算して、それぞれに知らせる
   async rateOnline(g, winner) {
     const key = 'go' + (g.size === 13 ? 13 : 9), ps = [1, 2].map(c => this.players.get(g.players[c]));
@@ -738,7 +797,8 @@ export class Core {
     const msg = Object.assign({ t: 'rate', key, d, g: gid, rank: dispRank(t) }, t);
     for (const p of this.players.values()) if (p.acct === acct) { p.rates = Object.assign(p.rates || {}, { [key]: t.rating }); if (key === 'go' + (p.size || 9)) p.rating = t.rating; if (p.sock) { try { p.sock.send(JSON.stringify(msg)); } catch (e) {} } }
   }
-  finish(g, winner, reason, res) {
+  finish(g, winner, reason, res, opt) {
+    const voided = !!(opt && opt.void);
     if (g.over) return;
     g.over = true; this.clearTimeout(g.timer);
     for (const c of [1, 2]) if (g.away[c]) this.clearTimeout(g.away[c].timer);
@@ -751,7 +811,7 @@ export class Core {
     }
     for (const c of [1, 2]) this.send(g.players[c], g.endMsg);
     // 碁会所の対局数・月のランキング（短すぎる対局は数えない。勝ち数は自分の強さ以上の相手に勝ったときだけ）
-    if (g.moves.length >= 16 && (g.gk || !g.hc)) {
+    if (g.moves.length >= 16 && (g.gk || !g.hc) && !voided) {
       const key = 'go' + (g.size === 13 ? 13 : 9), ps = [1, 2].map(c => this.players.get(g.players[c]));
       const rt = p => (p && p.rates && p.rates[key]) || (p && p.rating) || START_RATE;
       if (ps.every(p => p && p.acct) && ps[0].acct !== ps[1].acct) ps.forEach((p, i) => {
@@ -759,7 +819,7 @@ export class Core {
         this.guild.count(p.acct, 'go', g.gk ? 'inner' : 'random', up).catch(() => {});
       });
     }
-    if (!g.hc) this.rateOnline(g, winner).catch(() => {});
+    if (!g.hc && !voided) this.rateOnline(g, winner).catch(() => {});
     for (const c of [1, 2]) {
       const p = this.players.get(g.players[c]);
       if (p) { p.game = p.sock ? null : g.id; if (p.sock) g.acked[p.cid] = true; }
@@ -991,5 +1051,6 @@ function cleanRoom(room, owned, total, n) {
 }
 
 /* ---------- 使いすぎ対策の数字 ---------- */
+const KOMI = 7;   // ランダムマッチのコミ（アプリと同じ。同点は持碁）
 const LIMIT = { perSec: 2, burst: 30, dropsToClose: 60, connPerIp: 8, registersPerHour: 5, loginFailsPerHour: 30, syncBytes: 100000 };
 

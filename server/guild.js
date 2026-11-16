@@ -144,6 +144,23 @@ export class Guild {
   online(id) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) return p; return null; }
   sendTo(id, msg) { for (const p of this.core.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify(Object.assign({ t: 'guild' }, msg))); } catch (e) {} } }
   pushAll(g, msg, skip) { for (const m of g.members) if (m.id !== skip) this.sendTo(m.id, Object.assign({ op: 'push' }, msg)); }
+  // アカウント削除：入っている碁会所をすべて抜ける（マスターなら店長か、ほかのメンバーへ。だれもいなければ碁会所を閉じる）
+  async leaveAll(id, guilds) {
+    for (const gid of Object.values(guilds || {})) {
+      let left = null, name = '';
+      await this.withG(gid, g => {
+        name = (g.members.find(x => x.id === id) || {}).name || '';
+        g.members = g.members.filter(x => x.id !== id);
+        if (g.manager === id) g.manager = null;
+        if (g.master === id) { g.master = g.manager || (g.members[0] && g.members[0].id) || null; if (g.master === g.manager) g.manager = null; }
+        if (g.recall && (g.recall.by === id || g.master !== g.recall.master)) g.recall = null;
+        if (g.donors) delete g.donors[id];
+        left = g;
+      });
+      if (left) { if (!left.members.length) await this.drop(left); else { await this.index(left); this.pushAll(left, { kind: 'member', text: `${name}さんが抜けました` }); } }
+    }
+    for (const [k, c] of this.calls) if (c.from === id || c.to === id) this.calls.delete(k);
+  }
   role(g, id) { return g.master === id ? 'master' : g.manager === id ? 'manager' : 'member'; }
   // アプリに見せる形（☹️の数は、マスターと店長だけ）
   view(g, id) {

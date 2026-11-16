@@ -656,6 +656,7 @@
   function applyScore(res) {
     G.final = { dead: res.dead || [], terr: res.terr || new Array(BN * BN).fill(0) };
     render();
+    if (res.void) { endGame(0, '無効試合', '整地の結果が両者で一致しなかったため、この対局は記録しません（レートは変わりません）', true); return; }
     const pts = Math.abs(res.black - (res.white + G.komi));
     endGame(res.winner, res.winner === 0 ? '持碁' : `${pts}目${res.winner === G.me ? '勝ち' : '負け'}`, `黒 ${res.black}  ／  白 ${res.white}${G.komi ? ' + コミ ' + G.komi : '（コミなし）'}`, true);
   }
@@ -664,9 +665,8 @@
     $('#turnMsg').textContent = '整地しています…';
     const g = G, id = G.id;
     if (G.online) {
-      // 対人戦：黒番のアプリが整地してサーバーへ。白番は12秒待っても来なければ自分で整地する
-      const send = async () => { const res = await computeScore(); if (G === g && !G.final) netSend({ t: 'score', g: g.online.g, res }); };
-      if (G.me === 1) send(); else g.online.scoreT = setTimeout(send, 12000);
+      // 対人戦：両方のアプリが整地して、死に石をサーバーへ。サーバーが数えなおして、結果を返す（食いちがったら無効試合）
+      const res = await computeScore(); if (G === g && !G.final) netSend({ t: 'score', g: g.online.g, res: { dead: res.dead } });
       return;
     }
     const res = await computeScore();
@@ -730,7 +730,7 @@
     if (reason === 'アタリ碁') label = win ? '石を取って勝ち！' : '石を取られた…';
     // 開放のための対局数（負けもBot戦も数える。すぐ終わった対局は数えない。アタリ碁は数える）
     if (G.record.length >= 10 || G.atari) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
-    const r = G.solo ? null : G.friend ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc.h, BN).concat(G.record), G.hc.h) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
+    const r = G.solo ? null : (G.friend || reason === '無効試合') ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc ? G.hc.h : 0, BN).concat(G.record), G.hc ? G.hc.h : 0) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
     G.zeniBase = S.zeni || 0;
@@ -823,7 +823,8 @@
     $('#resAgain').textContent = 'もう一局';
     $('#resAgain').onclick = () => { const sz = G && G.size; leaveGame(); startMatch(sz); };
     $('#resAgain').disabled = false;
-    if (r && r.friend) {
+    if (r && r.friend && !G.hc) { pr.hidden = false; pr.textContent = '無効試合（レート変動なし）'; }   // ランダムマッチで整地が食いちがった
+    else if (r && r.friend) {
       // フレンド戦：レートは動かない。「もう一局」は相手にも申しこむ
       pr.hidden = false; pr.textContent = `${G.gk ? '碁会所内マッチ' : 'フレンドマッチ'}・${HC_NAME[G.hc.h]}（レート変動なし）`;
       const g = G.online.g, opp = G.bot;
@@ -1081,6 +1082,26 @@
       $('#resOld').textContent = m.rating - m.d; $('#resNew').textContent = m.rating; const de = $('#resDelta'); de.textContent = (m.d >= 0 ? '+' : '') + m.d; de.className = m.d >= 0 ? 'up' : 'down';
     }
   }
+  // アカウント削除：2回たしかめてから、サーバーで消す。消えたら、この端末のデータも消して最初から
+  let delWait = false;
+  $('#delAcct').onclick = () => {
+    if (!S.acct || !S.acct.id) { toast('アカウントがまだありません'); return; }
+    if (!NET.ok) { toast('サーバーにつながっているときに削除できます'); return; }
+    confirmBox('アカウントを削除すると、銭・勾玉・持ち物・部屋・レート・日記・フレンドなど、すべてのデータが消えます。元に戻せません。削除しますか？', () => {
+      setTimeout(() => confirmBox(`最後の確認です。ID ${fmtCode(S.acct.id)} のアカウントを、本当に削除しますか？`, () => {
+        delWait = true; netSend({ t: 'delacct', pass: S.acct.pass });
+      }, null, { yes: '完全に削除する', no: 'やめる' }), 200);
+    }, null, { yes: '削除へ進む', no: 'やめる' });
+  };
+  function onDelAcct(m) {
+    if (!m.ok) { delWait = false; toast(m.reason === 'pass' ? 'パスワードが確かめられませんでした。運営にお問い合わせください' : '削除できませんでした。もう一度ためしてください', 4500); return; }
+    if (!delWait && !m.other) return;
+    try { localStorage.clear(); Storage.prototype.setItem = function () {}; } catch (e) {}   // 画面に残っている処理が、もう一度保存しないように
+    alertDone();
+  }
+  function alertDone() {
+    document.body.innerHTML = '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;color:#f4e9d8;background:#1a120c;font-size:16px;line-height:1.8"><p>アカウントを削除しました。<br>ご利用ありがとうございました。</p><button type="button" style="padding:10px 22px;border-radius:999px;border:0;background:#e35d47;color:#fff;font-weight:800;font-size:15px" onclick="location.reload()">最初から始める</button></div>';
+  }
   function onAuthFail(m) {
     if (m.restore) { NET.pendingPass = null; toast('IDかパスワードがちがいます'); return; }
     // 保存していたIDが使えない（サーバー側で消えたなど）→ 新しく作り直す
@@ -1142,6 +1163,7 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
+      case 'delacct': onDelAcct(m); break;
       case 'busy': toast(m.what === 'login' ? 'ログインの失敗が多すぎます。1時間ほどたってから、もう一度ためしてください' : 'アカウントの作成が多すぎます。しばらくたってから、もう一度ためしてください', 5000); break;
       case 'gifts': if (m.econ) applyEcon(m.econ, false); if (giftCb[m.req]) { giftCb[m.req](m); delete giftCb[m.req]; } else if (window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
       case 'soc':
@@ -1187,6 +1209,9 @@
         const label = m.winner === 0 ? '持碁' : m.winner === act.color ? '勝ち' : (m.reason === '切断' ? '切断負け' : '負け');
         friendRecord(m.winner === act.color, m.winner === 0, act.color, act.name, label, hcRec(act.h | 0, act.size).concat(m.moves || []), act.h | 0, act.size);
         toast(`前回のフレンド戦の結果：${label}`, 4500); renderHome();
+      } else if (act && act.g === m.g && m.reason === '無効試合') {
+        friendRecord(false, true, act.color, act.name, '無効試合', m.moves || null, 0, act.size);
+        toast('前回の対局は、整地が一致しなかったので無効になりました', 4500); renderHome();
       } else if (act && act.g === m.g) {
         const sc = m.winner === 0 ? 0.5 : m.winner === act.color ? 1 : 0;
         const label = sc === 1 ? '勝ち' : sc === 0.5 ? '持碁' : (m.reason === '切断' ? '切断負け' : '負け');
