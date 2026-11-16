@@ -47,3 +47,17 @@ test('碁盤は800銭で買える', async () => {
   const res = await a.call({ t: 'buy', item: 'goban' }, 'bought');
   assert.equal(res.ok, true); assert.equal(res.econ.zeni, 0);
 });
+
+test('ゲームの記念品：同じゲームの中ではもらえない。ほかのゲームをはじめたら、前のゲームの記念品がもらえる（1回だけ）', async () => {
+  const { gamePack } = await import('../../server/econ.js');
+  const r = { owned: { av: [], items: {} }, gifts: [] };
+  gamePack(r, 'go', 1);
+  gamePack(r, 'go', 2);
+  const packs = () => (r.gifts || []).filter(g => g.kind === 'pack' || /記念品/.test(g.label || g.l || JSON.stringify(g)));
+  assert.equal(packs().length, 0, '囲碁だけなら、もらえない');
+  gamePack(r, 'shogi', 3);
+  assert.equal(packs().length, 1, '将棋をはじめたら、囲碁の記念品');
+  assert.match(JSON.stringify(packs()[0]), /囲碁BLITZ 記念品/);
+  gamePack(r, 'othello', 4);
+  assert.equal(packs().length, 1, '2回目はもらえない');
+});

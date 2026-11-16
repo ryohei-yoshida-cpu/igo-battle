@@ -79,7 +79,7 @@ async function guideEnd() {
     if (await stampClose()) { stamps++; break; }   // クリアのハンコ（このあと次の案内がはじまることがある）
     await tapTut(); await p.waitForTimeout(300);
   }
-  for (let k = 0; k < 6; k++) { if (await stampClose()) { stamps++; break; } await p.waitForTimeout(300); }
+  for (let k = 0; k < 20; k++) { if (await stampClose()) { stamps++; break; } await p.waitForTimeout(300); }   // ゆっくりのパソコンでも、ハンコが出るまで待つ
 }
 const games = n => p.evaluate(n => { window.APP.S.prog.games = n; window.APP.save(); window.PROG.check(); }, n);
 
@@ -177,6 +177,8 @@ test('20局：玄斎がドライフラワーを投げ捨てる → 骨董屋で�
   await confirmYes();
   await p.waitForTimeout(800); if (await p.$('.sj, .ff')) await through().catch(() => {});
   await guideEnd();
+  for (let k = 0; k < 30 && await p.evaluate(() => !!window.APP.S.sp); k++) { if (await stampClose()) stamps++; else if (await p.$('.sj, .ff')) await through().catch(() => {}); else await p.waitForTimeout(300); }
+  assert.equal(await p.evaluate(() => window.APP.S.sp || null), null, '特別ミッションが終わった');
   assert.equal(await p.evaluate(() => window.APP.S.room.ownedItems.w_dryflower | 0), 0);
   assert.equal(await p.evaluate(() => window.PROG.isOpen('kotto')), true);
 });

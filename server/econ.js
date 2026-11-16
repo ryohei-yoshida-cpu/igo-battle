@@ -83,14 +83,22 @@ export const UNLOCK_GIFT = {
   room: { label: '静馬のクーポン券', zeni: 800 },
   kotto: { label: '玄斎が投げ捨てた花束', items: ['w_dryflower'] }
 };
-// はじめてそのゲームのアプリに入ったら、そのゲームの記念品（ほかのゲームでも使える）をプレゼントボックスへ
+// ゲームの記念品：あるゲームで遊んでいる人が、はじめて「ほかのゲーム」のアプリに入ったら、前のゲームの記念品をプレゼントボックスへ
+//   （例：囲碁BLITZで遊んでいた人が将棋BLITZをはじめたら、将棋BLITZで囲碁の記念品がもらえる。同じゲームの中ではもらえない）
 export const GAME_PACK = {
   go: { label: '囲碁BLITZ 記念品（碁打ちのアバターと囲碁の家具）', av: ['head:h40', 'body:b13', 'tool:t13', 'bg:bg08'], items: ['goishi_hako', 'zaisu', 'goishi_kazari'] }
 };
 export function gamePack(r, game, now) {
-  const pk = GAME_PACK[game]; if (!pk || !r.owned) return;
-  r.packs = r.packs || {}; if (r.packs[game]) return;
-  r.packs[game] = 1; addGift(r, 'pack', 0, pk.label, now, { av: pk.av, items: pk.items });
+  if (!r.owned || !game) return;
+  r.packs = r.packs || {}; r.packGot = r.packGot || {};
+  if (r.packs[game]) return;   // このゲームには前にも入った
+  const before = Object.keys(r.packs);   // 前から遊んでいるゲーム
+  r.packs[game] = 1;
+  for (const g of before) {
+    const pk = GAME_PACK[g];
+    if (g === game || !pk || r.packGot[g]) continue;
+    r.packGot[g] = 1; addGift(r, 'pack', 0, pk.label, now, { av: pk.av, items: pk.items });
+  }
 }
 // 部屋は最大6つ（はじめの部屋＋5）。1つ増やすのに 10000銭
 export const ROOM_MAX = 20, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 5000;

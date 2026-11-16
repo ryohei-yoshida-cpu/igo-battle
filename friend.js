@@ -41,10 +41,9 @@
     P.setImg($('#pmRandA'), A.charaUri(me)); P.setImg($('#pmRandB'), A.charaUri(rival));
     P.setImg($('#pmFrA'), A.charaUri(ci('koharu') === me ? ci('hinata') : ci('koharu'))); P.setImg($('#pmFrB'), A.charaUri(ci('mike')));
     for (const b of document.querySelectorAll('#pvpSize button')) b.setAttribute('aria-checked', String(+b.dataset.v === st.size));
-    P.setImg($('#pmBot'), A.charaUri(ci('gensai')));
     $('#pvpNote').textContent = FR.available() ? '' : 'この版はサーバーにつながっていないので、ランダムマッチはBotとの対局になります。';
   }
-  $('#pvpBack').onclick = () => FR.back();
+  $('#pvpBack').onclick = $('#pvpHome').onclick = () => FR.back();   // 上の「ホーム」と、盤の大きさのとなりの「ホーム」（下へ流れても見える）
   $('#goRandom').onclick = () => { P.sound('stone'); FR.random(st.size); };
   for (const b of document.querySelectorAll('#pvpSize button')) b.onclick = () => { P.sound('stone'); st.size = +b.dataset.v; if (st.size === 13 && st.min < 10) st.min = 10; if (st.size === 9 && st.min > 10) st.min = 5; keep(); renderPvp(); };
   $('#goBot').onclick = () => { P.sound('stone'); FR.bot(st.size); };

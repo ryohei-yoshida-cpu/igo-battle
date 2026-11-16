@@ -829,7 +829,8 @@
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
     G.zeniBase = S.zeni || 0;
-    if (win && !G.friend && !G.atari && !(G.bot && G.bot.nyumon)) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
+    // キャラクターに何勝したか：静馬に会って（マイルームが開いて）から数える。アタリ碁（小春）は数えない
+    if (win && !G.friend && !G.atari && !(G.bot && G.bot.nyumon) && S.prog && (S.prog.all || (S.prog.seen && S.prog.seen.room))) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
     G.rivalEv = rivalCount(win, draw);
     G.zeni = zeni;
     if (econOn()) {
@@ -1366,7 +1367,7 @@
   const hcStones = (h, n) => h >= 2 ? HC_PTS[n === 13 ? 13 : 9].slice(0, h) : [];
   // 棋譜用：置き石を「黒・白パス・黒…」として先頭に入れる（検討モードでそのまま並ぶ）
   const hcRec = (h, n) => { const r = []; hcStones(h, n).forEach((p, i, a) => { r.push(p); if (i < a.length - 1) r.push(-1); }); return r; };
-  function openPvp() { stopMatch(); showScreen('pvp'); if (window.FRIEND) window.FRIEND.renderPvp(); }
+  function openPvp() { stopMatch(); showScreen('pvp'); fillBotPick(); if (window.FRIEND) window.FRIEND.renderPvp(); }
   function openFriend() { showScreen('friend'); if (window.FRIEND) window.FRIEND.open(); }
   // フレンドマッチ：つながっていなければ、つないでから送る
   function friendSend(msg, extra) {
@@ -1397,7 +1398,7 @@
     if (!M) return;
     netSend({ t: 'cancel' });
     clearInterval(M.timer);
-    matchFound();
+    matchFound(true);
   }
   // 碁会所内ランダム：いつもの待ち合い画面で、碁会所の仲間を待つ（Botの項目はなし）
   function guildMatch(size) {
@@ -1423,7 +1424,7 @@
     $('#matching').classList.remove('gk');
     size = size === 13 ? 13 : 9;
     const myRank = rankFromRating(RS(size).rating);
-    M = { t0: Date.now(), fixed: S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon', myRank, found: false, timer: 0, size };
+    M = { t0: Date.now(), myRank, found: false, timer: 0, size };
     $('#matching').hidden = false;
     $('#mtFound').hidden = true; $('#mtOpts').hidden = false;
     $('#mtTitle').textContent = '対戦相手を探しています';
@@ -1438,9 +1439,6 @@
   function matchRange() {
     if (NET.ok) return `オンライン ${NET.online}人・対戦待ち ${NET.seeking}人`;
     if (S.noBot) return `${RANKS[Math.max(0, M.myRank - 1)]}〜${RANKS[Math.min(RANKS.length - 1, M.myRank + 1)]} のプレイヤー`;
-    if (M.fixed) return `${RANKS[S.botLevel]} の相手`;
-    if (S.botLevel === 'nyumon') return '入門（小春）の相手';
-    if (S.botLevel === 'up') { const lv = upLevels(); return `${RANKS[lv[0]]}${lv.length > 1 ? '〜' + RANKS[lv[lv.length - 1]] : ''} の相手`; }
     return `${RANKS[Math.max(0, Math.min(BOT_MAX, M.myRank) - 1)]}〜${RANKS[Math.min(BOT_MAX, M.myRank + 1)]} の相手`;
   }
   function matchTick() {
@@ -1483,13 +1481,15 @@
     for (let i = 0; i <= BOT_MAX && out.length < 2; i++) if (botRating(i) >= my) out.push(i);
     return out.length ? out : [BOT_MAX];
   }
-  function matchFound() {
+  // chara：「キャラクターと対局」（えらんだ強さ）。ないとき：人が見つからなかった代わり（いつも近い強さ）
+  function matchFound(chara) {
     M.found = true; clearInterval(M.timer);
-    const up = upLevels();
-    const lv = S.botLevel === 'nyumon' ? 0 : M.fixed ? Math.min(BOT_MAX, S.botLevel) : S.botLevel === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
-    const bot = S.botLevel === 'nyumon' ? Object.assign(nyumonBot(), { name: 'アタリ碁' }) : { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
+    const up = upLevels(), want = chara ? S.botLevel : 'auto';
+    M.fixed = want !== 'auto' && want !== 'up' && want !== 'nyumon';
+    const lv = want === 'nyumon' ? 0 : M.fixed ? Math.min(BOT_MAX, want) : want === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
+    const bot = want === 'nyumon' ? Object.assign(nyumonBot(), { name: 'アタリ碁' }) : { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
     const myColor = Math.random() < 0.5 ? 1 : 2;
-    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, S.botLevel === 'nyumon' ? 'アタリ碁：先に石を1つ取ったほうが勝ち！' : M.fixed ? '指定した強さのBotとマッチしました' : S.botLevel === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
+    showFound(rivalFace(bot.level), `${rivalName(bot.level)}（${bot.name}）`, `レート ${bot.rating}`, myColor, want === 'nyumon' ? 'アタリ碁：先に石を1つ取ったほうが勝ち！' : M.fixed ? '指定した強さのBotとマッチしました' : want === 'up' ? '自分と同じ以上の強さのBotとマッチしました' : '近い強さのBotとマッチしました');
     const sz = M.size; M.timer = setTimeout(() => { $('#matching').hidden = true; M = null; newGame(bot, myColor, { size: sz, atari: !!bot.nyumon }); }, 2200);   // 入門はいつもアタリ碁
   }
   function stopMatch() {
@@ -1498,7 +1498,7 @@
     $('#matching').hidden = true; $('#matchPill').hidden = true; $('#game').classList.remove('waiting');
   }
   // 待っている間に「すぐにキャラクターとマッチ」
-  $('#matchChara').onclick = () => { if (!M || M.found || M.friend) return; sound('stone'); netSend({ t: 'cancel' }); matchFound(); };
+  $('#matchChara').onclick = () => { if (!M || M.found || M.friend) return; sound('stone'); netSend({ t: 'cancel' }); matchFound(true); };
   $('#cancelMatch').onclick = () => { const gk = M && M.gk; stopMatch(); if (gk && window.GUILD) { window.GUILD.open('match'); return; } if (!$('#home').hidden || !$('#pvp').hidden) openPvp(); };
   $('#optNoBot').addEventListener('change', e => {
     S.noBot = e.target.checked; save();
@@ -1547,6 +1547,7 @@
 
   /* ---------- 設定 ---------- */
   function renderSettings() {
+    fillBotPick();
     renderAccount();
     $('#nameInput').value = S.name;
     const ci = charaIdx(), cv = A.VARIANTS[ci];
@@ -1739,19 +1740,27 @@
 
   /* ---------- Botの強さ ---------- */
   // 設定画面と、対局画面の「キャラクターと対局」の右（当たる強さ）の2か所。どちらで変えても同じ
-  (function setupBotPick() {
+  // 「キャラクターと対局」の強さ（S.botLevel）。ランダムマッチで人が見つからないときのBotは、いつも「近い強さ」（別の設定）
+  // えらぶ欄は、キャラクター名（級）で出す（「みけ＆こむぎに3勝」などが、どれを選べばいいか分かるように）
+  function fillBotPick() {
     const sels = [$('#botLevel'), $('#botLevelQuick')].filter(Boolean);
+    if (S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
     sels.forEach((sel, k) => {
+      sel.innerHTML = '';
       const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
       add('auto', k ? '近い強さ' : '自動（近い強さ）');
-      add('up', k ? '同じ以上' : '自分と同じ以上の強さ');
-      add('nyumon', k ? '入門（アタリ碁）' : '入門（アタリ碁・小春）');
-      RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => add(String(i), k ? r : `${r}（レート ${botRating(i)}）`));
+      add('up', k ? '同じ以上（報酬あり）' : '自分と同じ以上の強さ（報酬あり）');
+      add('nyumon', '小春（入門・アタリ碁）');
+      RANKS.slice(0, BOT_MAX + 1).forEach((r, i) => add(String(i), `${rivalName(i)}（${r}）${k ? '' : `・レート ${botRating(i)}`}`));
+      sel.value = String(S.botLevel);
     });
-    if (S.botLevel !== 'auto' && S.botLevel !== 'up' && S.botLevel !== 'nyumon') S.botLevel = (S.botLevel >= 0) ? Math.min(BOT_MAX, S.botLevel | 0) : 'auto';
-    const sync = () => sels.forEach(s => { s.value = String(S.botLevel); });
-    sync();
-    sels.forEach(sel => sel.addEventListener('change', () => { S.botLevel = ['auto', 'up', 'nyumon'].includes(sel.value) ? sel.value : +sel.value; save(); sync(); }));
+    // 「キャラクターと対局」の絵：えらんだ相手（近い強さ・同じ以上は、だいたいの相手）
+    const pb = $('#pmBot');
+    if (pb) { const lv = S.botLevel === 'nyumon' ? -1 : S.botLevel === 'auto' ? rankFromRating(RS(9).rating) : S.botLevel === 'up' ? Math.min(BOT_MAX, rankFromRating(RS(9).rating) + 1) : S.botLevel; setImg(pb, lv < 0 ? A.charaUri(Math.max(0, A.VARIANTS.findIndex(v => v.key === 'koharu'))) : A.charaUri(rivalIdx(Math.min(BOT_MAX, lv)))); }
+  }
+  (function setupBotPick() {
+    fillBotPick();
+    [$('#botLevel'), $('#botLevelQuick')].filter(Boolean).forEach(sel => sel.addEventListener('change', () => { S.botLevel = ['auto', 'up', 'nyumon'].includes(sel.value) ? sel.value : +sel.value; save(); fillBotPick(); }));
   })();
 
   /* ---------- 起動：前回の対局が途中で切れていたら負け ---------- */
