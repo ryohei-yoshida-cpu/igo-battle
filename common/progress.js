@@ -96,15 +96,36 @@
         { text: 'あなたも囲碁を打ちに来てくれたんですね！ うれしいなぁ。' },
         { text: 'ひとつ聞いてもいいですか？ 囲碁のルール、対局できるくらい知っていますか？',
           opts: [['expert', '知っている（対局できる）'], ['beginner', 'まだ知らない・自信がない']],
-          pick: k => { mode = k; return [{ text: k === 'expert' ? 'すごい！ じゃあ「経験者モード」で、物語を読みながらBotと対局してみてくださいね。' : '大丈夫です！ 私も最初はそうでした。「初心者モード」で、物語を読みながら少しずつ覚えていきましょう！' }]; } },
+          pick: k => {
+            mode = k;
+            if (k !== 'expert') return [{ text: '大丈夫です！ 私も最初はそうでした。「初心者モード」で、物語を読みながら少しずつ覚えていきましょう！' }];
+            // 経験者：ソロモードのBotの強さを、はじめに決める
+            return [
+              { text: 'すごい！ じゃあ「経験者モード」で、物語を読みながらBotと対局してみてくださいね。物語の続きは、Botに勝つと読めます。' },
+              { text: 'どのくらいの強さのBotと打ちたいですか？',
+                opts: BOT_PICK.map(([lv, label]) => [String(lv), label]),
+                pick: v => { S.solo.bot = +v; P.save(); return [{ text: `${P.RANKS[+v]}のBotですね！ 強さは、ソロモードの画面でいつでも変えられますよ。` }]; } }
+            ];
+          } },
         { text: 'まずは、ソロモードの最初のお話「春告げの一局」を読んでみてください。……私と師匠が出会ったお話なんです。えへへ。' },
         { text: '読み終わったら、対人戦もできるようになりますよ。いってらっしゃい！' }
       ],
       then: () => {
         playing = false; g.intro = true; S.solo.mode = mode; P.save();
-        tour('base', () => { if (window.SOLO) window.SOLO.open(); });
+        tour('base', () => { if (window.SOLO) window.SOLO.open(); if (mode === 'expert') setTimeout(botGuide, 700); });
       }
     });
+  }
+
+  // 経験者モードのBotの強さ（はじめにえらぶ）
+  const BOT_PICK = [[0, '10級（はじめたばかり）'], [3, '7級（ルールはばっちり）'], [6, '4級（ふだん打っている）'], [9, '1級（かなり打てる）'], [12, '三段（腕に自信あり）']];
+  // ソロモードの画面で、Botの強さを変える場所を教える
+  function botGuide() {
+    if (!window.TUTORIAL || !document.querySelector('#soloBotRow:not([hidden])')) return;
+    window.TUTORIAL.guide({ who: 'koharu', steps: [
+      { at: '#soloBotRow', say: `経験者モードでは、物語の続きを読むために、ここで選んだ強さのBot（いまは${P.RANKS[S.solo.bot]}）に勝つのがミッションです。` },
+      { at: '#soloBot', say: '強すぎたり、物足りなかったりしたら、ここで強さを変えてくださいね。いつでも変えられます！' }
+    ] });
   }
 
   /* ---------- 「春告げの一局」を読み終えた：対人戦が開く・お礼・アタリ碁 ---------- */
