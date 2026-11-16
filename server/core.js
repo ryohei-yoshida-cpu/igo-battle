@@ -205,7 +205,15 @@ export class Core {
     } else if (m.t === 'login') {
       const id = normCode(m.id), pass = normCode(m.pass);
       const rec = id && await this.store.get('acct:' + id);
-      if (!rec || rec.h !== await sha(id + ':' + pass)) { out({ t: 'authfail', restore: !!m.restore }); return; }
+      // パスワードの総当たりを防ぐ：同じIPから1時間に30回まちがえたら、しばらくログインできない
+      this.failLog = this.failLog || new Map();
+      const now = this.now(), fails = (this.failLog.get(ip) || []).filter(t => now - t < 3600e3);
+      if (fails.length >= LIMIT.loginFailsPerHour) { out({ t: 'busy', what: 'login' }); return; }
+      if (!rec || rec.h !== await sha(id + ':' + pass)) {
+        fails.push(now); this.failLog.set(ip, fails);
+        if (this.failLog.size > 10000) this.failLog.delete(this.failLog.keys().next().value);
+        out({ t: 'authfail', restore: !!m.restore }); return;
+      }
       if (rec.ban) { out({ t: 'banned', reason: rec.ban.reason || '' }); return; }   // 利用停止のアカウント
       info.game = game; this.bindAcct(sock, info, id);
       this.guild.seen(id, game).catch(() => {});
@@ -778,9 +786,8 @@ function eloD(my, op, score, games) {
 function rateOf(r, key) {
   r.rate = r.rate || {};
   if (!r.rate[key]) {
-    const st = r.stats && r.stats.go && r.stats.go[key], legacy = key === 'go9' && r.data && r.data.rating;
-    const v = Math.max(800, Math.min(2050, (st && st.rating) || legacy || START_RATE) | 0), rr = rankFrom(v);
-    r.rate[key] = { rating: v, games: (st && st.games) | 0, wins: (st && st.wins) | 0, draws: (st && st.draws) | 0, streak: 0, earnedDan: rr >= DAN_FROM ? rr : -1 };
+    // はじめては、だれでも 1050 から（アプリから送られてくる数字は、書きかえられるので使わない）
+    r.rate[key] = { rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1 };
   }
   return r.rate[key];
 }
@@ -984,5 +991,5 @@ function cleanRoom(room, owned, total, n) {
 }
 
 /* ---------- 使いすぎ対策の数字 ---------- */
-const LIMIT = { perSec: 2, burst: 30, dropsToClose: 60, connPerIp: 8, registersPerHour: 5, syncBytes: 100000 };
+const LIMIT = { perSec: 2, burst: 30, dropsToClose: 60, connPerIp: 8, registersPerHour: 5, loginFailsPerHour: 30, syncBytes: 100000 };
 

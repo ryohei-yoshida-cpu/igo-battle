@@ -8,3 +8,4 @@ tools/avatar-v2/*.txt
 tools/avatar-v2/__pycache__/
 tools/avatar-v3/src/
 tools/avatar-v3/cut/
+dev.log

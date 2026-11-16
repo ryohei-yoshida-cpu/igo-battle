@@ -1142,6 +1142,7 @@
       case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
+      case 'busy': toast(m.what === 'login' ? 'ログインの失敗が多すぎます。1時間ほどたってから、もう一度ためしてください' : 'アカウントの作成が多すぎます。しばらくたってから、もう一度ためしてください', 5000); break;
       case 'gifts': if (m.econ) applyEcon(m.econ, false); if (giftCb[m.req]) { giftCb[m.req](m); delete giftCb[m.req]; } else if (window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
       case 'soc':
         if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
