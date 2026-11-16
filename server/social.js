@@ -32,6 +32,7 @@
  */
 import { check, cleanName } from './ng.js';
 import { ageState, cleanBirth } from './age.js';
+import { ADMIN_PID } from './admin.js';
 import '../common/avatar-art.js';
 const AV = globalThis.AVATAR;
 
@@ -60,9 +61,8 @@ function cleanKifu(k) {
   return { size, rec, op: cleanName(k.op).slice(0, 16), res: ['win', 'loss', 'draw'].includes(k.res) ? k.res : '', color: k.color === 2 ? 2 : 1 };
 }
 
-// アカウントの名前（全ゲーム共通。前の形は data.name）
-const ADMIN_PID = '561149';   // 運営（通報を見られる人）の部屋番号
-const acctName = a => { const n = a && (a.name || (a.data && a.data.name)); return n ? cleanName(n) : ''; };
+// アカウントの名前（全ゲーム共通）
+const acctName = a => (a && a.name ? cleanName(a.name) : '');
 export class Social {
   constructor(core) { this.core = core; this.active = []; this.posts = new Map(); }
   get store() { return this.core.store; }
@@ -82,30 +82,16 @@ export class Social {
     c.locks.set(key, run.catch(() => {}));
     return run;
   }
-  withSoc(id, fn) { return this.withKey('soc:' + id, async s => { Object.assign(s, fixSoc(s)); await this.migrate(id, s); return fn(s); }, newSoc); }
-  // 前の形の日記（本文が目次の中にある）を、本文を別に保存する形へ。半年すぎた日記も、ここで消す
-  async migrate(id, s) {
-    const old = s.diary.filter(d => d.text != null && d.title == null);
-    for (const d of old) {
-      const body = { id: d.id, t: d.t, title: String(d.text).slice(0, 12) + (d.text.length > 12 ? '…' : ''), text: d.text, pub: 'friends', kifu: null, c: d.c || [] };
-      await this.store.put(`dia:${id}:${d.id}`, body);
-      Object.assign(d, head(body)); d.nc = body.c.length; delete d.text; delete d.c;
-    }
+  withSoc(id, fn) { return this.withKey('soc:' + id, async s => { Object.assign(s, fixSoc(s)); await this.expire(id, s); return fn(s); }, newSoc); }
+  // 半年すぎた日記と、180件をこえた古い日記を消す
+  async expire(id, s) {
     const limit = this.core.now() - LIM.diaryDays * 864e5;
     const gone = s.diary.filter((d, i) => d.t < limit || i >= LIM.diaries);
     if (gone.length) {
       s.diary = s.diary.filter(d => !gone.includes(d));
       for (const d of gone) if (this.store.del) await this.store.del(`dia:${id}:${d.id}`);
     }
-    return old.length || gone.length;
-  }
-  // テスト用の初期化：フレンドだけ残して、日記・一言・ひとこと・訪問・足あと・ブロック・お知らせを消す
-  async resetExceptFriends(id, pid) {
-    const s = await this.readSoc(id);
-    for (const d of s.diary) if (this.store.del) await this.store.del(`dia:${id}:${d.id}`);
-    await this.withKey('soc:' + id, async x => { const keep = { friends: fixSoc(x).friends, seq: x.seq || 1 }; for (const k of Object.keys(x)) delete x[k]; Object.assign(x, newSoc(), keep); }, newSoc);
-    await this.dropList('pubdia', x => x.oid === id);
-    await this.dropList('pubrooms', x => x.pid === pid);
+    return gone.length;
   }
   // アカウント削除：日記・一言・部屋の公開をすべて消し、フレンドの一覧からも外す。部屋番号も使えなくする
   async deleteAll(id, pid) {
@@ -118,11 +104,9 @@ export class Social {
     if (pid) await this.store.del('pid:' + pid);
     this.active = (this.active || []).filter(x => x !== pid);
   }
-  // 読むだけ（前の形が残っていたら、一度だけ書きかえる）
+  // 読むだけ
   async readSoc(id) {
-    const s = fixSoc(await this.store.get('soc:' + id));
-    if (s.diary.some(d => d.text != null && d.title == null)) return fixSoc(await this.withSoc(id, () => {}));
-    return s;
+    return fixSoc(await this.store.get('soc:' + id));
   }
   // 公開の一覧（みんなの日記・みんなの部屋）。新しいものを先頭に、古いものから消える
   pushList(key, item, same, max) {
@@ -296,7 +280,7 @@ export class Social {
         const d = { id: s.seq++, t: now, title, text: body, pub, kifu, c: [] };
         await this.store.put(`dia:${id}:${d.id}`, d);
         s.diaryDay = day; s.diary.unshift(head(d)); entry = d;
-        await this.migrate(id, s);
+        await this.expire(id, s);
       });
       if (reason || !s) { out({ ok: false, reason: reason || 'gone' }); return; }
       if (pub === 'all') await this.pushList('pubdia', { pid: me, oid: id, did: entry.id, t: now }, x => x.oid === id && x.did === entry.id, LIM.pubdia);
@@ -364,11 +348,9 @@ export class Social {
     // 相手の戦績（対局のあとで）：名前・アバター・レート・対局数・勝率・フレンドかどうか
     if (op === 'prof') {
       const acct = await this.store.get('acct:' + oid), s = fixSoc(await this.store.get('soc:' + oid));
-      // 戦績は全ゲームぶん（stats：{ go: { go9: {…}, go13: {…} }, shogi: {…} }）。囲碁9路は前の形（data）からも読む
-      let d = acct && acct.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
-      d = d || {};
+      // 戦績は全ゲームぶん（stats：{ go: { go9: {…}, go13: {…} }, shogi: {…} }）
       const stats = (acct && acct.stats) || {};
-      const g9 = (stats.go && stats.go.go9) || d;
+      const g9 = (stats.go && stats.go.go9) || {};
       const num = v => Math.max(0, v | 0);
       out({ ok: true, pid, name: acctName(acct) || this.nameOf(oid), av: (acct && acct.av) || null, hito: s.hito,
         rating: num(g9.rating), games: num(g9.games), wins: num(g9.wins), draws: num(g9.draws), streak: num(g9.streak), stats,

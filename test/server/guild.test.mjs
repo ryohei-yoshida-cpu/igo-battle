@@ -39,3 +39,15 @@ test('15歳以下は、ふつうの碁会所に入れない', async () => {
   const r = await guild(kid, 'join', { id: gid });
   assert.equal(r.ok, false);
 });
+
+test('抜けると、マスターは店長かほかのメンバーへ。最後の1人が抜けると閉じる', async () => {
+  const { core } = makeCore();
+  const a = await user(core, 1), b = await user(core, 2);
+  const gid = (await guild(a, 'create', { name: '退会会', short: 'L' })).guild.id;
+  await guild(b, 'join', { id: gid });
+  assert.equal((await guild(a, 'leave')).guild, null);
+  assert.equal((await core.store.get('guild:' + gid)).master, b.id);
+  assert.equal((await guild(a, 'me')).guild, null);
+  await guild(b, 'leave');
+  assert.equal(await core.store.get('guild:' + gid), undefined);
+});

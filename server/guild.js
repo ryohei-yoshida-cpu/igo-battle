@@ -37,6 +37,9 @@
  */
 import { check, cleanName } from './ng.js';
 import { ageState } from './age.js';
+import { ITEMS, FLOORS, WALLS, SEASON } from './prices.js';
+import { BIG_N, BIG_PRICE, ROOM_LIM, ROOM_MAX, ROOM_PRICE, addTama, cleanRoom, defAt, limitOpen, pubEcon, tamaOf } from './econ.js';
+import { dispRank, rateOf } from './rating.js';
 
 export const GUILD = {
   max: 20, giveAmount: 50, giveTo: 5, recvMax: 3, needGames: 50, chat: 60, text: 40,
@@ -85,7 +88,7 @@ const ALPH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newId = () => { const a = new Uint8Array(6); crypto.getRandomValues(a); return [...a].map(x => ALPH[x % ALPH.length]).join(''); };
 
 export class Guild {
-  constructor(core, h) { this.core = core; this.h = h; this.calls = new Map(); this.callSeq = 1; }
+  constructor(core) { this.core = core; this.calls = new Map(); this.callSeq = 1; }
   get store() { return this.core.store; }
   now() { return this.core.now(); }
   withG(gid, fn) { return this.core.social.withKey('guild:' + gid, async g => { this.roll(g); return fn(g); }, null); }
@@ -136,7 +139,7 @@ export class Guild {
   // 自分の段級位（9路・13路の高いほう）
   async rankOf(id) {
     const r = await this.store.get('acct:' + id); if (!r) return 0;
-    return Math.max(...['go9', 'go13'].map(k => this.h.dispRank(this.h.rateOf(r, k))));
+    return Math.max(...['go9', 'go13'].map(k => dispRank(rateOf(r, k))));
   }
   // おすすめ・一覧で見せる形
   card(g) { this.roll(g); return { id: g.id, kids: !!g.kids, name: g.name, short: g.short, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0), set: g.set, pr: g.pr || '', on: g.members.filter(m => this.online(m.id)).length, today: g.day.total }; }
@@ -164,7 +167,7 @@ export class Guild {
   role(g, id) { return g.master === id ? 'master' : g.manager === id ? 'manager' : 'member'; }
   // アプリに見せる形（☹️の数は、マスターと店長だけ）
   view(g, id) {
-    const boss = g.master === id || g.manager === id, mi = this.core.social;
+    const boss = g.master === id || g.manager === id;
     const frownOf = {};
     for (const c of g.chat) frownOf[c.from] = (frownOf[c.from] || 0) + (c.frown || []).length;
     const members = g.members.map(m => {
@@ -385,17 +388,8 @@ export class Guild {
     }
 
     if (op === 'leave') {
-      let left = null;
-      const g = await this.withG(gid, g => {
-        g.members = g.members.filter(x => x.id !== id);
-        if (g.manager === id) g.manager = null;
-        if (g.master === id) { g.master = g.manager || (g.members[0] && g.members[0].id) || null; if (g.master === g.manager) g.manager = null; }
-        if (g.recall && (g.recall.by === id || g.master !== g.recall.master)) g.recall = null;
-        left = g;
-      });
+      await this.leaveAll(id, { [game]: gid });
       await this.core.withAcct(id, async r => { if (r.guild) delete r.guild[game]; });
-      if (left) { if (!left.members.length) await this.drop(left); else { await this.index(left); this.pushAll(left, { kind: 'member', text: `${myName()}さんが抜けました` }); } }
-      for (const [k, c] of this.calls) if (c.from === id || c.to === id) this.calls.delete(k);
       return out({ ok: true, guild: null });
     }
     if (op === 'approve' || op === 'reject') {
@@ -711,7 +705,7 @@ export class Guild {
   // 階級差でハンデを決める：弱いほうが黒。差1で定先、2〜5で置き石
   async autoHc(a, b, hc) {
     const key = 'go' + (hc.size === 13 ? 13 : 9), ra = await this.store.get('acct:' + a), rb = await this.store.get('acct:' + b);
-    const ka = ra ? this.h.dispRank(this.h.rateOf(ra, key)) : 0, kb = rb ? this.h.dispRank(this.h.rateOf(rb, key)) : 0;
+    const ka = ra ? dispRank(rateOf(ra, key)) : 0, kb = rb ? dispRank(rateOf(rb, key)) : 0;
     const d = Math.min(5, Math.abs(ka - kb));
     return this.core.cleanHc(Object.assign({}, hc, { h: d, black: d === 0 ? 'random' : ka < kb ? 'host' : 'guest' }));
   }
@@ -737,7 +731,7 @@ export class Guild {
   }
   /* ---------- 碁会所の部屋・碁会所の銭・ショップ・アナウンス ---------- */
   async roomOps(op, m, id, gid, out, fail, reply) {
-    const H = this.h, now = this.now();
+    const now = this.now();
     if (op === 'donate') {   // 寄付：自分の銭 → 碁会所の銭（戻せない）
       const n = Math.floor(+m.n || 0);
       if (!(n >= 10 && n <= 1000000)) return fail('num');
@@ -751,10 +745,10 @@ export class Guild {
     }
     if (op === 'gitem') {   // 余っている家具を碁会所へ（戻せない）
       const k = String(m.k || ''), n = Math.max(1, Math.min(99, m.n | 0));
-      if (!H.ITEMS[k] || k === 'goban') return fail('item');
+      if (!ITEMS[k] || k === 'goban') return fail('item');
       const g0 = await this.store.get('guild:' + gid); if (!g0 || g0.kids) return fail('kids');
       this.roll(g0);
-      if ((g0.owned.items[k] || 0) + n > H.ROOM_LIM.perKind) return fail('cap');
+      if ((g0.owned.items[k] || 0) + n > ROOM_LIM.perKind) return fail('cap');
       let why2 = '';
       const rec = await this.core.withAcct(id, async r => {
         const have = (r.owned && r.owned.items && r.owned.items[k]) | 0;
@@ -763,9 +757,9 @@ export class Guild {
         if (have - n > 0) r.owned.items[k] = have - n; else delete r.owned.items[k];
       });
       if (!rec) return fail(why2 || 'none');
-      const g = await this.withG(gid, g => { g.owned.items[k] = Math.min(H.ROOM_LIM.perKind, (g.owned.items[k] || 0) + n); });
+      const g = await this.withG(gid, g => { g.owned.items[k] = Math.min(ROOM_LIM.perKind, (g.owned.items[k] || 0) + n); });
       if (g) this.pushAll(g, { kind: 'member', text: `${(g.members.find(x => x.id === id) || {}).name || ''}さんが碁会所に家具を提供しました` }, id);
-      return reply({ econ: H.pubEcon(rec) });
+      return reply({ econ: pubEcon(rec) });
     }
     if (op === 'sign') {   // 看板のデザイン
       const sid = String(m.id || '');
@@ -776,25 +770,25 @@ export class Guild {
       let rec = null;
       if (!owned) {
         let short = false;
-        rec = await this.core.withAcct(id, async r => { if (H.tamaOf(r, g0.game || 'go') < SIGNS[sid]) { short = true; return false; } H.addTama(r, g0.game || 'go', -SIGNS[sid]); });
+        rec = await this.core.withAcct(id, async r => { if (tamaOf(r, g0.game || 'go') < SIGNS[sid]) { short = true; return false; } addTama(r, g0.game || 'go', -SIGNS[sid]); });
         if (!rec) return fail(short ? 'tama' : 'none');
       }
       const g = await this.withG(gid, g => { g.signs = g.signs || ['kaya']; if (!g.signs.includes(sid)) g.signs.push(sid); g.sign = sid; });
       if (!g) return fail('none');
-      return reply(rec ? { econ: H.pubEcon(rec) } : {});
+      return reply(rec ? { econ: pubEcon(rec) } : {});
     }
     let why = '', bought = null;
     const g = await this.withG(gid, async g => {
       if (g.kids) { why = 'kids'; return false; }
       if (g.master !== id && g.manager !== id) { why = 'role'; return false; }
       if (op === 'groom') {   // 配置の保存：持っている数より多く置いていないか
-        const cnt = {}, room = H.cleanRoom(m.room, g.owned, cnt, g.room.n || 12);
+        const cnt = {}, room = cleanRoom(m.room, g.owned, cnt, g.room.n || 12);
         if (!room) { why = 'room'; return false; }
         delete room.g; delete room.gp; delete room.av; room.n = g.room.n || 12;
         if (!Array.isArray(m.rooms2) || m.rooms2.length !== g.rooms2.length) { why = 'room'; return false; }
-        const rooms2 = m.rooms2.map((x, i) => { const c = H.cleanRoom(x, g.owned, cnt, g.rooms2[i].n || 12); if (c) { delete c.g; delete c.gp; delete c.av; c.at = g.rooms2[i].at; c.n = g.rooms2[i].n || 12; } return c; });
+        const rooms2 = m.rooms2.map((x, i) => { const c = cleanRoom(x, g.owned, cnt, g.rooms2[i].n || 12); if (c) { delete c.g; delete c.gp; delete c.av; c.at = g.rooms2[i].at; c.n = g.rooms2[i].n || 12; } return c; });
         if (rooms2.some(x => !x)) { why = 'room'; return false; }
-        if ([room].concat(rooms2).reduce((a, x) => a + x.items.length + x.walls.length, 0) > H.ROOM_LIM.total) { why = 'total'; return false; }
+        if ([room].concat(rooms2).reduce((a, x) => a + x.items.length + x.walls.length, 0) > ROOM_LIM.total) { why = 'total'; return false; }
         g.room = room; g.rooms2 = rooms2; return;
       }
       if (op === 'ann') {   // アナウンス券を使う
@@ -807,26 +801,26 @@ export class Guild {
       // gbuy：碁会所の銭で買う
       let price, apply;
       if (m.ticket) { price = ANN_PRICE; apply = () => { g.tickets++; }; }
-      else if (m.item && H.ITEMS[m.item]) {
-        if (H.ITEMS[m.item][0] <= 0) { why = 'item'; return false; }
-        if (H.SEASON[m.item] && !H.limitOpen(H.SEASON[m.item], now)) { why = 'season'; return false; }
-        if ((g.owned.items[m.item] || 0) >= H.ROOM_LIM.perKind) { why = 'cap'; return false; }
-        price = H.ITEMS[m.item][0]; apply = () => { g.owned.items[m.item] = (g.owned.items[m.item] || 0) + 1; };
+      else if (m.item && ITEMS[m.item]) {
+        if (ITEMS[m.item][0] <= 0) { why = 'item'; return false; }
+        if (SEASON[m.item] && !limitOpen(SEASON[m.item], now)) { why = 'season'; return false; }
+        if ((g.owned.items[m.item] || 0) >= ROOM_LIM.perKind) { why = 'cap'; return false; }
+        price = ITEMS[m.item][0]; apply = () => { g.owned.items[m.item] = (g.owned.items[m.item] || 0) + 1; };
       }
-      else if (m.floor && H.FLOORS[m.floor] != null) { if (g.owned.floors.includes(m.floor)) { why = 'have'; return false; } price = H.FLOORS[m.floor]; apply = () => g.owned.floors.push(m.floor); }
-      else if (m.wall && H.WALLS[m.wall] != null) { if (g.owned.walls.includes(m.wall)) { why = 'have'; return false; } price = H.WALLS[m.wall]; apply = () => g.owned.walls.push(m.wall); }
+      else if (m.floor && FLOORS[m.floor] != null) { if (g.owned.floors.includes(m.floor)) { why = 'have'; return false; } price = FLOORS[m.floor]; apply = () => g.owned.floors.push(m.floor); }
+      else if (m.wall && WALLS[m.wall] != null) { if (g.owned.walls.includes(m.wall)) { why = 'have'; return false; } price = WALLS[m.wall]; apply = () => g.owned.walls.push(m.wall); }
       else if (m.roomAdd) {
-        if (g.rooms2.length >= H.ROOM_MAX - 1) { why = 'max'; return false; }
+        if (g.rooms2.length >= ROOM_MAX - 1) { why = 'max'; return false; }
         const p = m.p | 0, d = m.d === 'y' ? 'y' : 'x';
         if (p < 0 || p > g.rooms2.length) { why = 'item'; return false; }
-        if (g.rooms2.map((x, i) => x.at || H.defAt(i + 1)).some(a => a.p === p && a.d === d)) { why = 'used'; return false; }
-        price = H.ROOM_PRICE; apply = () => g.rooms2.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p, d }, n: 12 });
+        if (g.rooms2.map((x, i) => x.at || defAt(i + 1)).some(a => a.p === p && a.d === d)) { why = 'used'; return false; }
+        price = ROOM_PRICE; apply = () => g.rooms2.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p, d }, n: 12 });
       }
       else if (m.roomBig != null) {
         const i = m.roomBig | 0, rm = i === 0 ? g.room : g.rooms2[i - 1];
         if (!rm) { why = 'item'; return false; }
-        if (rm.n === H.BIG_N) { why = 'have'; return false; }
-        price = H.BIG_PRICE; apply = () => { rm.n = H.BIG_N; };
+        if (rm.n === BIG_N) { why = 'have'; return false; }
+        price = BIG_PRICE; apply = () => { rm.n = BIG_N; };
       }
       else { why = 'item'; return false; }
       if (g.zeni < price) { why = 'zeni'; return false; }

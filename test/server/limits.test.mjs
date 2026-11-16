@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeCore, user } from '../helpers.mjs';
-import { ROOM_LIM } from '../../server/core.js';
+import { ROOM_LIM } from '../../server/econ.js';
 
 test('上限の値', () => {
   assert.deepEqual(ROOM_LIM, { perRoom: 99, perKind: 99, total: 600 });
