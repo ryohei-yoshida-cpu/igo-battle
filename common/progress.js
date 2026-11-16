@@ -271,8 +271,8 @@
         { go: home, at: '#openHub', say: 'まずは「ルーム」を開いてください。', until: () => !$$('#hub').hidden },
         { go: () => window.AVATAR_UI.openHub(), at: '#openAvatar', say: '「クローク」をタップ！ 持っている服に着がえられる場所です。', until: () => avIs('クローク') },
         { go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avTabs [data-slot="tool"]', say: '「道具」のタブを開いて……', until: () => avTab('tool'), skip: () => avTab('tool') },
-        { at: '#avGrid2 [data-sl="tool"][data-id="t13"]', say: '扇子をタップ！', until: () => !!$$('#avGrid2 [data-sl="tool"][data-id="t13"].on') },
-        { at: '#avSave', say: '「この姿にする」で決まりです！', until: () => !!(S.av && S.av.tool === 't13') }
+        { light: true, at: '#avGrid2 [data-sl="tool"][data-id="t13"]', say: '扇子をタップ！', until: () => !!$$('#avGrid2 [data-sl="tool"][data-id="t13"].on') },
+        { light: true, at: '#avSave', say: '「この姿にする」で決まりです！', until: () => !!(S.av && S.av.tool === 't13') }
       ],
       lines: ['とってもお似合いです！ 扇子を持つと、なんだか強そうに見えますね。',
         'お店で新しい服も買えるのですが……店員のひなたさん、今はお休みみたいですね。この街に新人さんが来るの、一番楽しみにしていたのに。夏祭りにでも行っちゃったかなぁ。']
@@ -285,8 +285,8 @@
         { go: home, at: '#openShop', say: 'まずは「ショップ」！', until: () => !$$('#shop').hidden },
         { go: () => window.SHOP.open(), at: '#shopAvatar', say: '私の「服ショップ」はここ！', until: () => avIs('服ショップ') },
         { go: () => window.AVATAR_UI.open('shop', null, 'home'), at: '#avTabs [data-slot="body"]', say: '「身体」のタブをタップしてね。', until: () => avTab('body'), skip: () => avTab('body') },
-        { at: '#avGrid2 [data-sl="body"][data-id="b05"]', say: 'おすすめは、この「ネオンパーカー」！ タップすると試着できるよ♪', until: () => !!$$('#avGrid2 [data-sl="body"][data-id="b05"].on') || (S.avOwned || []).includes('body:b05') },
-        { at: '#avGrid2 [data-sl="body"][data-id="b05"]', say: '似合ってる！ もう一度タップすると、買えるよ！', until: () => (S.avOwned || []).includes('body:b05') }
+        { light: true, at: '#avGrid2 [data-sl="body"][data-id="b05"]', say: 'おすすめは、この「ネオンパーカー」！ タップすると試着できるよ♪', until: () => !!$$('#avGrid2 [data-sl="body"][data-id="b05"].on') || (S.avOwned || []).includes('body:b05') },
+        { light: true, at: '#avGrid2 [data-sl="body"][data-id="b05"]', say: '似合ってる！ もう一度タップすると、買えるよ！', until: () => (S.avOwned || []).includes('body:b05') }
       ],
       lines: ['お買い上げ、ありがとう！ すっごく似合ってるよ♪', '新しい服が入ったら、また見に来てね！']
     },
@@ -299,8 +299,8 @@
         { go: () => window.AVATAR_UI.openHub(), at: '#openRoom', say: '「マイルーム」へ。', until: () => !$$('#myroom').hidden },
         { go: () => window.ROOM.open(), at: '#roomDock [data-dock="shop"]', say: '下の「ショップ」が、俺の店だ。', until: () => RM().mode === 'shop' },
         { at: '#rsNav [data-kind="floor"]', say: '「床の家具」を見てくれ。', until: () => RM().shopKind === 'floor', skip: () => RM().shopKind === 'floor' },
-        { at: '#rsGrid [data-try="goban"]', say: '……碁盤だ。タップすると、部屋に試し置きできる。', until: () => RM().trying('goban') || RM().owned('goban') >= 1 },
-        { at: '#rsCart .rs-buy', say: 'よければ「購入」を押してくれ。', until: () => RM().owned('goban') >= 1 }
+        { light: true, at: '#rsGrid [data-try="goban"]', say: '……碁盤だ。タップすると、部屋に試し置きできる。', until: () => RM().trying('goban') || RM().owned('goban') >= 1 },
+        { light: true, at: '#rsCart .rs-buy', say: 'よければ「購入」を押してくれ。', until: () => RM().owned('goban') >= 1 }
       ],
       lines: ['……ありがとう。いい碁盤だ。大事にしてくれ。'],
       next: 'place_goban'
@@ -311,7 +311,7 @@
       steps: [
         { say: '碁盤、買えましたね！ 次は、お部屋に置いてみましょう！' },
         { go: () => window.ROOM.open(), at: '#roomDock [data-dock="edit"]', say: '「もようがえ」をタップ！', until: () => RM().mode === 'edit' },
-        { at: '[data-place="goban"]', say: '倉庫の碁盤をタップすると、お部屋に置けます。', until: () => RM().placed('goban') >= 1, skip: () => RM().placed('goban') >= 1 },
+        { light: true, at: '[data-place="goban"]', say: '倉庫の碁盤をタップすると、お部屋に置けます。', until: () => RM().placed('goban') >= 1, skip: () => RM().placed('goban') >= 1 },
         { say: '置いた家具は、ドラッグで好きな場所に動かせますよ。' },
         { at: '.rm-edit-h [data-dock="edit"]', say: 'できたら「もようがえを終わる」をタップ！', until: () => { if (RM().mode === 'view' && RM().placed('goban') >= 1) S.spSeen = 1; return !!S.spSeen; } }
       ],
@@ -357,7 +357,13 @@
       P.save();
       if (n) setTimeout(() => special(n), 500); else { home(); setTimeout(check, 600); }
     };
-    const after = () => d.after ? d.after(next) : next();
+    // ミッションクリアの演出（ハンコ）→ そのあと
+    const after0 = () => d.after ? d.after(next) : next();
+    const after = () => {
+      if (!window.FX || !window.FX.stamp) { after0(); return; }
+      spBusy = true;
+      window.FX.stamp({ kicker: '特別ミッション', stamp: 'クリア', title: d.title, sub: 'ミッションクリア！', chara: d.who, kind: 'mission', done: () => { spBusy = false; after0(); } });
+    };
     if (!said && d.lines) { spBusy = true; window.FANFARE.scene({ who: d.who === 'shima' ? 'shima' : d.who, steps: d.lines.map(text => ({ text })), then: () => { spBusy = false; after(); } }); }
     else after();
   }

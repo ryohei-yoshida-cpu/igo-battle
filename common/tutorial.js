@@ -166,6 +166,7 @@
     const st = STEPS[n];
     if (GD && st.skip && st.skip()) { busy = false; i = n; nextStep(); return; }
     el.classList.toggle('live', !!st.until);
+    el.classList.toggle('light', !!st.light);   // 試着・試し置き：まわりを暗くしすぎない（着た姿・部屋が見えるように）
     el.querySelector('.tut-next').textContent = st.until ? 'やってみてね' : 'タップで次へ ▶';
         el.querySelector('.tut-n').textContent = `${n + 1} / ${STEPS.length}`;
     el.querySelector('.tut-say').classList.remove('in');

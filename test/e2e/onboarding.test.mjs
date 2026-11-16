@@ -40,10 +40,14 @@ before(async () => {
 after(async () => { await browser.close(); server.kill(); });
 
 const goals = () => p.evaluate(() => [...document.querySelectorAll('#goalBox .goal')].map(b => b.textContent.replace(/\s+/g, ' ').trim()));
+// ミッションクリアのハンコ：見えたらタップでとじる
+async function stampClose() { if (await p.$('#fxStamp:not([hidden])')) { await p.waitForTimeout(1300); await p.click('#fxStamp', { timeout: 1500 }).catch(() => {}); await p.waitForTimeout(400); return true; } return false; }
+let stamps = 0;
 // キャラの登場シーンを、最後までタップして進める（えらぶボタンがあれば、さいしょの）
 async function through(ms = 30000) {
   const t0 = Date.now();
-  await p.waitForSelector('.sj', { timeout: 10000 });
+  for (let k = 0; k < 20 && !await p.$('.sj'); k++) { if (await stampClose()) stamps++; else await p.waitForTimeout(500); }
+  await p.waitForSelector('.sj', { timeout: 5000 });
   await p.waitForTimeout(1800);   // 障子が開くまで
   while (await p.$('.sj')) {
     if (Date.now() - t0 > ms) throw new Error('シーンが終わらない');
@@ -56,6 +60,7 @@ async function through(ms = 30000) {
 const tapTut = () => p.click('.tut', { position: { x: 30, y: 300 }, timeout: 1500 }).catch(() => {});
 async function guideTap(sel) {
   for (let k = 0; k < 40; k++) {
+    if (await stampClose()) { stamps++; continue; }
     if (await p.evaluate(s => { const t = document.querySelector('.tut.live:not(.away)'); return !!t && !!document.querySelector(s); }, sel)) break;
     if (await p.$('.sj')) { await through(); continue; }
     if (await p.$('.tut')) await tapTut(); else await p.waitForTimeout(300);
@@ -71,9 +76,10 @@ async function guideEnd() {
   for (let k = 0; k < 40 && await p.$('.tut'); k++) {
     if (await p.$('.sj')) { await through(); continue; }
     if (await p.$('#confirm:not([hidden])')) { await p.click('#cfNo'); continue; }
+    if (await stampClose()) { stamps++; break; }   // クリアのハンコ（このあと次の案内がはじまることがある）
     await tapTut(); await p.waitForTimeout(300);
   }
-  assert.equal(await p.$('.tut'), null, '案内が終わった');
+  for (let k = 0; k < 6; k++) { if (await stampClose()) { stamps++; break; } await p.waitForTimeout(300); }
 }
 const games = n => p.evaluate(n => { window.APP.S.prog.games = n; window.APP.save(); window.PROG.check(); }, n);
 
@@ -184,5 +190,7 @@ test('骨董屋から30局で碁会所。闇落ち玄斎まで読むとキャラ
   await p.evaluate(() => { for (const id of ['ep_shima', 'ep_tomoe', 'ep_mike', 'ep_tono', 'ep_dgensai']) window.APP.S.solo.read[id] = true; window.APP.renderHome(); });
   assert.match((await goals())[0], /キャラクターミッション.*みけ＆こむぎ（10級）に3勝/);
 });
+
+test('特別ミッションをクリアするたびに「クリア」のハンコが出た', () => { assert.ok(stamps >= 6, 'ハンコ ' + stamps); });
 
 test('エラーが出ていない', () => { assert.deepEqual(errors, []); });
