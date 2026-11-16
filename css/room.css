@@ -1,0 +1,309 @@
+/* マイルーム */
+/* ---------- マイルーム ---------- */
+#myroom { gap: 10px; }
+.zeni-chip { justify-self: end; font-weight: 900; font-size: 14px; color: #fff3dc; padding: 5px 12px; border-radius: 999px; background: linear-gradient(135deg, #b8862a, #e8c46e); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.room-stage { position: relative; border-radius: 18px; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #3a2a1c, #170f09); border: 1px solid var(--line); }
+#roomSvg { display: block; width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.room-stage.editing #roomSvg { touch-action: none; }
+.room-stage.editing [data-uid] { cursor: grab; }
+.rm-grid { stroke: rgba(255, 255, 255, .22); stroke-width: .6; pointer-events: none; }
+.rm-foot { pointer-events: none; }
+.rm-foot.ok { fill: rgba(90, 210, 120, .35); stroke: #5ad278; stroke-width: 1.2; }
+.rm-foot.ng { fill: rgba(230, 70, 60, .35); stroke: #e6463c; stroke-width: 1.2; }
+.rm-sel { filter: drop-shadow(0 0 3px #ffe08a) drop-shadow(0 0 6px rgba(255, 210, 110, .8)); }
+.rm-visitor { cursor: pointer; animation: rmBob 2.4s ease-in-out infinite; }
+@keyframes rmBob { 50% { transform: translateY(-2px); } }
+.room-bubble { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 10px 14px 12px; border-radius: 16px; background: rgba(255, 248, 236, .97); color: #2a1a10; box-shadow: 0 8px 22px rgba(0, 0, 0, .45); display: flex; flex-direction: column; gap: 4px; animation: rmPop .22s ease-out; }
+.room-bubble b { font-size: 13px; color: #9a3a22; font-weight: 900; }
+.room-bubble p { margin: 0; font-size: 15px; line-height: 1.6; font-weight: 700; }
+.rb-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.room-bubble .btn.lac { color: var(--text); }
+@keyframes rmPop { from { transform: translateY(8px) scale(.97); opacity: 0; } }
+.room-tools { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 14px; background: rgba(20, 13, 8, .88); border: 1px solid var(--line); }
+.room-tools span { flex: 1; min-width: 0; font-weight: 900; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rm-tabs { display: flex; gap: 4px; margin-left: auto; padding: 3px; border-radius: 999px; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); }
+.rm-tabs button, .rm-seg button { font: inherit; font-size: 13px; font-weight: 800; color: var(--muted); background: none; border: 0; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.rm-tabs button[aria-pressed="true"], .rm-seg button[aria-pressed="true"] { background: var(--shu); color: #fff; }
+.room-panel { display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; }
+.rm-seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.rm-seg.small button { font-size: 12px; padding: 4px 10px; }
+.rm-help { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+.rm-grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.rm-card { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 6px; border-radius: 14px; background: rgba(0, 0, 0, .25); border: 1px solid var(--line); text-align: center; min-width: 0; }
+.rm-card b { font-size: 13px; font-weight: 900; }
+.rm-card small { font-size: 11px; color: var(--muted); min-height: 1.4em; }
+.rm-card .btn { width: 100%; padding: 6px 4px; font-size: 12.5px; }
+.rm-thumb { width: 100%; height: 70px; }
+.rm-thumb.wall { padding: 6px; }
+.rm-swatch { width: 100%; height: 56px; border-radius: 10px; }
+.f-wood { background: repeating-linear-gradient(90deg, #b98a5a 0 14px, #c4956a 14px 28px); }
+.f-tatami { background: repeating-linear-gradient(90deg, #cfc58a 0 26px, #4a3a20 26px 28px); }
+.f-tile { background: conic-gradient(#8f3a2c 25%, #c9b48e 0 50%, #8f3a2c 0 75%, #c9b48e 0) 0 0 / 24px 24px; }
+.w-plain { background: #efe9df; }
+.w-shikkui { background: linear-gradient(90deg, #6b4a2b 0 8%, #ece2c8 8% 46%, #6b4a2b 46% 54%, #ece2c8 54%); }
+.w-beni { background: linear-gradient(#a8352c 0 18%, #d9a93a 18% 26%, #a8352c 26%); }
+.w-stripe { background: repeating-linear-gradient(90deg, #dfe7e3 0 10px, #c9d8d1 10px 20px); }
+.rm-guests { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.rm-guest { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(0, 0, 0, .25); border: 1px solid var(--line); opacity: .7; }
+.rm-guest.ok { opacity: 1; border-color: var(--kin); }
+.rm-guest img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; }
+.rm-guest:not(.ok) img { filter: grayscale(.85); }
+.rm-guest b { display: block; font-size: 14px; }
+.rm-guest small { font-size: 11.5px; color: var(--muted); }
+.rm-guest.ok small { color: var(--kin); font-weight: 800; }
+.res-zeni { font-weight: 900; font-size: 18px; color: #f2cf7a; text-shadow: 0 0 12px rgba(242, 207, 122, .5); }
+.room-stage { flex: none; }
+#myroom .room-panel { flex: none; }
+
+/* ---------- マイルームのえらぶ画面 ---------- */
+.hub-card { position: relative; overflow: hidden; flex: none; cursor: pointer; text-align: left; color: #fff6ea; min-height: 128px; border-radius: 20px; padding: 16px 18px;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; border: 1px solid rgba(255, 220, 190, .3); transition: transform .08s; }
+.hub-card:active { transform: scale(.98); }
+.hub-card:focus-visible { outline: 2px solid var(--kin); outline-offset: 2px; }
+.hub-card.av { background: linear-gradient(120deg, #5aa3a0 0%, #2f6f78 50%, #1c3f48 100%); min-height: 170px; }
+.hub-card.room { background: linear-gradient(120deg, #c98a4a 0%, #8a5428 50%, #4a2a14 100%); }
+.hub-card.chara { background: linear-gradient(120deg, #d06a7e 0%, #8f3550 50%, #4a1a2a 100%); }
+.hub-k { position: relative; z-index: 2; font-weight: 900; font-size: 26px; letter-spacing: .06em; text-shadow: 0 2px 10px rgba(0, 0, 0, .55); }
+.hub-sub { position: relative; z-index: 2; max-width: 58%; font-size: 12px; font-weight: 700; line-height: 1.5; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+.hub-fig { position: absolute; right: 8px; top: 6px; bottom: 0; width: 42%; display: flex; justify-content: center; }
+.hub-fig svg { height: 100%; width: auto; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .35)); }
+.hub-fig.room { right: -10px; top: 50%; bottom: auto; transform: translateY(-50%); width: 52%; }
+.hub-fig.room svg { width: 100%; height: auto; }
+.hub-img { position: absolute; right: 0; top: 0; height: 100%; width: 46%; object-fit: cover; object-position: 50% 8%;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 35%); mask-image: linear-gradient(to right, transparent 0, #000 35%); }
+
+/* ---------- 部屋：ひとこと・訪問数・交流 ---------- */
+.room-hito { position: absolute; left: 10px; top: 10px; max-width: 70%; z-index: 2; background: rgba(255, 246, 234, .94); color: #2a1a10; font-size: 12.5px; font-weight: 800; padding: 6px 12px; border-radius: 14px 14px 14px 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
+.room-visits { position: absolute; right: 10px; top: 10px; z-index: 2; font-size: 11px; font-weight: 800; color: #fff3dc; background: rgba(0, 0, 0, .45); padding: 4px 10px; border-radius: 999px; }
+.room-visits:empty { display: none; }
+#roomTabs { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+#roomTabs button { white-space: nowrap; }
+.sc-write, .sc-line { display: flex; gap: 6px; align-items: flex-start; }
+.sc-write { flex-direction: column; align-items: stretch; }
+.sc-write .btn { align-self: flex-end; }
+.sc-write textarea, .sc-line input { flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--text); background: rgba(0, 0, 0, .3); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; resize: vertical; }
+.sc-diary { border-radius: 14px; background: rgba(0, 0, 0, .25); border: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.sc-diary header { display: flex; justify-content: space-between; align-items: center; }
+.sc-diary time, .sc-chat time, .sc-comments time, .sc-people time { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sc-diary > p { margin: 0; font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sc-comments, .sc-chat, .sc-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sc-comments li, .sc-chat li, .sc-people li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 13px; padding: 5px 8px; border-radius: 10px; background: rgba(255, 246, 234, .05); }
+.sc-comments span, .sc-chat span { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
+.sc-name { font: inherit; font-weight: 900; color: var(--kin); background: none; border: 0; padding: 0; cursor: pointer; }
+.sc-x { font: inherit; font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; cursor: pointer; }
+.sc-x.warn { color: #ffb3a6; border-color: #e0503e77; }
+.sc-people li { align-items: center; }
+.sc-people li .sc-name { margin-right: auto; }
+.sc-sec { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; background: rgba(0, 0, 0, .22); border: 1px solid var(--line); }
+.sc-sec.hi { border-color: var(--kin); }
+.sc-sec > b { font-size: 13px; color: var(--kin); }
+.sc-sec > .btn { align-self: flex-start; }
+.sc-card { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px; border-radius: 16px; background: linear-gradient(160deg, rgba(232, 196, 110, .22), var(--lac)); border: 1px solid var(--kin); text-align: center; }
+.sc-card small { font-size: 11.5px; color: var(--kin); font-weight: 900; letter-spacing: .1em; }
+.sc-card b { font-size: 20px; font-weight: 900; }
+.sc-card span { font-size: 12px; color: var(--muted); }
+.sc-num b { font-size: 34px; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.rm-help.warn { color: #ffd2c8; }
+#roomTitle { font-size: clamp(15px, 4.6vw, 20px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.av-sec { grid-column: 1 / -1; font-size: 12.5px; font-weight: 900; color: var(--kin); margin-top: 4px; }
+.av-lead { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+
+/* ---------- マイルーム：ショップ・日記の大きいボタン ---------- */
+.room-big { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: none; }
+.room-big button { cursor: pointer; border-radius: 16px; border: 1px solid rgba(255, 220, 190, .35); padding: 14px 8px; font-size: 18px; font-weight: 900; letter-spacing: .14em; color: #fff6ea; }
+.room-big .rb-shop { background: linear-gradient(135deg, #f2a74a, #b0601e); }
+.room-big .rb-diary { background: linear-gradient(135deg, #6a7fc6, #2f3a6c); }
+.room-big button[aria-pressed=true] { box-shadow: 0 0 0 2px var(--kin), 0 6px 18px -6px var(--kin); }
+.room-big button:active { transform: scale(.97); }
+.room-big .rb-diary:only-child, .room-big button[hidden] + .rb-diary { grid-column: 1 / -1; }
+.rm-owner.movable { cursor: grab; }
+
+/* ---------- マイルーム：遊びに来たキャラ（左下に立ち、下に吹き出し） ---------- */
+.visit { position: relative; z-index: 3; flex: none; margin-top: -30px; display: flex; flex-direction: column; gap: 8px; }
+.visit-bubble { position: relative; margin: 0; padding: 9px 14px 9px 30%; min-height: 64px; border-radius: 16px; background: rgba(255, 250, 240, .97); color: #2a1a10; box-shadow: 0 8px 22px rgba(0, 0, 0, .45); display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.visit-bubble.pop { animation: rmPop .25s ease-out; }
+.visit-bubble p { margin: 0; font-size: 14px; line-height: 1.55; font-weight: 700; min-height: 3.1em; max-height: 11em; overflow-y: auto; overflow-wrap: anywhere;   /* 長いセリフも、改行して全部出す */ }
+.visit-bubble p b { color: #9a3a22; font-weight: 900; margin-right: 6px; }
+.visit-bubble::before { content: ""; position: absolute; left: 24%; top: -9px; border: 9px solid transparent; border-top: 0; border-bottom-color: rgba(255, 250, 240, .97); }
+.vb-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.vb-btns button { font: inherit; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 999px; border: 1px solid #c9b18a; background: #fff6e6; color: #5a3a22; cursor: pointer; }
+.vb-btns button.play { background: linear-gradient(135deg, #f06a50, #c0392b); color: #fff6ea; border-color: transparent; }
+.visit-chara { position: absolute; left: -6px; bottom: 6px; height: 205px; width: auto; max-width: 34%; object-fit: contain; object-position: left bottom; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .45)); cursor: pointer; pointer-events: auto; }
+.visit-chara.bust { height: 190px; -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent); mask-image: linear-gradient(to bottom, #000 82%, transparent); }
+.visit-chara.in { animation: visitIn .45s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes visitIn { from { opacity: 0; transform: translateX(-30px); } }
+.visit-icons { display: flex; gap: 8px; flex-wrap: wrap; }
+.visit-icons:empty { display: none; }
+.visit-icons button { width: 48px; height: 48px; padding: 0; border-radius: 10px; overflow: hidden; border: 2px solid var(--line); background: #2a1a10; cursor: pointer; }
+.visit-icons button[aria-pressed=true] { border-color: var(--kin); box-shadow: 0 0 0 2px var(--kin); }
+.visit-icons img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
+.room-guestbar { flex: none; display: flex; }
+.room-guestbar .btn { flex: 1; padding: 12px; font-size: 16px; }
+.fr-invite { margin: 0; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 700; background: rgba(232, 196, 110, .18); border: 1px solid var(--kin); }
+div.tk-item { cursor: default; }
+/* マイルーム：ズーム・大きさ・静馬 */
+.room-zoom { position: absolute; left: 8px; top: 8px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
+.room-zoom button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: rgba(20, 13, 8, .82); color: var(--text); font: inherit; font-size: 20px; font-weight: 900; line-height: 1; cursor: pointer; }
+.room-zoom button:disabled { opacity: .35; }
+.room-stage.zoomed #roomSvg { touch-action: none; cursor: grab; }
+.room-tools .btn { padding-inline: 9px; }
+#rmSize { white-space: nowrap; }
+.rm-goshop { display: block; width: 100%; margin-top: 12px; }
+.rm-clerk { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.rm-clerk img { width: 64px; height: 64px; flex: none; border-radius: 50%; object-fit: cover; object-position: 50% 4%; background: radial-gradient(circle at 50% 30%, #dce6ff, #5d7cc4); border: 2px solid var(--kin); cursor: pointer; }
+.rm-clerk p { flex: 1; min-width: 0; margin: 0; padding: 8px 12px; border-radius: 16px 16px 16px 4px; background: rgba(255, 250, 240, .97); color: #2a1a10; font-size: 13.5px; font-weight: 800; line-height: 1.5; display: flex; flex-direction: column; }
+.rm-clerk p b { font-size: 11px; color: #3a56a8; }
+.rm-clerk p.pop { animation: frPop .4s ease; }
+
+/* ルームショップ：上に静馬と試し置き（動かない）、下にジャンル（動かない） */
+.rm-shop-top { position: sticky; top: 0; z-index: 4; display: flex; flex-direction: column; gap: 6px; padding: 6px 0; background: linear-gradient(var(--sumi) 85%, transparent); }
+.rm-shop-top .rm-clerk { margin-bottom: 0; }
+.rm-try { display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; border-radius: 14px; background: var(--lac-2); border: 1px solid var(--line); }
+.rm-try ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 108px; overflow-y: auto; }
+.rm-try li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.rm-try li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-try li em { font-style: normal; font-weight: 900; color: var(--kin); }
+.rm-try li .btn { padding: 4px 10px; font-size: 12px; }
+.rm-try .av-try-sum { align-items: center; gap: 8px; }
+.rm-try .av-try-sum b { margin-left: auto; }
+.rm-shop-nav { position: sticky; bottom: 0; z-index: 4; margin-top: 10px; justify-content: center; background: rgba(20, 13, 8, .96); border: 1px solid var(--line); box-shadow: 0 -8px 20px rgba(0, 0, 0, .5); }
+.rm-buycard { font: inherit; color: inherit; cursor: pointer; text-align: center; }
+.rm-buycard.on { border-color: var(--kin); box-shadow: 0 0 0 2px var(--kin) inset; }
+.rm-price { font-weight: 900; color: var(--kin); font-size: 13px; }
+.rm-trial { opacity: .78; }
+.rm-trial > * { filter: drop-shadow(0 0 3px rgba(232, 196, 110, .9)); }
+
+/* ===== マイルーム：部屋がいくつも（廊下でつながる。横にスクロール） ===== */
+.room-strip { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.room-strip::-webkit-scrollbar { display: none; }
+.rm-cell { flex: 0 0 100%; position: relative; scroll-snap-align: center; min-width: 0; }
+.room-strip.multi .rm-cell { flex-basis: 92%; }
+.rm-cell-name { position: absolute; left: 50%; transform: translateX(-50%); top: 8px; z-index: 2; font-size: 12px; color: #fff3dc; background: rgba(0, 0, 0, .45); padding: 2px 9px; border-radius: 999px; pointer-events: none; }
+.rm-cell.on .rm-cell-name { background: linear-gradient(135deg, #b8862a, #e8c46e); color: #2a1a0a; }
+.rm-cell-pick { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; position: relative; opacity: .82; filter: saturate(.85); }
+.rm-cell-pick svg { display: block; width: 100%; height: auto; }
+.rm-cell-pick span { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font-size: 12px; color: #fff; background: rgba(0, 0, 0, .55); padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+.rm-hall { flex: 0 0 56px; position: relative; align-self: center; height: 46%; background: repeating-linear-gradient(90deg, #8a6238 0 9px, #7a5430 9px 18px); border-top: 6px solid #e8dfd0; border-bottom: 6px solid #5c3a22; box-shadow: inset 0 8px 10px rgba(0, 0, 0, .25); }
+.rm-hall span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); writing-mode: vertical-rl; font-size: 11px; color: #f3e6cc; letter-spacing: .3em; opacity: .85; }
+.rm-add { display: grid; place-items: center; flex-basis: 60% !important; }
+.rm-add button { display: grid; gap: 4px; place-items: center; width: 82%; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; border: 2px dashed var(--kin); background: rgba(0, 0, 0, .25); color: #fff3dc; font: inherit; cursor: pointer; }
+.rm-add button b { font-size: 16px; }
+.rm-add button small { font-size: 11px; opacity: .85; }
+.rm-guest { flex-wrap: wrap; }
+.rm-guest > div { flex: 1; min-width: 5em; }
+.rm-guest .btn { flex: 1 1 100%; }
+
+/* 部屋に呼んだキャラ */
+.rm-chara.movable { cursor: grab; }
+/* 家具をタップしたときの動き */
+#roomSvg [data-uid], #roomSvg .rm-chara { transform-box: fill-box; transform-origin: 50% 100%; }
+.fx-sway { animation: fxSway 1.2s ease-in-out; }
+.fx-jump { animation: fxJump .7s ease-out 2; }
+.fx-bob { animation: fxBob .5s ease-out; }
+.fx-spin { animation: fxSpin 1s ease-in-out; transform-origin: 50% 50% !important; }
+.fx-flash { animation: fxFlash .45s ease-out; }
+@keyframes fxSway { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-6deg); } 45% { transform: rotate(5deg); } 70% { transform: rotate(-3deg); } 85% { transform: rotate(1.5deg); } }
+@keyframes fxJump { 0%, 100% { transform: translateY(0) scale(1); } 15% { transform: translateY(0) scale(1.06, .92); } 45% { transform: translateY(-14px) scale(.97, 1.04); } 75% { transform: translateY(0) scale(1.04, .96); } }
+@keyframes fxBob { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-6px); } 70% { transform: translateY(1px); } }
+@keyframes fxSpin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+@keyframes fxFlash { 0% { filter: brightness(1.8); } 100% { filter: brightness(1); } }
+.rm-ghostpop > g { animation: fxGhost 1.6s ease-in-out forwards; opacity: 0; }
+@keyframes fxGhost { 0% { opacity: 0; transform: translate(0, 4px); } 30% { opacity: 1; transform: translate(var(--gx), -6px); } 60% { opacity: 1; transform: translate(var(--gx), -9px) rotate(-6deg); } 100% { opacity: 0; transform: translate(0, 2px); } }
+
+/* 家（部屋どうしを廊下と扉でつなぐ） */
+.room-house { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.room-house .rh-name { font-weight: 900; color: #fff3dc; font-size: 13px; margin-right: auto; padding: 0 4px; }
+.room-house .btn[disabled] { opacity: .4; }
+#roomSvg .rm-other { cursor: pointer; }
+#roomSvg .rm-other:hover { filter: brightness(1.06); }
+.rm-room-label { font-size: 11px; font-weight: 900; fill: #fff3dc; paint-order: stroke; stroke: rgba(40, 24, 10, .75); stroke-width: 3px; text-anchor: middle; pointer-events: none; }
+.rm-room-label.on { fill: #ffd98a; }
+.gf-btns { display: flex; gap: 6px; flex: none; }
+.frs-sent { font-size: 11px; color: var(--muted); }
+/* ===== マイルーム（作りなおし）：上に小さな題名 → 部屋 → キャラと吹き出し → キャラのアイコン → 下の帯 ===== */
+#myroom { gap: 8px; padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.room-bar { display: flex; align-items: center; gap: 8px; }
+.room-bar #roomBack { padding: 6px 12px; }
+.room-title { font-size: 13px; font-weight: 900; color: #fff3dc; letter-spacing: .06em; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.room-bar .room-visits { position: static; background: none; padding: 0; color: var(--muted); font-weight: 700; }
+.room-zoom { left: auto; right: 8px; top: 8px; flex-direction: row; }
+.room-zoom button { display: grid; place-items: center; width: 34px; height: 34px; font-size: 18px; backdrop-filter: blur(4px); }
+.room-zoom svg { width: 18px; height: 18px; }
+.room-hito { max-width: 58%; }
+/* キャラ：部屋の右はしに、頭が少しかぶる。吹き出しは左 */
+#myroom .visit { margin-top: -54px; display: block; min-height: 132px; pointer-events: none; }
+#myroom .visit-bubble { pointer-events: auto; margin: 44px 33% 0 0; padding: 10px 14px; min-height: 0; border-radius: 16px 16px 4px 16px; }
+#myroom .visit-bubble::before { left: auto; right: -9px; top: auto; bottom: 14px; border: 9px solid transparent; border-right: 0; border-left-color: rgba(255, 250, 240, .97); }
+#myroom .visit-chara { left: auto; right: -4px; bottom: -8px; height: 190px; max-width: 36%; object-position: right bottom; }
+#myroom .vb-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+#myroom .vb-btns button { font: inherit; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 4px 10px; border: 1px solid rgba(90, 50, 20, .25); background: #fff; color: #5a3214; cursor: pointer; }
+#myroom .vb-btns button.play { background: linear-gradient(135deg, #b8862a, #e8c46e); color: #2a1a0a; border: 0; }
+#myroom .visit-icons { gap: 6px; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: none; }
+#myroom .visit-icons button { width: 42px; height: 42px; flex: none; border-radius: 50%; }
+/* 下の帯 */
+.room-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: center; gap: 4px; padding: 8px max(16px, env(safe-area-inset-left, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(180deg, rgba(30, 20, 12, .92), rgba(16, 10, 6, .98)); border-top: 1px solid var(--line); backdrop-filter: blur(8px); }
+.room-dock button { flex: 1; max-width: 110px; display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border: 0; border-radius: 14px; background: none; color: #d9c7a5; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; transition: background .2s, color .2s; }
+.room-dock svg { width: 24px; height: 24px; }
+.room-dock button[aria-pressed=true] { background: rgba(232, 196, 110, .16); color: #ffd98a; }
+/* もようがえ・キャラ・交流のパネル */
+.rm-house { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.rm-house b { color: #fff3dc; font-size: 13px; margin-right: auto; }
+.rm-house small { opacity: .75; font-size: 10px; }
+.rm-edit-h { display: flex; align-items: center; gap: 8px; }
+.rm-edit-h b { color: #fff3dc; }
+.rm-edit-h small { color: var(--muted); font-size: 11px; margin-right: auto; }
+.rm-soc { display: grid; gap: 10px; }
+.rm-soc-card { display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.rm-soc-card > small { color: var(--muted); font-size: 11px; }
+.rm-pid { font-size: 26px; letter-spacing: .18em; color: #ffd98a; font-variant-numeric: tabular-nums; }
+.rm-opps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rm-opps button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 0; background: rgba(0, 0, 0, .2); color: #fff3dc; font: inherit; cursor: pointer; text-align: left; }
+.rm-opps b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-opps span { font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 999px; }
+.rm-opps span.w { background: rgba(214, 70, 50, .25); color: #ffb3a3; }
+.rm-opps span.l { background: rgba(90, 120, 200, .25); color: #b8c9ff; }
+.rm-opps span.d { background: rgba(255, 255, 255, .1); }
+.rm-opps small { color: var(--muted); font-size: 10px; }
+/* ===== ルームショップ ===== */
+.rshop { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.rshop-clerk { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 16px; background: linear-gradient(135deg, rgba(60, 40, 24, .9), rgba(30, 20, 12, .9)); border: 1px solid var(--line); }
+.rshop-clerk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: 50% 15%; flex: none; border: 2px solid var(--kin); cursor: pointer; }
+.rshop-clerk p { margin: 0; flex: 1; min-width: 0; font-size: 12.5px; color: #fff3dc; line-height: 1.45; }
+.rshop-clerk p b { color: #ffd98a; margin-right: 6px; }
+.rshop-x { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: rgba(0, 0, 0, .3); color: #fff3dc; font-size: 15px; cursor: pointer; }
+.rshop-body { min-height: 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; }
+.rshop-grid { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 8px; padding-right: 2px; overscroll-behavior: contain; }
+.rshop-grid .rs-note { grid-column: 1 / -1; }
+.rs-card { position: relative; display: grid; justify-items: center; gap: 2px; padding: 8px 6px 7px; border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); color: #fff3dc; font: inherit; cursor: pointer; transition: transform .12s, border-color .2s; }
+.rs-card:active { transform: scale(.97); }
+.rs-card.on { border-color: var(--kin); box-shadow: 0 0 0 1px var(--kin) inset; }
+.rs-card .rm-thumb { width: 100%; height: 64px; }
+.rs-card .rm-swatch { width: 100%; height: 56px; border-radius: 8px; }
+.rs-card b { font-size: 11.5px; line-height: 1.3; text-align: center; }
+.rs-card .rm-price { font-size: 11px; color: #ffd98a; font-weight: 900; }
+.rs-have { position: absolute; left: 6px; top: 6px; font-size: 9.5px; background: rgba(0, 0, 0, .5); padding: 1px 6px; border-radius: 999px; }
+.rshop-cart { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; background: rgba(255, 246, 234, .06); border: 1px solid var(--line); }
+.rs-cart-h { font-size: 12px; color: #ffd98a; }
+.rshop-cart ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rshop-cart li { display: grid; grid-template-columns: 1fr auto; gap: 0 4px; font-size: 11px; color: #fff3dc; padding-bottom: 6px; border-bottom: 1px dashed rgba(255, 255, 255, .12); }
+.rshop-cart li span { grid-column: 1 / -1; font-weight: 800; line-height: 1.3; }
+.rshop-cart li em { font-style: normal; color: #ffd98a; }
+.rshop-cart .sc-x { justify-self: end; }
+.rs-empty { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.rs-total { margin-top: auto; display: grid; }
+.rs-total small { font-size: 10px; color: var(--muted); }
+.rs-total b { font-size: 16px; color: #fff3dc; }
+.rs-total b.short { color: #ff9b8a; }
+.rs-buy { width: 100%; padding: 10px 6px; }
+.rshop-nav { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); margin-bottom: env(safe-area-inset-bottom, 0px); }
+.rshop-nav button { flex: 1; border: 0; border-radius: 999px; padding: 8px 2px; background: none; color: #d9c7a5; font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; }
+.rshop-nav button[aria-pressed=true] { background: linear-gradient(135deg, #b8862a, #e8c46e); color: #2a1a0a; }
+.rm-edit-h b { white-space: nowrap; }
+.rm-edit-h .btn { flex: none; white-space: nowrap; }
+.room-bar .room-title { font-size: 12px !important; font-weight: 800; color: var(--muted); letter-spacing: .08em; }
+
+/* キャラは部屋にかからず、下に立つ */
+#myroom .visit { margin-top: 0; min-height: 150px; }
+#myroom .visit-bubble { margin-top: 30px; }
+#myroom .visit-chara { bottom: 0; height: 170px; }

@@ -729,7 +729,7 @@
     for (const r of allRooms()) { r.items = r.items.filter(i => !i.trial); r.walls = r.walls.filter(i => !i.trial); }
     if (sel && sel.trial) sel = null;
   }
-  // 買う（list：試し置きの家具）。買えたら「そのまま置きますか？」
+
   /* ---------- パネル（ショップ・倉庫・お客さん） ---------- */
   let tab = 'shop', shopKind = 'floor';
   // 家具ひとつを小さく描く（ショップ・倉庫の見本）

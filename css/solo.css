@@ -1,0 +1,184 @@
+/* ソロ・物語・レクチャー */
+/* ---------- ソロ ---------- */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); border-radius: 14px; padding: 4px; }
+.seg button { border: 0; background: transparent; border-radius: 10px; padding: 9px 8px; font-weight: 900; cursor: pointer; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.seg button small { font-size: 11px; font-weight: 700; opacity: .85; }
+.seg button[aria-checked=true] { background: linear-gradient(135deg, #f06a50, var(--shu)); color: #fff6ea; }
+.stories { display: flex; flex-direction: column; gap: 8px; }
+.story {
+  position: relative; overflow: hidden; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px;
+  background: linear-gradient(120deg, rgba(60, 38, 22, .88), rgba(22, 14, 9, .88));
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; transition: transform .08s;
+}
+.story b { font-weight: 900; font-size: 18px; }
+.story small { grid-column: 1; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.story .pips { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
+.story .pips i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--kin); }
+.story .pips i.on { background: var(--kin); box-shadow: 0 0 8px var(--kin); }
+.story .st-state { grid-column: 1 / -1; font-size: 12px; font-weight: 800; color: var(--sakura); }
+.lessons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lessons button {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--lac); padding: 9px 6px; cursor: pointer;
+  font-weight: 800; font-size: 12px; line-height: 1.35; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.lessons button i { font-style: normal; font-size: 11px; color: var(--muted); }
+.lessons button.done { border-color: var(--kin); }
+.lessons button.done i { color: var(--kin); }
+.lessons button:disabled { opacity: .45; cursor: default; }
+
+/* レクチャーの選択肢 */
+.ls-choices { display: flex; flex-direction: column; gap: 6px; }
+.ls-choices .btn { text-align: left; font-size: 15px; padding: 12px 16px; }
+.ls-choices .btn.right { border-color: var(--kin); background: linear-gradient(135deg, rgba(232, 196, 110, .35), var(--lac)); }
+.ls-choices .btn.wrongc { animation: shake .35s; border-color: var(--shu); }
+
+/* 実戦！ */
+#jissen {
+  position: fixed; inset: 0; z-index: 65; display: grid; place-items: center; align-content: center; gap: 4px;
+  background: radial-gradient(70% 50% at 50% 50%, rgba(40, 10, 6, .55), rgba(6, 3, 2, .9));
+  pointer-events: auto; overflow: hidden;
+}
+#jissen.go { animation: jsFade 1.7s ease forwards; }
+.js-band {
+  position: absolute; left: -10%; right: -10%; top: 50%; height: 34%;
+  transform: translateY(-50%) skewY(-8deg) scaleX(0); transform-origin: left center;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 220, 180, 0) 0 40px, rgba(255, 220, 180, .14) 40px 43px, rgba(255, 220, 180, 0) 43px 110px),
+    linear-gradient(90deg, rgba(120, 18, 10, 0), #b8281c 12%, #e0503e 50%, #b8281c 88%, rgba(120, 18, 10, 0));
+  border-top: 4px solid var(--kin); border-bottom: 4px solid var(--kin);
+  box-shadow: 0 0 50px rgba(224, 80, 62, .8);
+}
+#jissen.go .js-band { animation: jsBand 1.7s cubic-bezier(.2, .8, .2, 1) forwards; }
+.js-text {
+  position: relative; font-family: var(--font); font-weight: 900;   /* 太すぎる書体は、ふちどりで字がつぶれるので使わない */
+  font-size: clamp(76px, 25vw, 170px); line-height: 1; letter-spacing: .02em; color: #fff6e2;
+  -webkit-text-stroke: 6px #1a0904; paint-order: stroke fill;
+  text-shadow: 0 0 24px rgba(255, 210, 120, .9), 0 0 60px rgba(224, 80, 62, .9), 0 8px 0 #1a0904;
+}
+#jissen.go .js-text { animation: jsText 1.7s cubic-bezier(.2, .8, .2, 1) forwards; }
+.js-sub { position: relative; font-weight: 900; font-size: 17px; letter-spacing: .14em; color: var(--kin); text-shadow: 0 2px 8px #000; }
+#jissen.go .js-sub { animation: jsSub 1.7s ease forwards; }
+@keyframes jsFade { 0%, 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes jsBand { 0% { transform: translateY(-50%) skewY(-8deg) scaleX(0); } 14% { transform: translateY(-50%) skewY(-8deg) scaleX(1); } 100% { transform: translateY(-50%) skewY(-8deg) scaleX(1); } }
+@keyframes jsText {
+  0% { transform: scale(3.2) rotate(-6deg); opacity: 0; filter: blur(10px); }
+  16% { transform: scale(.9) rotate(-6deg); opacity: 1; filter: blur(0); }
+  22% { transform: scale(1.06) rotate(-6deg) translate(-4px, 2px); }
+  28% { transform: scale(1) rotate(-6deg) translate(4px, -2px); }
+  34% { transform: scale(1) rotate(-6deg); }
+  100% { transform: scale(1.08) rotate(-6deg); }
+}
+@keyframes jsSub { 0%, 20% { opacity: 0; transform: translateY(8px); } 34%, 100% { opacity: 1; transform: none; } }
+
+/* 脚本 */
+#reader { gap: 10px; }
+.rd-title { display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
+.rd-title b { font-weight: 900; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.rd-title small { color: var(--kin); font-size: 12px; font-weight: 800; }
+.rd-count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+.rd-stage { flex: 1; display: grid; place-items: center; min-height: 120px; }
+.rd-box {
+  position: relative; cursor: pointer; min-height: 150px;
+  background: linear-gradient(180deg, rgba(20, 13, 8, .9), rgba(12, 8, 5, .94));
+  border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px 26px;
+  box-shadow: 0 0 0 4px rgba(20, 13, 8, .4), 0 -10px 40px rgba(0, 0, 0, .4);
+}
+.rd-name { display: inline-block; font-weight: 900; font-size: 14px; color: #fff3dc; background: var(--shu); padding: 3px 12px; border-radius: 999px; margin-bottom: 8px; }
+.rd-name.gensai { background: #3d4a66; }
+.rd-name.other { background: #5a4636; }
+.rd-name:empty { display: none; }
+.rd-text { margin: 0; font-size: 17px; line-height: 1.85; font-weight: 700; min-height: 3.7em; }
+.rd-text.narr { color: #e9dcc2; font-weight: 500; }
+.rd-next { position: absolute; right: 16px; bottom: 8px; color: var(--kin); font-size: 12px; animation: bob 1s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(3px); } }
+.rd-card {
+  width: min(100%, 380px); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: rgba(16, 10, 6, .92); border: 1px solid var(--kin); border-radius: 20px; padding: 22px 18px;
+  box-shadow: 0 0 40px -10px rgba(232, 196, 110, .5); animation: fadeIn .4s ease;
+}
+.rd-card-k { font-weight: 900; font-size: 12px; letter-spacing: .2em; color: var(--sakura); }
+.rd-card-t { font-weight: 900; font-size: 22px; }
+.rd-card-d { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.rd-card-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+/* レクチャー */
+#lesson { gap: 10px; }
+.board-wrap.small { width: min(100%, calc(100dvh - 330px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
+.ls-talk { display: grid; grid-template-columns: 78px 1fr; gap: 10px; align-items: end; }
+.ls-face { width: 78px; height: 92px; object-fit: cover; object-position: 50% 30%; border-radius: 16px; background: rgba(60, 38, 22, .8); border: 1px solid var(--line); }
+.ls-bubble { position: relative; background: rgba(250, 243, 228, .96); color: #2a1c12; border-radius: 16px; padding: 10px 14px 12px; min-height: 84px; }
+.ls-bubble::before { content: ""; position: absolute; left: -8px; bottom: 18px; border: 8px solid transparent; border-right-color: rgba(250, 243, 228, .96); border-left: 0; }
+.ls-bubble .rd-name { margin-bottom: 4px; font-size: 12px; }
+.ls-bubble p { margin: 0; font-size: 15px; line-height: 1.7; font-weight: 700; }
+.ls-bubble.ok { box-shadow: 0 0 0 3px var(--kin), 0 0 24px rgba(232, 196, 110, .6); }
+.ls-bubble.ng { animation: shake .35s; }
+.ls-btns { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; }
+
+@media (max-width: 380px) { .lessons { grid-template-columns: repeat(2, 1fr); } }
+/* 読む画面の道具（ログ・登場人物・実戦へ） */
+.rd-tools { display: flex; align-items: center; gap: 6px; }
+.rd-tools .btn { padding: 6px 12px; font-size: 12.5px; }
+.rd-gauge { flex: 1; height: 4px; border-radius: 4px; background: rgba(255, 243, 220, .14); overflow: hidden; min-width: 20px; }
+.rd-gauge i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--shu), var(--kin)); transition: width .3s; }
+.rd-name { display: block; width: fit-content; }
+.rd-name.right { margin-left: auto; }
+.rd-name.swap { animation: rdNameIn .28s ease-out; }
+.rd-name.swap.right { animation-name: nameInR; }
+@keyframes rdNameIn { from { transform: translateX(-18px); opacity: 0; } }
+@keyframes nameInR { from { transform: translateX(18px); opacity: 0; } }
+.sheet-h h2 small { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+.log-sheet { max-height: 82%; gap: 10px; }
+.log-list { display: flex; flex-direction: column; gap: 6px; }
+.log-sec { font-size: 12px; font-weight: 900; color: var(--kin); letter-spacing: .1em; margin: 10px 0 2px; }
+.log-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; width: 100%; padding: 8px 10px; border-radius: 12px; border: 1px solid transparent; background: rgba(0, 0, 0, .22); color: var(--text); font: inherit; cursor: pointer; }
+.log-row:hover, .log-row:focus-visible { border-color: var(--kin); outline: none; }
+.log-row.right { align-items: flex-end; text-align: right; }
+.log-row .rd-name { margin: 0; font-size: 11.5px; padding: 2px 10px; }
+.log-row p { margin: 0; font-size: 14px; line-height: 1.6; }
+.log-row.narr p { color: #e9dcc2; font-weight: 500; }
+.log-row.now { border-color: var(--shu); }
+.cast-list { display: flex; flex-direction: column; gap: 8px; }
+.cast-row { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: rgba(0, 0, 0, .22); }
+.cast-row img, .cast-row .cast-ini { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; }
+.cast-row .cast-ini { display: grid; place-items: center; background: #5a4636; color: #fff3dc; font-weight: 900; font-size: 20px; }
+.cast-row b { font-size: 15px; }
+.cast-row p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.st-bar { display: block; height: 6px; border-radius: 6px; background: rgba(255, 243, 220, .14); overflow: hidden; }
+.st-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--shu), var(--kin)); }
+.lessons button.drill { grid-column: 1 / -1; border-color: var(--shu); background: linear-gradient(90deg, rgba(224, 80, 62, .25), rgba(20, 13, 8, .6)); }
+
+/* ソロ：話している人を吹き出しの上に（左右） */
+.rd-stage { position: relative; }
+.rd-actor { position: absolute; bottom: -6px; height: 96%; max-height: 420px; width: auto; max-width: 52%; object-fit: contain; object-position: bottom; pointer-events: none; transition: filter .25s, opacity .25s, transform .25s; filter: brightness(.55) saturate(.7); opacity: .85; z-index: 0; }
+.rd-actor.left { left: -4px; object-position: left bottom; }
+.rd-actor.right { right: -4px; object-position: right bottom; transform: scaleX(-1); }
+.rd-actor.speak { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .5)); opacity: 1; z-index: 1; }
+.rd-actor.bust { -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent); mask-image: linear-gradient(to bottom, #000 80%, transparent); }
+.rd-actor.enter.left { animation: actInL .35s ease-out; }
+.rd-actor.enter.right { animation: actInR .35s ease-out; }
+.rd-actor.left.talk { animation: actTalk .3s ease-out; }
+.rd-actor.right.talk { animation: actTalkR .3s ease-out; }
+@keyframes actInL { from { opacity: 0; transform: translateX(-30px); } }
+@keyframes actInR { from { opacity: 0; transform: translateX(30px) scaleX(-1); } }
+@keyframes actTalk { 40% { transform: translateY(-6px); } }
+@keyframes actTalkR { 40% { transform: translateY(-6px) scaleX(-1); } }
+.rd-card { position: relative; z-index: 2; }
+
+/* 物語の話し手：背景つきの大きな絵（額のように）。話している人が前に出て明るく、もう一人は奥で暗く */
+.rd-actor { bottom: 4px; height: 92%; max-height: 460px; width: auto; max-width: 54%; aspect-ratio: 402 / 740; object-fit: cover; object-position: 50% 0;
+  border-radius: 16px; border: 2px solid rgba(232, 196, 110, .7); box-shadow: 0 12px 28px rgba(0, 0, 0, .55); filter: brightness(.5) saturate(.65); opacity: .9;
+  -webkit-mask-image: none; mask-image: none; }
+.rd-actor.left { left: 8px; transform: rotate(-1.5deg); }
+.rd-actor.right { right: 8px; transform: rotate(1.5deg); }
+.rd-actor.speak { filter: none; opacity: 1; z-index: 1; box-shadow: 0 14px 34px rgba(0, 0, 0, .6), 0 0 0 3px rgba(232, 196, 110, .35); }
+.rd-actor.left.speak { transform: rotate(-1.5deg) scale(1.04); }
+.rd-actor.right.speak { transform: rotate(1.5deg) scale(1.04); }
+.rd-actor.enter.left { animation: bustInL .5s ease-out; }
+.rd-actor.enter.right { animation: bustInR .5s ease-out; }
+.rd-actor.left.talk { animation: bustTalkL .3s ease-out; }
+.rd-actor.right.talk { animation: bustTalkR .3s ease-out; }
+@keyframes bustInL { from { opacity: 0; transform: translateX(-40px) rotate(-1.5deg); } }
+@keyframes bustInR { from { opacity: 0; transform: translateX(40px) rotate(1.5deg); } }
+@keyframes bustTalkL { 40% { transform: translateY(-6px) rotate(-1.5deg) scale(1.04); } }
+@keyframes bustTalkR { 40% { transform: translateY(-6px) rotate(1.5deg) scale(1.04); } }
