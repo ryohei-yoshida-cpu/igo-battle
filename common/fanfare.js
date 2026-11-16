@@ -129,7 +129,7 @@
     run(who, steps, o);
   }
   /* ---------- キャラクターの登場シーン（障子が開いて、奥からズームアップ → セリフを順番に）----------
-   *   scene({ who, doors:true, steps:[{ text, opts:[[k,label]], pick(k) → 追加のセリフ（配列）を返してもよい, items, title, party }], then })
+   *   scene({ who, doors:true, steps:[{ text, opts:[[k,label]], pick(k) → 追加のセリフ（配列）を返してもよい, items, title, party, shake（画面がゆれる） }], then })
    */
   function scene(o) { run(o.who || 'koharu', o.steps.slice(), o); }
   function run(who, steps, o) {
@@ -149,7 +149,9 @@
       itemsEl.innerHTML = st.items ? `${st.title ? `<div class="thx-title">${esc(st.title)}</div>` : ''}<div class="ff-items">${st.items.slice(0, 6).map((it, j) => `<figure style="--i:${j}"><div class="ff-thumb">${it.thumb || ''}</div><figcaption>${esc(it.name || '')}</figcaption></figure>`).join('')}</div>` : '';
       if (st.coin && P) { P.sound('coin'); setTimeout(() => P.sound('coin'), 200); }
       if (st.party) { stop = confetti(el.querySelector('canvas'), 2400); if (P) { P.sound('fanfare'); setTimeout(() => P.sound('coin'), 420); } if (navigator.vibrate) try { navigator.vibrate([30, 40, 60]); } catch (e) {} }
-      else if (P) P.sound('tap');
+      else if (P) P.sound(st.shake ? 'bad' : 'tap');
+      // ぶつかった：画面がゆれる
+      if (st.shake) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); if (navigator.vibrate) try { navigator.vibrate([60, 30, 60]); } catch (e) {} }
       const b = el.querySelector('.thx-say'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
     }
     function next() {

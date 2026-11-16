@@ -452,7 +452,7 @@
       caps: { 1: 0, 2: 0 }, clock: { 1: MAIN_MS, 2: MAIN_MS }, turnStart: performance.now(),
       passes: 0, moveNo: 0, last: -1, over: false, record: [], solo: opts.solo || null, pend: -1, thinking: false, net: null, final: null, lastDrop: -1,
       online: opts.online || null, oppAway: 0,
-      hc: opts.hc || null, friend: !!opts.hc, gk: !!opts.gk, komi: opts.hc ? opts.hc.komi : KOMI, size: BN, atari: !!opts.atari
+      hc: opts.hc || null, friend: !!opts.hc, gk: !!opts.gk, komi: opts.hc ? opts.hc.komi : KOMI, size: BN, atari: !!opts.atari, noCount: !!opts.noCount
     };
     if (opts.atari) G.clock = { 1: 60 * 60000, 2: 60 * 60000 };   // アタリ碁（はじめての一局）は時間を気にしない
     if (BN === 13) G.clock = { 1: MAIN_MS * 2, 2: MAIN_MS * 2 };   // 13路は10分
@@ -519,6 +519,7 @@
       const x = G.last % BN + 0.5, y = ((G.last / BN) | 0) + 0.5;
       m = `<circle cx="${x}" cy="${y}" r=".17" fill="none" stroke="${G.board[G.last] === 1 ? '#fff3dc' : '#e0503e'}" stroke-width=".07"/>`;
     }
+    if (G.sel) for (const p of G.sel) { const x = p % BN + 0.5, y = ((p / BN) | 0) + 0.5; m += `<circle cx="${x}" cy="${y}" r=".5" fill="none" stroke="#ffd98a" stroke-width=".09"/>`; }
     mk.innerHTML = m;
     let t = '';
     if (G.final) for (let p = 0; p < BN * BN; p++) {
@@ -694,12 +695,65 @@
       <div class="sp-row"><i class="sp-stone w"></i><span>石 ${info.st[2]} ＋ 地 ${info.te[2]}${info.komi ? ` ＋ コミ ${info.komi}` : ''}</span><b>＝ ${info.white + info.komi}</b></div>
       <p class="sp-who ${mine}">${who}</p>
       <p class="sp-note">盤の上の石と、囲んだ地（■）を合わせて数えます。${info.dead ? '取られる形の石（死に石）は、相手の地になります。' : ''}${info.komi ? '白には先に打てない分の「コミ」がつきます。' : ''}</p>
-      <button type="button" class="btn primary small" id="spNext">結果へ</button>`;
+      ${studyFoot()}`;
     el.hidden = false;
     let done = false;
-    const go = () => { if (done) return; done = true; clearTimeout(t); el.hidden = true; then(); };
-    const t = auto ? setTimeout(go, 10000) : null;
+    const go = () => { if (done) return; done = true; clearTimeout(el._t); el.hidden = true; lookEnd(); then(); };
+    el._t = auto ? setTimeout(go, 10000) : null;
     $('#spNext').onclick = () => { sound('tap'); go(); };
+    studyBind();
+  }
+  /* ---------- 盤面を見る：石をタップ →「なぜ死んでいる？」を検討で試す ---------- */
+  // 選んだ石（つながっている石もまとめて）と、反対の色の石を全部残した盤で、検討をはじめる。選んだ石の側の番から
+  function studyFoot() {
+    return `<p class="sp-tip">💡 石をタップすると、その石だけ残して検討できます（「なぜ死んでいるの？」を打って試せます）</p>
+      <div class="sp-btns"><button type="button" class="btn lac small" id="spStudy" hidden>選んだ石で検討する</button><button type="button" class="btn primary small" id="spNext">結果へ</button></div>`;
+  }
+  function studyBind() { G.sel = null; G.looking = true; render(); $('#spStudy').onclick = () => { sound('tap'); startStudy(); }; }
+  function lookEnd() { if (!G) return; G.looking = false; G.sel = null; render(); }
+  function lookTap(p) {
+    const c = G.board[p], el = $('#scorePanel');
+    if (el) { clearTimeout(el._t); el._t = null; }
+    if (!c) return;
+    const chain = E.group(G.board, p).stones;
+    if (G.sel && G.sel.size && G.board[[...G.sel][0]] !== c) G.sel = null;   // 選べるのは、どちらか1色だけ
+    G.sel = G.sel || new Set();
+    if (G.sel.has(p)) chain.forEach(q => G.sel.delete(q)); else chain.forEach(q => G.sel.add(q));
+    sound('tap'); render();
+    $('#spStudy').hidden = !G.sel.size;
+    if (G.sel.size) $('#spStudy').textContent = `選んだ${c === 1 ? '黒' : '白'}石で検討する`;
+  }
+  function startStudy() {
+    if (!G || !G.sel || !G.sel.size) return;
+    const c = G.board[[...G.sel][0]], b = G.board.map((v, p) => (v === 3 - c || G.sel.has(p)) ? v : 0);
+    const g = G;
+    $('#scorePanel').hidden = true;
+    reviewBack = () => { if (G !== g) return; showScreen('game'); setMode('play'); G.sel = null; G.looking = false; render(); $('#result').hidden = false; };
+    openReview([], BN, { b, c });
+    toast(`${c === 1 ? '黒' : '白'}番から。この石を生かせるか、打って試してみよう（「ヒント」でAIの手も見られます）`);
+  }
+  // 中押し・時間切れ・切断：その時点の形勢（推定）を、地の ■ で見せる
+  async function lookEstimate() {
+    const g = G;
+    let el = $('#scorePanel'); if (!el) { el = document.createElement('div'); el.id = 'scorePanel'; el.className = 'score-panel'; $('#game').append(el); }
+    el.innerHTML = '<b class="sp-h">形勢を調べています…</b>'; el.hidden = false;
+    const res = await computeScore();
+    if (G !== g || el.hidden) return;
+    G.final = { dead: res.dead, terr: res.terr };
+    const info = scoreBreak(res, 0), lead = res.black - (res.white + G.komi), ahead = lead > 0 ? 1 : lead < 0 ? 2 : 0, pts = Math.abs(lead);
+    const loser = 3 - G.winner, who = c => c === G.me ? 'あなた' : '相手', col = c => c === 1 ? '黒' : '白';
+    const why = G.endReason === '中押し'
+      ? (ahead === G.winner && pts >= 5 ? `${who(loser)}（${col(loser)}）が投了しました。差がつきすぎて、ここから挽回するのは難しいと判断したからです。` : `${who(loser)}（${col(loser)}）が投了しました。形勢はまだ近かったのですが、大きな石が取られそうなど、苦しいと判断したようです。`)
+      : G.endReason === '時間切れ' ? `${who(loser)}（${col(loser)}）の持ち時間がなくなって、勝負がつきました。` : `${who(loser)}（${col(loser)}）の通信が切れたまま戻らず、勝負がつきました。`;
+    el.innerHTML = `<b class="sp-h">終わったときの形勢（推定）</b>
+      <div class="sp-row"><i class="sp-stone b"></i><span>石 ${info.st[1]} ＋ 地 ${info.te[1]}</span><b>＝ ${res.black}</b></div>
+      <div class="sp-row"><i class="sp-stone w"></i><span>石 ${info.st[2]} ＋ 地 ${info.te[2]}${G.komi ? ` ＋ コミ ${G.komi}` : ''}</span><b>＝ ${res.white + G.komi}</b></div>
+      <p class="sp-who ${ahead === 0 ? '' : ahead === G.me ? 'win' : 'lose'}">${ahead === 0 ? 'ほぼ互角' : `${col(ahead)}が 約${Math.round(pts)}目リード`}</p>
+      <p class="sp-note">${why}<br>■ は、このまま打ったらだれの地になりそうか（AIの見こみ）です。うすく見える石は、取られそうな石（死に石）です。</p>
+      ${studyFoot()}`;
+    render();
+    $('#spNext').onclick = () => { sound('tap'); el.hidden = true; lookEnd(); G.final = null; render(); $('#result').hidden = false; };
+    studyBind();
   }
   async function scoreGame() {
     G.over = true;
@@ -758,7 +812,7 @@
 
   function endGame(winner, reason, scoreText, scored) {
     if (!G || (G.over && !scored)) return;
-    G.over = true; G.thinking = false;
+    G.over = true; G.thinking = false; G.endReason = reason; G.winner = winner;
     stopPonder();
     if (G.wake) { G.wake.release().catch(() => {}); G.wake = null; }
     if (G.net) { clearInterval(G.net.timer); G.net = null; $('#netdown').hidden = true; }
@@ -770,12 +824,12 @@
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
     if (reason === 'アタリ碁') label = win ? '石を取って勝ち！' : '石を取られた…';
     // 開放のための対局数（負けもBot戦も数える。すぐ終わった対局は数えない。アタリ碁は数える）
-    if (G.record.length >= 10 || G.atari) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
+    if ((G.record.length >= 10 || G.atari) && !G.noCount) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
     const r = G.solo ? null : (G.friend || reason === '無効試合') ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc ? G.hc.h : 0, BN).concat(G.record), G.hc ? G.hc.h : 0) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
     G.zeniBase = S.zeni || 0;
-    if (win && !G.friend) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
+    if (win && !G.friend && !G.atari && !(G.bot && G.bot.nyumon)) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
     G.rivalEv = rivalCount(win, draw);
     G.zeni = zeni;
     if (econOn()) {
@@ -1466,6 +1520,7 @@
     const y = Math.floor(((e.clientY - r.top) / r.height * (BN + .3)) - 0.15);
     if (x < 0 || x >= BN || y < 0 || y >= BN) return;
     if (R) { reviewTap(y * BN + x); return; }
+    if (G && G.over && G.looking && !$('#scorePanel').hidden) { lookTap(y * BN + x); return; }
     if (!G || G.over || G.toPlay !== G.me || G.net) return;
     const p = y * BN + x;
     if (G.board[p]) return;
@@ -1484,6 +1539,7 @@
   $('#resLook').onclick = () => {
     sound('tap'); $('#result').hidden = true;
     if (G && G.scoreInfo) scorePanel(G.scoreInfo, () => { $('#result').hidden = false; });
+    else if (G && ['中押し', '時間切れ', '切断'].includes(G.endReason) && G.board.some(v => v)) lookEstimate();
     else { let el = $('#scorePanel'); if (!el) { el = document.createElement('div'); el.id = 'scorePanel'; el.className = 'score-panel'; $('#game').append(el); }
       el.innerHTML = '<button type="button" class="btn primary small" id="spNext">結果へ</button>'; el.hidden = false; $('#spNext').onclick = () => { el.hidden = true; $('#result').hidden = false; }; }
   };
@@ -1575,16 +1631,16 @@
     $('#opBar').hidden = rv; $('#meBar').hidden = rv; $('#playActions').hidden = rv;
     $('#game').classList.toggle('reviewing', rv);
   }
-  function openReview(rec, size) {
+  function openReview(rec, size, base) {
     setSize(size || BN);
-    R = { main: rec.slice(), line: rec.slice(), idx: rec.length, hint: null, hintReq: 0 };
+    R = { main: rec.slice(), line: rec.slice(), idx: rec.length, hint: null, hintReq: 0, base: base || null };
     showScreen('game'); $('#result').hidden = true;
     setMode('review');
     $('#fxLayer').innerHTML = '';
     reviewRender();
   }
   function replay(line, n) {
-    let b = new Array(BN * BN).fill(0), ko = -1, c = 1, last = -1;
+    let b = R && R.base ? R.base.b.slice() : new Array(BN * BN).fill(0), ko = -1, c = R && R.base ? R.base.c : 1, last = -1;
     const caps = { 1: 0, 2: 0 };
     for (let i = 0; i < n; i++) {
       const p = line[i];
@@ -1620,7 +1676,7 @@
     $('#marks').innerHTML = m;
     const branch = R.main.length > 0 && (R.line.length !== R.main.length || R.line.some((p, i) => p !== R.main[i]));
     $('#rvMove').textContent = `${R.idx}手目` + (R.line.length ? ` / ${R.line.length}` : '');
-    $('#rvSize').hidden = R.main.length > 0; $('#rvSize').textContent = BN === 9 ? '13路にする' : '9路にする';
+    $('#rvSize').hidden = R.main.length > 0 || !!R.base; $('#rvSize').textContent = BN === 9 ? '13路にする' : '9路にする';
     $('#rvBranch').hidden = !branch;
     $('#rvMain').disabled = !branch;
     $('#rvTurn').innerHTML = `<b>次は${st.c === 1 ? '黒' : '白'}番</b><small>アゲハマ 黒${st.caps[1]}・白${st.caps[2]}</small>`;
@@ -1679,7 +1735,7 @@
     reviewRender();
   };
   $('#openReview').onclick = () => openReview([], 9);
-  $('#rvSize').onclick = () => { if (R && !R.main.length) { openReview([], BN === 9 ? 13 : 9); } };
+  $('#rvSize').onclick = () => { if (R && !R.main.length && !R.base) { openReview([], BN === 9 ? 13 : 9); } };
 
   /* ---------- Botの強さ ---------- */
   // 設定画面と、対局画面の「キャラクターと対局」の右（当たる強さ）の2か所。どちらで変えても同じ
@@ -1796,10 +1852,11 @@
     // 玄斎のおくりものを、もらう（yes=true）か、ことわる
     offer(yes, cb) { if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; } request({ t: 'offer', yes: !!yes }, cb || (() => {})); },
     // はじめての一局：小春とアタリ碁（石を1つ取ったら勝ち）。done(勝った？) でもどる
-    startAtari(done) {
+    // noCount：小春との最初のアタリ碁（チュートリアル）は、イベントの局数に数えない
+    startAtari(done, noCount) {
       // 勝ったら done(true)。負けて「もう一度挑戦」ならもう一局、「もどる」なら done(false)
-      const solo = { clearText: 'はじめての勝利！ おめでとう！', failText: 'おしい！ もう一度やってみよう', nextText: 'つぎへ', done: c => { if (c) { if (done) done(true); } else window.APP.startAtari(done); }, back: () => done && done(false) };
-      newGame(Object.assign(nyumonBot(), { name: 'アタリ碁' }), 1, { solo, atari: true });
+      const solo = { clearText: 'はじめての勝利！ おめでとう！', failText: 'おしい！ もう一度やってみよう', nextText: 'つぎへ', done: c => { if (c) { if (done) done(true); } else window.APP.startAtari(done, noCount); }, back: () => done && done(false) };
+      newGame(Object.assign(nyumonBot(), { name: 'アタリ碁' }), 1, { solo, atari: true, noCount: !!noCount });
     },
     // マイルームのつながり・メッセージ・運営・碁会所。つながっていないときは reason: 'offline'
     soc: rpc('soc'), mail: rpc('mail'), admin: rpc('admin'), guild: rpc('guild'),

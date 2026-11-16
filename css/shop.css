@@ -169,12 +169,15 @@
 .thx-title { text-align: center; font-weight: 900; color: #c23a28; margin-bottom: 4px; }
 .thx-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .thx-opts:empty { display: none; }
-.thx-opts .btn[data-k=""] { grid-column: 1 / -1; }
+.thx-opts .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* 数が奇数のときだけ、最後を横いっぱいに */
+.thx-opts .btn.lac { color: #fff; background: linear-gradient(#a2865a, #7d6340); border-color: #6a5233; text-shadow: 0 1px 1px rgba(0, 0, 0, .35); }
 .thx-next { align-self: flex-end; font-size: 11px; color: #8a6a3a; animation: ffPulse .8s ease-in-out infinite alternate; }
 .sj.asking .thx-next { visibility: hidden; }
 .thx-say.pop { animation: thxPop .35s ease; }
 @keyframes thxPop { from { transform: translateX(-50%) scale(.93); } to { transform: translateX(-50%) scale(1); } }
 .sj.thx .ff-cv { z-index: 3; }
+.sj.shake { animation: sjShake .5s ease-out; }
+@keyframes sjShake { 0%, 100% { transform: none; } 15% { transform: translate(-10px, 4px); } 30% { transform: translate(9px, -5px); } 45% { transform: translate(-7px, 3px); } 60% { transform: translate(5px, -2px); } 80% { transform: translate(-2px, 1px); } }
 .sj.thx .sj-say { z-index: 4; }
 .sj.thx .sj-flash { z-index: 5; }
 .chip-tama { display: block; font-style: normal; font-size: 11px; line-height: 1.1; color: #9ff0d0; text-align: right; }

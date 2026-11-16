@@ -44,13 +44,13 @@
   }
   // 共通ミッション：巴 → ひなた → 静馬 → 段級位でキャラの開放
   function commonGoal() {
-    const g = S.prog || {}, seen = g.seen || {}, beg = PR().beginner();
+    const g = S.prog || {}, seen = g.seen || {};
     if (g.all && seen.room) return rankGoal();
-    for (const [k, who, ep] of [['rec', '巴', null], ['av', 'ひなた', 'ep_hinata'], ['room', '静馬', 'ep_shima']]) {
+    for (const k of ['rec', 'av', 'room']) {
       if (seen[k]) continue;
-      const n = PR().gamesLeft(k);
-      if (PR().ready(k)) return { icon: '🎯', kind: '共通ミッション', text: `${who}がやってくる！`, go: () => PR().check() };
-      return { icon: '🎯', kind: '共通ミッション', text: `あと ${n} 局で ${who}に会える${ep && beg && !read(ep) ? '（またはエピソードを読む）' : ''}`, go: () => P.openPvp() };
+      // だれが来るかは、来るまでのおたのしみ（名前・局数は出さない）
+      if (PR().ready(k)) return { icon: '🎯', kind: '共通ミッション', text: 'だれかが来たみたい……？', go: () => PR().check() };
+      return { icon: '🎯', kind: '共通ミッション', text: '一局、対人戦メニューから打ってみよう', go: () => P.openPvp() };
     }
     return rankGoal();
   }

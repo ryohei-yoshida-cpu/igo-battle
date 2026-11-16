@@ -86,7 +86,8 @@ const games = n => p.evaluate(n => { window.APP.S.prog.games = n; window.APP.sav
 test('はじめ：初心者ミッションと共通ミッションが出る', async () => {
   const g = await goals();
   assert.match(g[0], /初心者ミッション.*幽玄の間の約束/);
-  assert.match(g[1], /共通ミッション.*あと 3 局で 巴/);
+  assert.match(g[1], /共通ミッション.*一局、対人戦メニューから打ってみよう/);
+  assert.doesNotMatch(g.join(), /巴|ひなた|静馬/, 'だれが来るかは出さない');
 });
 
 test('九路の剣客まで読むと「アタリ碁を打ってみよう」。キャラのエピソードはまだ読めない', async () => {
@@ -100,7 +101,7 @@ test('九路の剣客まで読むと「アタリ碁を打ってみよう」。�
 test('3回打ったら「アタリ碁を打ってみよう」は消える（押してもう1局はじまらない）。キャラクターミッションもまだ出ない', async () => {
   await p.evaluate(() => { window.APP.S.prog.games = 3; window.APP.save(); window.APP.renderHome(); });
   const g = await goals();
-  assert.equal(g.length, 1); assert.match(g[0], /巴がやってくる/);
+  assert.equal(g.length, 1); assert.match(g[0], /だれかが来たみたい/);
 });
 
 test('3局：巴 →「戦歴を見てみよう」→ お駄賃の扇子 →「クロークで扇子を持ってみよう」', async () => {

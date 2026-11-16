@@ -155,7 +155,7 @@
     });
   }
   // アタリ碁（終わるまでは「とちゅう」として覚えておく。アプリが落ちても、次に開いたときにもう一度さそう）
-  function startAtari() { P.startAtari(won => afterAtari(won)); }
+  function startAtari() { P.startAtari(won => afterAtari(won), true); }   // チュートリアルの一局：局数に数えない
   function atariAgain() {
     playing = true;
     window.FANFARE.scene({
@@ -176,7 +176,7 @@
     window.FANFARE.scene({
       who: 'koharu',
       steps: (won
-        ? [{ text: 'やったー！ はじめての勝利、おめでとうございます！' }]
+        ? [{ text: 'えー！ 悔しい！ 私も修行してきます！' }, { text: 'また打ちましょう、絶対ですよ！' }]
         : [{ text: 'おしかったですね！ でも、石を取る感じ、つかめたと思います。' }]).concat(tail),
       then: () => tour('pvp', () => { if (beginner && window.SOLO) window.SOLO.open(); check(); })
     });
@@ -187,9 +187,13 @@
     rec: () => ({
       who: 'tomoe', toast: '「戦歴」と「検討」が開きました！',
       steps: [
-        { text: 'なによ！ ……あ、ごめん。負けて泣いてるの、見られたのが恥ずかしかったのよ。' },
-        { text: 'ふ、ふん！ こんなの、なんでもないわ！ 負けて強くなるんだから。戦いの数だけ、私は強くなるの！' },
-        { text: 'ここで勉強して、過去をいっぱい学ぶんだから！' },
+        { text: '（ドンッ！）', shake: true },
+        { text: 'なによ！' },
+        { text: '……' },
+        { text: '……ごめんなさい、言い方がおかしかったわ。' },
+        { text: 'な、泣いてた？' },
+        { text: 'う〜！ ふ、ふん！ そうよ！ ちょっと負けたの！ ちょーっとね！' },
+        { text: 'でも、見てなさい！ ちゃんと振り返って、私は強くなるんだから！' },
         { text: '……そうだ。あんたも自分の「戦歴」、ちゃんと見ておきなさいよ。見たら、いいものあげるわ！' }
       ]
     }),

@@ -146,7 +146,14 @@
       pos = p;
     });
   }
+  // 光る枠を動かすだけ（点滅はそのまま）
+  function moveHole(r) {
+    const h = el.querySelector('.tut-hole'), pad = 6;
+    Object.assign(h.style, { left: (r.left - pad) + 'px', top: (r.top - pad) + 'px', width: (r.width + pad * 2) + 'px', height: (r.height + pad * 2) + 'px' });
+    h.hidden = false;
+  }
   function hole(r) {
+    if (GD) GD.rk = r ? [r.left, r.top, r.width, r.height].map(Math.round).join(',') : '';
     const h = el.querySelector('.tut-hole');
     if (!r) { h.hidden = true; el.classList.add('dim'); return; }
     el.classList.remove('dim');
@@ -207,7 +214,12 @@
     if (st.until()) { nextStep(); return; }
     if (m) return;
     const r = rectOf(st.at);
-    if (r) { GD.lost = 0; hole(r); block(r); }
+    if (r) {
+      GD.lost = 0;
+      // 場所が動いたときだけ、光る枠を追いかける（毎回つけなおすと、点滅がはじめからになって画面がちらつく）
+      const key = [r.left, r.top, r.width, r.height].map(Math.round).join(',');
+      if (key !== GD.rk) { GD.rk = key; moveHole(r); block(r); }
+    }
     else if (++GD.lost > 8 && st.go) { GD.lost = 0; try { st.go(); } catch (e) {} }   // 場所が見つからない（別の画面に行った）：もう一度案内する
   }
   function nextStep() {

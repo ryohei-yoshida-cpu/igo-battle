@@ -392,6 +392,9 @@ body.fx-shake #app { animation: fxShake .35s; }
 .sp-who.win { color: #ffd98a; }
 .sp-who.lose { color: #c9b8a4; }
 .sp-note { margin: 0; font-size: 11.5px; line-height: 1.6; color: var(--muted); }
+.sp-tip { margin: 0; font-size: 12px; line-height: 1.5; color: var(--kin); }
+.sp-btns { display: flex; gap: 8px; }
+.sp-btns .btn { flex: 1; min-width: 0; }
 .score-panel .btn { align-self: center; min-width: 140px; }
 
 /* キャラクターのライバル台詞（結果画面の上に出る） */

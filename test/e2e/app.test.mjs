@@ -153,6 +153,37 @@ test('一度開放したキャラは、降格しても開いたまま（もう�
   assert.ok(await p.evaluate(() => document.querySelector('#confirm').hidden), '同じキャラをもう一度は知らせない');
 });
 
+test('中押し：「盤面を見る」で形勢（推定）と投了の理由。石をタップすると、その石だけ残して検討できる', async () => {
+  const p = await open('resign');
+  await p.evaluate(() => { window.APP.S.settings.confirm = false; window.APP.startSoloGame(0, { done() {}, back() {} }); });
+  await p.waitForFunction(() => !document.querySelector('#game').hidden);
+  const tapAt = async (x, y) => { const r = await p.$eval('#board', b => { const q = b.getBoundingClientRect(); return [q.left, q.top, q.width]; }); await p.mouse.click(r[0] + (x + .65) / 9.3 * r[2], r[1] + (y + .65) / 9.3 * r[2]); };
+  const stones = () => p.$$eval('#stones .stone', a => a.length);
+  for (const [x, y] of [[2, 2], [6, 6], [2, 6], [6, 2], [4, 4]]) {
+    const n = await stones(); await tapAt(x, y);
+    await p.waitForFunction(n => document.querySelectorAll('#stones .stone').length >= n + 2, n, { timeout: 20000 }).catch(() => {});
+  }
+  await p.click('#resignBtn'); await p.click('#cfYes');
+  await p.waitForFunction(() => !document.querySelector('#result').hidden, null, { timeout: 10000 });
+  await p.click('#resLook');
+  await p.waitForFunction(() => /リード|互角/.test(document.querySelector('#scorePanel').textContent), null, { timeout: 20000 });
+  assert.match(await p.textContent('#scorePanel'), /あなた（.）が投了しました/);
+  // 相手の石をタップ → その石（つながりごと）と、自分の石だけで検討
+  const pt = await p.evaluate(() => { const b = [...document.querySelectorAll('#stones .stone circle:nth-child(2)')].map(c => [c.getAttribute('cx'), c.getAttribute('cy'), c.getAttribute('fill')]); return b; });
+  // 自分は黒か白か：自分の最初の手 (2,2) の色
+  const mine = /あなた（黒）/.test(await p.textContent('#scorePanel')) ? 'url(#gB)' : 'url(#gW)';
+  const other = pt.find(s => s[2] !== mine);
+  await tapAt(+other[0] - .5, +other[1] - .5);
+  assert.equal(await p.evaluate(() => document.querySelector('#spStudy').hidden), false);
+  await p.click('#spStudy');
+  await p.waitForFunction(() => !document.querySelector('#rvTop').hidden);
+  const fills = await p.$$eval('#stones .stone circle:nth-child(2)', a => a.map(c => c.getAttribute('fill')));
+  assert.equal(fills.filter(f => f === mine).length, pt.filter(s => s[2] === mine).length, '自分の石はぜんぶ残る');
+  assert.ok(fills.filter(f => f !== mine).length >= 1 && fills.filter(f => f !== mine).length < pt.filter(s => s[2] !== mine).length, '相手の石は、えらんだ石だけ');
+  await p.click('#rvClose');
+  await p.waitForFunction(() => !document.querySelector('#result').hidden, null, { timeout: 5000 });
+});
+
 test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
   const p = await open('rv');
   const ok = await p.evaluate(() => window.ART.VARIANTS.every(v => ['w3', 'strong', 'rival', 'catch'].every(k => window.RIVAL_LINES[v.key] && window.RIVAL_LINES[v.key][k])));
