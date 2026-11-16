@@ -106,6 +106,27 @@ test('プレゼントを受け取って、家具を買える（サーバーが�
   assert.equal(await p.evaluate(() => window.APP.S.room.ownedItems.zaisu | 0), before + 1);
 });
 
+test('運営画面：合言葉を入れるまで中が見えない', async () => {
+  const p = await open('admin');
+  // サーバーの返事のかわり（このテストのサーバーには部屋番号 561149 の人がいないので）
+  await p.evaluate(() => {
+    let ok = false; window.__calls = [];
+    window.APP.admin = (op, data, cb) => { window.__calls.push(op); setTimeout(() => {
+      if (op === 'unlock') { ok = data.key === 'correct-key'; cb(ok ? { ok: true } : { ok: false, reason: 'key', left: 4 }); return; }
+      cb(ok ? { ok: true, soc: [], mail: [] } : { ok: false, reason: 'lock' });
+    }, 10); };
+    window.ADMIN.open();
+  });
+  await p.waitForSelector('#adKey');
+  assert.match(await p.textContent('#adBody'), /合言葉を入れてください/);
+  await p.fill('#adKey', 'wrong'); await p.click('[data-unlock]');
+  await p.waitForFunction(() => /合言葉がちがいます/.test(document.querySelector('#adBody').textContent));
+  assert.match(await p.textContent('#adBody'), /あと4回/);
+  await p.fill('#adKey', 'correct-key'); await p.press('#adKey', 'Enter');
+  await p.waitForFunction(() => /メッセージの通報/.test(document.querySelector('#adBody').textContent));
+  assert.equal(await p.$('#adKey'), null);
+});
+
 test('おもな画面をひととおり開ける（エラーが出ない）', async () => {
   const p = await open('tour');
   const home = async () => { await p.evaluate(() => { document.querySelectorAll('.overlay, .modal, #settings').forEach(x => { if (x.id === 'settings') x.hidden = true; }); window.APP.showScreen('home'); window.APP.renderHome(); }); await p.waitForTimeout(300); };

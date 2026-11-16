@@ -10,6 +10,7 @@ export async function sha(text) { const d = await crypto.subtle.digest('SHA-256'
 export class AccountMethods {
   async account(sock, m, ip) {
     const info = this.sockInfo.get(sock) || { acct: null };
+    info.ip = ip;
     this.sockInfo.set(sock, info);
     const out = msg => { try { sock.send(JSON.stringify(msg)); } catch (e) {} };
     const game = gameOf(m.game);   // どのゲームのアプリか（セーブデータはゲームごと）

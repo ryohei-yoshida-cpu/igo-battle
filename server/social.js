@@ -32,7 +32,6 @@
  */
 import { check, cleanName } from './ng.js';
 import { ageState, cleanBirth } from './age.js';
-import { ADMIN_PID } from './admin.js';
 import '../common/avatar-art.js';
 const AV = globalThis.AVATAR;
 
@@ -178,13 +177,6 @@ export class Social {
     // 相手の部屋に書きこめるか（ブロック・コメント設定）
     const canWrite = (s, pid) => pid === me || (!has(s.blocks, me) && (s.cset === 'all' || (s.cset === 'friends' && has(s.friends, me))));
 
-    // 運営：通報の一覧（ADMIN の部屋番号の人だけ）
-    if (op === 'reports') {
-      if (me !== ADMIN_PID) { out({ ok: false, reason: 'admin' }); return; }
-      if (m.clear) await this.withKey('reports', list => { list.length = 0; }, null);
-      out({ ok: true, list: (await this.store.get('reports')) || [] });
-      return;
-    }
     if (op === 'birth') {   // 誕生日：1回だけ登録できる（あとから変えられない）
       const b = cleanBirth(m.birth, now);
       if (!b) { out({ ok: false, reason: 'birth' }); return; }

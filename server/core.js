@@ -76,9 +76,10 @@ export class Core {
     this.sockInfo = new Map();  // sock → { acct }
     this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
     this.guild = new Guild(this);   // 碁会所（ギルド）
-    this.social = new Social(this);
+    this.social = new Social(this);   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
     this.mail = new Mail(this);       // メッセージ（全ゲーム共通）
-    this.admin = new Admin(this);     // 運営の画面   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
+    this.admin = new Admin(this);     // 運営の画面
+    this.adminKey = opts.adminKey || '';   // 運営の合言葉（Cloudflare の秘密の設定 ADMIN_KEY）。なければ運営画面は開かない
   }
 
   /* ---------- 接続 ---------- */

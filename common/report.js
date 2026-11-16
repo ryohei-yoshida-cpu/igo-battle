@@ -1,4 +1,4 @@
-/* 通報：プロフィール・一言コメント・日記・コメントから。運営（部屋番号 561149）は設定から一覧を見られる */
+/* 通報：プロフィール・一言コメント・日記・コメントから。運営（部屋番号 561149）は設定 →「運営：管理画面」で見る（common/admin.js） */
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
@@ -35,18 +35,5 @@
       <div class="prof-btns"><button type="button" class="btn primary" data-send="1">通報する</button></div>`;
     b.hidden = false;
   }
-  // 運営：通報の一覧
-  function admin() {
-    const b = ensure(); b.hidden = false;
-    const body = b.querySelector('.rep-body'); body.innerHTML = '<p class="rm-help">読みこみ中……</p>';
-    P.soc('reports', {}, res => {
-      if (!res.ok) { body.innerHTML = '<p class="rm-help">見られませんでした。</p>'; return; }
-      const d = t => new Date(t).toLocaleString('ja-JP');
-      body.innerHTML = `<h3 class="rep-h">通報の一覧（${res.list.length}件）</h3>` + (res.list.length ? res.list.map(x => `<div class="rep-item"><small>${d(x.t)}・${esc(KIND[x.kind] || x.kind)}・${esc(x.reason)}</small>
-        <b>相手：${esc(x.name)}（部屋番号 <button type="button" class="sc-name" data-room="${esc(x.pid)}">${esc(x.pid)}</button>）</b><p>${esc(x.excerpt)}</p>${x.note ? `<p class="rep-note">通報した人のメモ：${esc(x.note)}</p>` : ''}<small>通報した人：${esc(x.from)}${x.owner && x.owner !== x.pid ? `・書かれた部屋 ${esc(x.owner)}` : ''}</small></div>`).join('') : '<p class="rm-help">通報はありません。</p>');
-    });
-  }
-  document.addEventListener('click', e => { const r = e.target.closest('.rep-item [data-room]'); if (r) { box.hidden = true; $s('#settings').hidden = true; window.ROOM.visit(r.dataset.room); } });
-  const $s = s => document.querySelector(s);
-  window.REPORT = { open, admin, isAdmin: () => String(S.pid) === '561149' };
+  window.REPORT = { open, isAdmin: () => String(S.pid) === '561149' };
 })();

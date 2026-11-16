@@ -61,6 +61,7 @@ npm run test:e2e     # ブラウザのテスト（起動・対局・碁会所・
 3. GitHub の igo-battle →「Settings」→「Secrets and variables」→「Actions」で2つ登録
    - `CLOUDFLARE_API_TOKEN` … 2 のトークン
    - `CLOUDFLARE_ACCOUNT_ID` … Cloudflare の「Workers & Pages」の Account ID
+   - `ADMIN_KEY` … 運営画面の合言葉（長めの、ほかで使っていない文。公開のたびに Cloudflare の秘密の設定へうつる）
 4. GitHub の「Actions」→「Test and Deploy」→「Run workflow」
 
 ## 決まりごと（サーバー）
@@ -69,6 +70,7 @@ npm run test:e2e     # ブラウザのテスト（起動・対局・碁会所・
 - 保管期間：書きこみ・メッセージの写しと通報は1年で自動削除
 - 連投：一言 30秒・掲示板の投稿 1時間・コメント 10分に1回
 - 15歳以下：メッセージ・掲示板・コメント・一言は使えない。碁会所は kids碁会所だけ
+- 運営画面：部屋番号 561149 ＋ 合言葉（`ADMIN_KEY`）の二重ロック。合言葉は12時間有効・5回まちがえると1時間ロック・入った記録（時刻・IP）を残す。`ADMIN_KEY` がなければだれも開けない
 - 整地：両方のアプリから死に石だけを受けとり、サーバーが数えなおす。食いちがったら無効試合（レートは動かない）
 
 ## ほかのゲーム（将棋・オセロなど）と共有するもの

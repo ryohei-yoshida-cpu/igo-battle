@@ -10,7 +10,8 @@ import { Core } from './core.js';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const PORT = +process.env.PORT || 8787;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.jpg': 'image/jpeg', '.png': 'image/png', '.json': 'application/json', '.webp': 'image/webp' };
-const core = new Core(process.env.RAND ? { rand: () => +process.env.RAND } : {});
+// 運営の合言葉：手元では ADMIN_KEY=… node server/dev.mjs のように渡す（なければ運営画面は開かない）
+const core = new Core(Object.assign({ adminKey: process.env.ADMIN_KEY || '' }, process.env.RAND ? { rand: () => +process.env.RAND } : {}));
 
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);

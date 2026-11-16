@@ -198,10 +198,6 @@
 .rep-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; font-size: 14px; }
 .rep-wrap textarea { width: 100%; min-height: 70px; border-radius: 10px; padding: 8px; font: inherit; font-size: 13px; box-sizing: border-box; }
 .rep-wrap .prof-card { max-height: 86vh; overflow: auto; }
-.rep-item { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-.rep-item p { margin: 4px 0; overflow-wrap: anywhere; }
-.rep-item small { color: var(--muted); }
-.rep-note { color: #ffd98a; }
 .set-links { display: flex; flex-wrap: wrap; gap: 8px; } .set-links a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* 碁会所ショップ（ショップ画面） */
