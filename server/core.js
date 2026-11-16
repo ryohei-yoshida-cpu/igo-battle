@@ -80,7 +80,7 @@ export class Core {
     this.store = opts.store || memStore();
     this.sockInfo = new Map();  // sock → { acct }
     this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
-    this.guild = new Guild(this, { rateOf, dispRank });   // 碁会所（ギルド）
+    this.guild = new Guild(this, { rateOf, dispRank, ITEMS, FLOORS, WALLS, SEASON, limitOpen, cleanRoom, defAt, ROOM_MAX, ROOM_PRICE, BIG_N, BIG_PRICE });   // 碁会所（ギルド）
     this.social = new Social(this);
     this.mail = new Mail(this);       // メッセージ（全ゲーム共通）
     this.admin = new Admin(this);     // 運営の画面   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
@@ -376,7 +376,7 @@ export class Core {
       const short = sec < 30 || moves < 16;
       if (!short) {   // 碁会所の対局数（キャラクター戦）。強さ以上のキャラクターに勝ったら月のランキングに数える
         const r0 = await this.store.get('acct:' + id), mine = r0 ? rateOf(r0, 'go' + (bg.size || 9)).rating : START_RATE;
-        this.guild.count(id, info.game || 'go', 'bot', m.result === 'win' && !bg.solo && bg.lv >= 0 && botRating(bg.lv) >= mine).catch(() => {});
+        this.guild.count(id, info.game || 'go', 'bot', false).catch(() => {});   // キャラクター戦は、月のランキングの勝ちには数えない
       }
       // レート：負けはいつでも数える。勝ち・引き分けは、早すぎる・短すぎる対局なら数えない
       if (!bg.solo && (m.result === 'loss' || !short)) await this.rateBot(id, bg, m.result === 'win' ? 1 : m.result === 'draw' ? 0.5 : 0, key);

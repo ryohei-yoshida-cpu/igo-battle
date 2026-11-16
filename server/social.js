@@ -195,7 +195,8 @@ export class Social {
     }
     if (op === 'me') {
       const s = await this.readSoc(id), ra = await this.store.get('acct:' + id);
-      out({ ok: true, pid: me, birth: (ra && ra.birth) || null, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
+      const ann = ((await this.store.get('ann:' + (info.game || 'go'))) || []).filter(a => now - a.t < 7 * 864e5).slice(0, 10).map(a => Object.assign({ kind: 'note', type: 'gann' }, a));
+      out({ ok: true, pid: me, birth: (ra && ra.birth) || null, ann, diary: s.diary.map(head), wrote: s.diaryDay === this.day(), rpub: s.rpub !== false, chat: s.chat.slice(0, 20), notes: s.notes.slice(0, 20), hito: s.hito, visits: { total: s.visits.total, today: s.visits.day === this.day() ? s.visits.today : 0 }, foot: s.foot, friends: s.friends, freq: s.freq, blocks: s.blocks, cset: s.cset, fsent: s.fsend && s.fsend.day === this.day() ? s.fsend.to : [] });
       return;
     }
     if (op === 'avatar') {
@@ -318,6 +319,28 @@ export class Social {
       return;
     }
     // ここから先は、相手（または自分）の部屋番号が要る
+    if (op === 'chatall') {   // フレンド全員の一言コメントへ（30秒に1回）
+      if (ageState(await this.store.get('acct:' + id), now) !== 'adult') { out({ ok: false, reason: 'kid' }); return; }
+      const t = text(m.text);
+      const w = this.core.waitFor('say', id, 30e3); if (w) { out({ ok: false, reason: 'wait', sec: w }); return; }
+      const reason = gate(t, 'chat'); if (reason) { out({ ok: false, reason }); return; }
+      this.core.stamp('say', id);
+      const gs = await this.core.guild.shortOf(id, info.game || 'go').catch(() => '');
+      const mine = await this.readSoc(id); let n = 0;
+      for (const f of mine.friends.slice(0, 100)) {
+        const oid = await this.idOf(f.pid); if (!oid) continue;
+        if (ageState(await this.store.get('acct:' + oid), now) !== 'adult') continue;
+        const s2 = await this.withSoc(oid, s => {
+          if (!canWrite(s, f.pid)) return false;
+          s.chat.unshift({ id: s.seq++, pid: me, name: myName, text: t, t: now, av: myAv(), gs: gs || undefined, all: 1 }); s.chat = s.chat.slice(0, LIM.chats);
+        });
+        if (!s2) continue; n++;
+        for (const p of this.core.players.values()) if (p.acct === oid && p.sock) { try { p.sock.send(JSON.stringify({ t: 'soc', op: 'push', item: s2.chat[0] })); } catch (e) {} }
+      }
+      this.logPost(id, { where: 'フレンド全員への一言', text: t }).catch(() => {});
+      out({ ok: true, n });
+      return;
+    }
     const pid = op === 'hito' || op === 'cset' || (!m.pid && (op === 'dlist' || op === 'dget')) ? me : String(m.pid || '').replace(/\D/g, '').slice(0, 6);
     const oid = pid === me ? id : await this.idOf(pid);
     if (!oid) { out({ ok: false, reason: 'nobody' }); return; }

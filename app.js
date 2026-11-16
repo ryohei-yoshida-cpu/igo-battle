@@ -853,7 +853,7 @@
       return;
     }
     $('#resHome').onclick = leaveGame;
-    $('#resOld').textContent = r.old; $('#resNew').textContent = RS(r.size).rating;
+    $('#resOld').textContent = r.old; $('#resNew').textContent = Math.max(800, r.old + r.d);   // 足し算が合うように：前 ＋ 増減 ＝ 後
     const de = $('#resDelta'); de.textContent = (r.d >= 0 ? '+' : '') + r.d; de.className = r.d >= 0 ? 'up' : 'down';
     if (r.newRank > r.oldRank) {
       pr.hidden = false; pr.textContent = `${r.size === 13 ? '13路 ' : ''}${RANKS[r.newRank]}に${r.first ? '昇' + (r.newRank >= DAN_FROM ? '段' : '級') + '！' : 'もどりました'}`;
@@ -1078,7 +1078,7 @@
     saveLocal(); renderHome();
     // 結果の画面が出ていれば、数字をサーバーのものに
     if (!$('#result').hidden && !$('#resRate').hidden && typeof m.d === 'number' && m.g) {
-      $('#resNew').textContent = m.rating; const de = $('#resDelta'); de.textContent = (m.d >= 0 ? '+' : '') + m.d; de.className = m.d >= 0 ? 'up' : 'down';
+      $('#resOld').textContent = m.rating - m.d; $('#resNew').textContent = m.rating; const de = $('#resDelta'); de.textContent = (m.d >= 0 ? '+' : '') + m.d; de.className = m.d >= 0 ? 'up' : 'down';
     }
   }
   function onAuthFail(m) {

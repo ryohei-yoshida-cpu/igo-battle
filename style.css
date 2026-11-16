@@ -2131,3 +2131,37 @@ details summary { cursor: pointer; font-size: 12px; color: var(--kin); }
 .gk-kids .gk-sign-board { background: repeating-linear-gradient(90deg, rgba(60, 30, 5, .18) 0 1px, transparent 1px 34px), repeating-linear-gradient(0deg, rgba(60, 30, 5, .18) 0 1px, transparent 1px 34px), linear-gradient(160deg, #ffe0a6, #f7c873); border-color: #e08a3a; }
 .gk-kids .gk-sign-board small { color: #d2541e; }
 .gk-nedit .select { background-color: #fffaf0; color: #2b1d12; border-color: #cdb68b; }
+/* 碁会所の部屋 */
+#roomDock.gk-view { display: none; }
+.rm-gk #roomDock [data-dock="chara"], .rm-gk #roomDock [data-dock="social"] { display: none; }
+.rs-ticket { grid-column: 1 / -1; display: grid; place-items: center; padding: 10px; }
+.rs-ticket-card { width: min(320px, 100%); display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: linear-gradient(#fbf5e8, #f1e6cf); color: #2b1d12; border: 2px dashed #b8862e; text-align: center; }
+.rs-ticket-card b { font-size: 18px; } .rs-ticket-card span { font-weight: 900; color: #a8261c; } .rs-ticket-card p { margin: 0; font-size: 12.5px; line-height: 1.6; } .rs-ticket-card small { color: #6b5a40; }
+.gk-room { display: flex; flex-direction: column; gap: 8px; }
+.gk-room-view { position: relative; display: block; width: 100%; padding: 0; border-radius: 14px; overflow: hidden; border: 1px solid #6a4a26; background: #1a120c; cursor: pointer; }
+.gk-room-view svg { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.gk-room-view span { position: absolute; right: 10px; bottom: 8px; padding: 4px 12px; border-radius: 999px; background: rgba(20, 12, 6, .85); color: #f3d690; font-size: 12px; font-weight: 900; }
+.gk-pool { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 12px; border-radius: 12px; background: #22170f; border: 1px solid #4a3420; }
+.gk-pool > span { flex: 1 1 140px; font-size: 13px; } .gk-pool b { color: #f3d690; font-size: 16px; } .gk-pool small { color: var(--muted); font-size: 11px; }
+.gk-pool-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #22170f; border: 1px solid var(--kin); }
+.gk-pool-form .gk-in { flex: 1 1 160px; }
+.gk-pool-form .gk-note { flex-basis: 100%; }
+.gk-annchk { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.6; }
+.gk-annchk input { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.gk-h3 { margin: 4px 2px 0; font-size: 15px; color: #f3d690; }
+.gk-master[data-visit], .gk-thv-fig[data-visit], .gk-ti[data-visit], .gk-av[data-visit] { cursor: pointer; }
+/* 一言コメント：会話と通知の2段 */
+.tk-sec { display: flex; flex-direction: column; gap: 4px; padding-bottom: 6px; }
+.tk-sec + .tk-sec { border-top: 1px solid var(--line); padding-top: 6px; }
+.tk-h { font-size: 12px; font-weight: 900; color: #f3d690; letter-spacing: .1em; padding: 2px 4px; }
+.tk-ic { flex: none; display: block; }
+.tk-ic[data-go] { cursor: pointer; }
+.tk-item.ann { background: rgba(232, 196, 110, .12); }
+.tk-say { position: static; flex-direction: column; margin: 4px 0 0; padding: 6px; border-radius: 10px; }
+.tk-to { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tk-seg { font: inherit; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
+.tk-seg.on { background: var(--kin); color: #2a1a10; border-color: transparent; }
+.tk-seg:disabled { opacity: .4; }
+.tk-fsel { flex: 1 1 140px; min-width: 0; font-size: 13px; }
+.tk-say-row { display: flex; gap: 6px; }
+.tk-mega { display: grid; place-items: center; width: 100%; height: 100%; font-size: 18px; }

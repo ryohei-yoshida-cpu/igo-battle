@@ -181,21 +181,51 @@
     fxCv.width = Math.round(W * dpr); fxCv.height = Math.round(H * dpr);
     fx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+  // 季節で舞うものをかえる（日本の月で）：春 3〜5月 桜 / 夏 6〜8月 青葉 / 秋 9〜11月 紅葉 / 冬 12〜2月 雪
+  function season() { const m = new Date(Date.now() + 9 * 3600e3).getUTCMonth() + 1; return m >= 3 && m <= 5 ? 'sakura' : m >= 6 && m <= 8 ? 'leaf' : m >= 9 && m <= 11 ? 'momiji' : 'snow'; }
+  const SEASON = season();
+  const COLORS = {
+    sakura: () => `255,${170 + (Math.random() * 50 | 0)},${190 + (Math.random() * 40 | 0)}`,
+    leaf: () => `${70 + (Math.random() * 60 | 0)},${150 + (Math.random() * 60 | 0)},${60 + (Math.random() * 40 | 0)}`,
+    momiji: () => [`214,${40 + (Math.random() * 40 | 0)},30`, `236,${110 + (Math.random() * 50 | 0)},30`, `230,${170 + (Math.random() * 40 | 0)},40`][Math.random() * 3 | 0],
+    snow: () => '255,255,255'
+  };
   function newPetal(anywhere) {
+    const k = SEASON, snow = k === 'snow';
     return {
-      x: anywhere ? Math.random() * W : -20 - Math.random() * 60, y: anywhere ? Math.random() * H : Math.random() * H * .8 - H * .1,
-      vx: .6 + Math.random() * 1.2, vy: .4 + Math.random() * .9, r: 4 + Math.random() * 5,
+      k, x: anywhere ? Math.random() * W : (snow ? Math.random() * W : -20 - Math.random() * 60), y: anywhere ? Math.random() * H : (snow ? -10 - Math.random() * 40 : Math.random() * H * .8 - H * .1),
+      vx: snow ? (Math.random() - .3) * .5 : .6 + Math.random() * 1.2, vy: snow ? .5 + Math.random() * .8 : .4 + Math.random() * .9, r: snow ? 2 + Math.random() * 3.5 : (k === 'momiji' ? 6 : 4) + Math.random() * 5,
       a: Math.random() * 6.3, va: (Math.random() - .5) * .08, f: Math.random() * 6.3, vf: .04 + Math.random() * .06,
-      c: `${255},${170 + (Math.random() * 50 | 0)},${190 + (Math.random() * 40 | 0)}`
+      c: COLORS[k]()
     };
   }
   function drawPetal(p, alpha) {
     if (!(p.r > 0) || !isFinite(p.x) || !isFinite(p.y)) return;
     fx.save();
     try {
+    const r = p.r;
+    if (p.k === 'snow') {   // 雪：やわらかい丸
+      const g = fx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, `rgba(255,255,255,${alpha})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+      fx.fillStyle = g; fx.beginPath(); fx.arc(p.x, p.y, r, 0, 6.3); fx.fill(); return;
+    }
     fx.translate(p.x, p.y); fx.rotate(p.a); fx.scale(1, Math.abs(Math.cos(p.f)) * .8 + .2);
     fx.fillStyle = `rgba(${p.c},${alpha})`;
-    const r = p.r;
+    if (p.k === 'momiji') {   // 紅葉：5つに分かれた葉
+      fx.beginPath();
+      for (let j = 0; j < 10; j++) { const rr = j % 2 ? r * .42 : r * (j === 0 ? 1.1 : .95), a = -Math.PI / 2 + j * Math.PI / 5 * .9 - .1; fx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      fx.closePath(); fx.fill();
+      fx.strokeStyle = `rgba(120,30,10,${alpha * .6})`; fx.lineWidth = .8; fx.beginPath(); fx.moveTo(0, 0); fx.lineTo(0, r * 1.2); fx.stroke();
+      return;
+    }
+    if (p.k === 'leaf') {   // 青葉：細長い葉と葉脈
+      fx.beginPath(); fx.moveTo(0, -r * 1.2);
+      fx.bezierCurveTo(r * .7, -r * .5, r * .6, r * .6, 0, r * 1.2);
+      fx.bezierCurveTo(-r * .6, r * .6, -r * .7, -r * .5, 0, -r * 1.2);
+      fx.fill();
+      fx.strokeStyle = `rgba(30,80,20,${alpha * .6})`; fx.lineWidth = .7; fx.beginPath(); fx.moveTo(0, -r); fx.lineTo(0, r * 1.2); fx.stroke();
+      return;
+    }
     fx.beginPath(); fx.moveTo(0, -r);
     fx.bezierCurveTo(r * .9, -r * .7, r * .8, r * .6, 0, r);
     fx.bezierCurveTo(-r * .8, r * .6, -r * .9, -r * .7, 0, -r);

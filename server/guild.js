@@ -24,6 +24,9 @@
  *      talk：on わいわい（一言を共有）/ off 会話なし   idle：keep 自動バイバイしない / bye 1か月来ない人は自動で退会   board：on / off 掲示板
  *   join { id } … open なら入会、apply なら申請（マスター・店長のメッセージに届く）   approve / reject { pid } … 申請の承認・おことわり
  *   invite { pid } … 招待（だれでも。相手のメッセージに届く）   accept { id, n } / decline { n } … 招待をうける・ことわる
+ *   碁会所の部屋（kidsはなし）：groom { room, rooms2 } … 配置を保存（マスター・店長）
+ *     donate { n } … 自分の銭を碁会所の銭へ寄付（戻せない）   gbuy { item|floor|wall|roomAdd|roomBig|ticket } … 碁会所の銭で買う（マスター・店長）
+ *     ann { text } … アナウンス券を1枚使って、全国にお知らせ（マスター・店長）
  *   掲示板：threads … スレッド一覧   post { title, text } … スレ立て   reply { tid, text } … 返信   bdel { tid, rid } … 消す（書いた人・マスター・店長）
  *   碁会所内マッチ：gseek { size } / gunseek … ランダム   gcall { pid, hc, auto } … 呼ぶ   gcalls … 一覧
  *                   gok { id } … その手合いでOK（対局開始）   gprop { id, hc } … ハンデの変更を提案   gdrop { id } … やめる
@@ -58,6 +61,8 @@ export function cleanSet(m) {
 // kids碁会所（15歳以下だけ）：ミッション・自動参加・お知らせだけ。細かい設定はなし
 export const KIDS_SET = { lvl: 'beg', join: 'open', talk: 'off', idle: 'bye', board: 'off', mpost: 'off' };
 export const KIDS_NOTICE = 'いらっしゃい';
+export const ANN_PRICE = 5000;   // アナウンス券（ミケとこむぎの碁会所ショップ）
+const DEF_GROOM = () => ({ floor: 'wood', wall: 'plain', items: [], walls: [], n: 12 });
 // 月のランキングのごほうび（碁会所ぜんたいの銭。勝ちの数に応じて山分け、マスターは1.3倍の重み）
 //   1位 10000銭、上位5%ずつの帯で 8000 → 300銭 へなめらかに下がる。上位5%（と1位）はトロフィーも
 export function monthPrize(rank, n) {
@@ -92,6 +97,11 @@ export class Guild {
     if (!g.set.mpost) g.set.mpost = 'on';
     if (g.kids) { g.set = Object.assign({}, KIDS_SET); g.notice = KIDS_NOTICE; }
     g.deny = g.deny || { post: [], cmt: [] };
+    if (!g.kids) {   // 碁会所の部屋・碁会所の銭
+      g.room = g.room || DEF_GROOM(); g.rooms2 = Array.isArray(g.rooms2) ? g.rooms2 : [];
+      g.owned = g.owned || { floors: ['wood'], walls: ['plain'], items: {} };
+      g.zeni = g.zeni | 0; g.tickets = g.tickets | 0; g.donors = g.donors || {};
+    }
     if (!g.short) g.short = String(g.name || '').slice(0, 3);
     // 1か月来ていない人は自動で退会（マスターも。マスターは店長か、いちばん古いメンバーに）
     if (g.set.idle === 'bye') {
@@ -150,7 +160,8 @@ export class Guild {
       last: g.last || null, me: mine ? mine.pid : null,
       short: g.short, set: g.set, pr: g.pr || '',
       apps: boss ? g.apps.map(a => ({ pid: a.pid, name: a.name, at: a.at })) : undefined,
-      kids: !!g.kids, notice: g.notice || '', master: master ? { pid: master.pid, name: master.name, av: master.av } : null,
+      kids: !!g.kids, notice: g.notice || '',
+      groom: g.kids ? null : { room: g.room, rooms2: g.rooms2, owned: g.owned }, zeni: g.zeni | 0, tickets: g.tickets | 0, donated: g.donors ? (g.donors[id] | 0) : 0, master: master ? { pid: master.pid, name: master.name, av: master.av } : null,
       canPost: !g.kids && g.set.board === 'on' && (boss || g.set.mpost === 'on') && !g.deny.post.includes(id),
       canCmt: !g.kids && g.set.board === 'on' && !g.deny.cmt.includes(id)
     };
@@ -199,7 +210,7 @@ export class Guild {
       const idx = (await this.store.get('guilds:' + game)) || [];
       const rows = [];
       for (const it of idx) {
-        const g = await this.store.get('guild:' + it.id); if (!g || g.kids) continue;   // kids碁会所はランキングなし
+        const g = await this.store.get('guild:' + it.id); if (!g) continue;
         const wins = g.month && g.month.m === ym ? g.month.wins : g.last && g.last.m === ym ? g.last.wins : null;
         const total = wins ? Object.values(wins).reduce((a, b) => a + b, 0) : 0;
         if (total > 0) rows.push({ g, wins, total });
@@ -241,7 +252,7 @@ export class Guild {
     }
     if (op === 'rank') {
       const idx = (await this.store.get('guilds:' + game)) || [], rows = [];
-      for (const it of idx) { const g = await this.store.get('guild:' + it.id); if (!g || g.kids) continue; this.roll(g); rows.push({ id: g.id, name: g.name, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0) }); }
+      for (const it of idx) { const g = await this.store.get('guild:' + it.id); if (!g) continue; this.roll(g); rows.push({ id: g.id, name: g.name, n: g.members.length, wins: Object.values(g.month.wins).reduce((a, b) => a + b, 0) }); }
       rows.sort((a, b) => b.wins - a.wins);
       const ranked = rows.filter(r => r.wins > 0);
       const list = rows.slice(0, 50).map((r, i) => Object.assign(r, r.wins > 0 ? { rank: i + 1, prize: monthPrize(i, ranked.length) } : {}));
@@ -316,6 +327,7 @@ export class Guild {
         me.seen = now;
         g = { id: nid, game, name, short, pr: kid ? '' : pr, set: kid ? Object.assign({}, KIDS_SET) : cleanSet(m), at: now, master: id, manager: null, members: [me], chat: [], seq: 1, kids: kid || undefined, notice: kid ? KIDS_NOTICE : '' };
         this.roll(g); await this.store.put('guild:' + nid, g);
+        if (m.ann && !kid) await this.announce(g, `碁会所「${name}」ができました！ 仲間を募集中です（ID ${nid}）`, true);
         await this.core.social.withKey('guilds:' + game, list => { list.push({ id: nid, name, n: 1 }); }, () => []);
       } else {
         let why = '', applied = false;
@@ -417,6 +429,7 @@ export class Guild {
       if (!g) return fail(why);
       return reply();
     }
+    if (['donate', 'gbuy', 'groom', 'ann'].includes(op)) return this.roomOps(op, m, id, gid, out, fail, reply);
     if (op === 'notice') {   // マスターからのお知らせ（[[スレッド番号]] で掲示板へのリンク）
       const notice = String(m.text || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.notice);
       if (notice && check(notice)) return fail('ng');
@@ -699,6 +712,78 @@ export class Guild {
   }
   async index(g) {
     await this.core.social.withKey('guilds:' + (g.game || 'go'), list => { const it = list.find(x => x.id === g.id); if (it) { it.name = g.name; it.n = g.members.length; } else list.push({ id: g.id, name: g.name, n: g.members.length }); }, () => []);
+  }
+  /* ---------- 碁会所の部屋・碁会所の銭・ショップ・アナウンス ---------- */
+  async roomOps(op, m, id, gid, out, fail, reply) {
+    const H = this.h, now = this.now();
+    if (op === 'donate') {   // 寄付：自分の銭 → 碁会所の銭（戻せない）
+      const n = Math.floor(+m.n || 0);
+      if (!(n >= 10 && n <= 1000000)) return fail('num');
+      let short = false;
+      const rec = await this.core.withAcct(id, async r => { if ((r.zeni | 0) < n) { short = true; return false; } r.zeni -= n; });
+      if (!rec) return fail(short ? 'zeni' : 'none');
+      const g = await this.withG(gid, g => { if (g.kids) return false; g.zeni += n; g.donors[id] = (g.donors[id] | 0) + n; });
+      if (!g) { await this.core.withAcct(id, async r => { r.zeni += n; }); return fail('kids'); }
+      this.pushAll(g, { kind: 'member', text: `${(g.members.find(x => x.id === id) || {}).name || ''}さんが碁会所に${n.toLocaleString()}銭を寄付しました` }, id);
+      return reply({ myZeni: rec.zeni });
+    }
+    let why = '', bought = null;
+    const g = await this.withG(gid, async g => {
+      if (g.kids) { why = 'kids'; return false; }
+      if (g.master !== id && g.manager !== id) { why = 'role'; return false; }
+      if (op === 'groom') {   // 配置の保存：持っている数より多く置いていないか
+        const cnt = {}, room = H.cleanRoom(m.room, g.owned, cnt, g.room.n || 12);
+        if (!room) { why = 'room'; return false; }
+        delete room.g; delete room.gp; delete room.av; room.n = g.room.n || 12;
+        if (!Array.isArray(m.rooms2) || m.rooms2.length !== g.rooms2.length) { why = 'room'; return false; }
+        const rooms2 = m.rooms2.map((x, i) => { const c = H.cleanRoom(x, g.owned, cnt, g.rooms2[i].n || 12); if (c) { delete c.g; delete c.gp; delete c.av; c.at = g.rooms2[i].at; c.n = g.rooms2[i].n || 12; } return c; });
+        if (rooms2.some(x => !x)) { why = 'room'; return false; }
+        g.room = room; g.rooms2 = rooms2; return;
+      }
+      if (op === 'ann') {   // アナウンス券を使う
+        if (g.tickets < 1) { why = 'ticket'; return false; }
+        const text = String(m.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 60);
+        if (!text) { why = 'empty'; return false; }
+        if (check(text)) { why = 'ng'; return false; }
+        g.tickets--; bought = text; return;
+      }
+      // gbuy：碁会所の銭で買う
+      let price, apply;
+      if (m.ticket) { price = ANN_PRICE; apply = () => { g.tickets++; }; }
+      else if (m.item && H.ITEMS[m.item]) {
+        if (H.ITEMS[m.item][0] <= 0) { why = 'item'; return false; }
+        if (H.SEASON[m.item] && !H.limitOpen(H.SEASON[m.item], now)) { why = 'season'; return false; }
+        price = H.ITEMS[m.item][0]; apply = () => { g.owned.items[m.item] = (g.owned.items[m.item] || 0) + 1; };
+      }
+      else if (m.floor && H.FLOORS[m.floor] != null) { if (g.owned.floors.includes(m.floor)) { why = 'have'; return false; } price = H.FLOORS[m.floor]; apply = () => g.owned.floors.push(m.floor); }
+      else if (m.wall && H.WALLS[m.wall] != null) { if (g.owned.walls.includes(m.wall)) { why = 'have'; return false; } price = H.WALLS[m.wall]; apply = () => g.owned.walls.push(m.wall); }
+      else if (m.roomAdd) {
+        if (g.rooms2.length >= H.ROOM_MAX - 1) { why = 'max'; return false; }
+        const p = m.p | 0, d = m.d === 'y' ? 'y' : 'x';
+        if (p < 0 || p > g.rooms2.length) { why = 'item'; return false; }
+        if (g.rooms2.map((x, i) => x.at || H.defAt(i + 1)).some(a => a.p === p && a.d === d)) { why = 'used'; return false; }
+        price = H.ROOM_PRICE; apply = () => g.rooms2.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p, d }, n: 12 });
+      }
+      else if (m.roomBig != null) {
+        const i = m.roomBig | 0, rm = i === 0 ? g.room : g.rooms2[i - 1];
+        if (!rm) { why = 'item'; return false; }
+        if (rm.n === H.BIG_N) { why = 'have'; return false; }
+        price = H.BIG_PRICE; apply = () => { rm.n = H.BIG_N; };
+      }
+      else { why = 'item'; return false; }
+      if (g.zeni < price) { why = 'zeni'; return false; }
+      g.zeni -= price; apply(); bought = price;
+    });
+    if (!g) return fail(why);
+    if (op === 'ann') await this.announce(g, bought, false);
+    return reply({ paid: op === 'gbuy' ? bought : undefined });
+  }
+  // 全国へのお知らせ（みんなの一言コメント欄のお知らせに出る）。fixed：つくったときの決まった文
+  async announce(g, text, fixed) {
+    const it = { id: 'a' + this.now().toString(36) + Math.floor(Math.random() * 1e4), t: this.now(), gid: g.id, gname: g.name, text, fixed: !!fixed };
+    await this.core.social.withKey('ann:' + (g.game || 'go'), list => { list.unshift(it); if (list.length > 30) list.length = 30; }, () => []);
+    const item = Object.assign({ kind: 'note', type: 'gann' }, it);
+    for (const p of this.core.players.values()) if (p.sock && p.acct) { try { p.sock.send(JSON.stringify({ t: 'soc', op: 'push', item })); } catch (e) {} }
   }
   // 一言・掲示板の書きこみを、運営用に残す（あとで消されても分かるように）
   archive(id, text, g) { return this.core.social.logPost(id, { where: `碁会所「${g.name}」`, text }); }

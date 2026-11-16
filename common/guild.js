@@ -27,7 +27,7 @@
     empty: '一言を入れてください', long: '40字までです', fast: '少し待ってから送ってください', mine: '自分の一言です', gone: 'その呼びかけは、もうありません',
     turn: '相手の返事を待っています', off: '相手がオンラインではありません', busy: 'どちらかが対局中です', net: 'つながっていません', auth: 'アカウントが必要です',
     short: '省略名（3文字まで）を入れてください', lvl: '段級位の条件に届いていません', invite: '招待された人だけが入れる碁会所です', applied: 'もう申請しています',
-    blocked: 'ブロックしているか、されているので招待できません', kid: '15歳以下の人は使えません', kidto: 'その人は15歳以下なので招待できません', kids: 'kids碁会所では使えません', kidsonly: '15歳以下の人の碁会所です',
+    blocked: 'ブロックしているか、されているので招待できません', zeni: '銭が足りません', ticket: 'アナウンス券がありません', num: '金額を入れてください', room: '部屋を保存できませんでした', kid: '15歳以下の人は使えません', kidto: 'その人は15歳以下なので招待できません', kids: 'kids碁会所では使えません', kidsonly: '15歳以下の人の碁会所です',
     birth: '先に生年月日を登録してください', mpost: 'この碁会所では、スレッドはマスター・店長だけが立てられます', denied: 'この碁会所では使えないように設定されています', nocmt: 'このスレッドはコメントなしです', noinv: 'その人は碁会所の勧誘を受けない設定です', theirs: 'その人は、もうほかの碁会所に入っています', invited: 'もう招待しています', talkoff: 'この碁会所は会話なしの設定です', board: '掲示板は使わない設定です'
   };
   const why = r => r && r.reason === 'wait' ? `連続では書きこめません。あと${r.sec >= 60 ? Math.ceil(r.sec / 60) + '分' : r.sec + '秒'}待ってください` : WHY[r && r.reason] || 'うまくいきませんでした';
@@ -65,6 +65,7 @@
       <div class="gk-pick"><small>来なくなった人</small>${chips('idle', SETS.idle)}<span class="gk-note">非活動はバイバイ：1か月以上ログインしていない人は、自動で退会します</span></div>
       <div class="gk-pick"><small>掲示板</small>${chips('board', SETS.board)}${chips('mpost', SETS.mpost)}</div>
       <label class="gk-pick"><small>勧誘メッセージ（60字まで）</small><textarea class="gk-in" id="gfPr" maxlength="60" rows="2" placeholder="例：のんびり打てる人、大歓迎！">${esc(v.pr)}</textarea></label>
+      ${create ? '<label class="gk-annchk"><input type="checkbox" id="gfAnn" checked> 作成したことを全国に通知する（「碁会所「〇〇」ができました！ 仲間を募集中です」と、みんなの一言コメント欄に出ます）</label>' : ''}
       <button type="button" class="btn primary" data-act="${create ? 'create' : 'saveset'}">${create ? 'この内容で碁会所をつくる' : '設定を保存する'}</button>
       ${create ? '<small class="gk-note">つくった人が「マスター」になります。</small>' : ''}
     </div>`;
@@ -73,7 +74,7 @@
     const f = $('#gkForm'), val = k => { const b = f.querySelector(`[data-k="${k}"] [aria-checked="true"]`); return b ? b.dataset.setv : undefined; };
     const q = s => f.querySelector(s);
     return { name: q('#gfName') ? q('#gfName').value.trim() : undefined, short: q('#gfShort').value.trim(), pr: q('#gfPr') ? q('#gfPr').value.trim() : '',
-      lvl: q('#gfLvl') ? q('#gfLvl').value : 'beg', join: val('join'), talk: val('talk'), idle: val('idle'), board: val('board'), mpost: val('mpost'), notice: G ? G.notice : undefined };
+      lvl: q('#gfLvl') ? q('#gfLvl').value : 'beg', ann: !!(q('#gfAnn') && q('#gfAnn').checked), join: val('join'), talk: val('talk'), idle: val('idle'), board: val('board'), mpost: val('mpost'), notice: G ? G.notice : undefined };
   }
   let recs = null, making = false, board = null, bOpen = null, thread = null, editNotice = false;
 
@@ -102,7 +103,8 @@
   // tab：home（入口）/ thread（スレッド）/ post（スレッドを立てる）/ match / mission / members / rank
   function openGuild(t, from) {
     if (from) back = from;
-    if (t) { const [k, v] = String(t).split(':'); tab = k === 'board' ? (v ? 'thread' : 'home') : k; if (k === 'board' && v) bOpen = +v; }
+    let find = null;
+    if (t) { const [k, v] = String(t).split(':'); tab = k === 'board' ? (v ? 'thread' : 'home') : k === 'find' ? 'home' : k; if (k === 'board' && v) bOpen = +v; if (k === 'find') find = v; }
     P.showScreen('guild');
     $('#gkZeni').textContent = `${(S.zeni | 0).toLocaleString()} 銭`;
     if (!P.online()) { G = null; $('#gkBody').innerHTML = `<p class="rm-help">${WHY.offline}。</p>`; return; }
@@ -114,7 +116,8 @@
       if (G && tab === 'thread' && bOpen) loadThread(bOpen);
       if (G && !G.kids && G.set.board === 'on') loadBoard();
       if (tab === 'rank') loadRank();
-      if (!G) { making = false; P.guild('rec', {}, r2 => { recs = r2.ok ? r2.list : []; render(); }); }
+      if (!G) { making = false; P.guild('rec', {}, r2 => { recs = r2.ok ? r2.list : []; render(); }); if (find) P.guild('list', { q: find }, r3 => { list = r3.ok ? r3.list : []; render(); }); }
+      if (G && G.kids) loadRank();
     });
   }
   function go(t) { tab = t; open = null; render(); const sc = $('#guild'); if (sc) sc.scrollTop = 0; window.scrollTo(0, 0); }
@@ -148,10 +151,21 @@
     const on = g.members.filter(m => m.on).length;
     return `<div class="gk-sign"><div class="gk-sign-board"><i class="gk-st b"></i><i class="gk-st w"></i><small>${g.kids ? 'kids碁会所' : '碁会所'}</small><b>${esc(g.name)}</b><span>${g.short ? `「${esc(g.short)}」・` : ''}${g.members.length}/${g.max}人・オンライン ${on}人${g.kids ? '' : `・今月 ${g.wins}勝`}</span></div></div>`;
   }
+  // 碁会所の部屋（看板の下）・碁会所の銭（寄付）・アナウンス券
+  function roomBox(g) {
+    if (!g.groom || !window.ROOM) return '';
+    const boss = g.role === 'master' || g.role === 'manager';
+    let h = `<div class="gk-room"><button type="button" class="gk-room-view" data-act="groom" aria-label="碁会所の部屋に入る">${window.ROOM.miniOf(g.groom.room, null)}<span>碁会所の部屋に入る ›</span></button>
+      <div class="gk-pool"><span>碁会所の銭 <b>${(g.zeni | 0).toLocaleString()}</b>${g.donated ? `<small>（あなたの寄付 ${g.donated.toLocaleString()}）</small>` : ''}</span><button type="button" class="btn primary small" data-act="donateopen">寄付する</button>${boss ? `<button type="button" class="btn lac small" data-act="annopen">📣 アナウンス（券 ${g.tickets | 0}枚）</button>` : ''}</div>`;
+    if (open === 'donate') h += `<div class="gk-pool-form"><input type="number" class="gk-in" id="gkDon" min="10" step="10" placeholder="寄付する銭（10〜）"><button type="button" class="btn primary small" data-act="donate">寄付</button><small class="gk-note">寄付した銭は碁会所のものになり、戻せません。マスターと店長が、部屋の家具やアナウンス券に使います（今 ${(S.zeni | 0).toLocaleString()} 銭持っています）。</small></div>`;
+    if (open === 'ann') h += g.tickets > 0 ? `<div class="gk-pool-form"><textarea class="gk-in" id="gkAnn" maxlength="60" rows="2" placeholder="全国へのお知らせ（60字まで）"></textarea><button type="button" class="btn primary small" data-act="ann">券を1枚使ってアナウンス</button><small class="gk-note">みんなの一言コメント欄のお知らせに出ます。</small></div>`
+      : `<div class="gk-pool-form"><small class="gk-note">アナウンス券がありません。碁会所の部屋の「ショップ」で、ミケとこむぎが売っています（碁会所の銭 5,000）。</small><button type="button" class="btn lac small" data-act="groom">碁会所の部屋へ</button></div>`;
+    return h + '</div>';
+  }
   // マスターの全身アバター＋お知らせ
   function host(g, noticeHtml) {
     const m = g.master || {};
-    return `<div class="gk-host"><div class="gk-master"><div class="gk-master-fig">${fig(m.av)}</div><em>マスター</em><b>${esc(m.name || '')}</b></div>
+    return `<div class="gk-host"><div class="gk-master" ${m.pid ? `data-visit="${esc(m.pid)}"` : ''}><div class="gk-master-fig">${fig(m.av)}</div><em>マスター</em><b>${esc(m.name || '')}</b></div>
       <div class="gk-notice"><h3>マスターからのお知らせ</h3>${noticeHtml}</div></div>`;
   }
   // お知らせの本文：[[番号]] / [[番号:文字]] は掲示板へのリンク
@@ -168,10 +182,9 @@
     let note = noticeHtml(g.notice);
     if (g.role === 'master') note += editNotice ? `<div class="gk-nedit"><textarea class="gk-in" id="gkNotice" maxlength="400" rows="5" placeholder="ルールなど（400字まで）">${esc(g.notice)}</textarea>
       ${board && board.threads.length ? `<select class="select" id="gkNlink"><option value="">掲示板へのリンクを入れる…</option>${board.threads.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('')}</select>` : ''}
-      <small class="gk-note">[[番号:文字]] と書くと、文字を変えたリンクになります（例：[[3:挨拶はこちら]]）。</small>
       <div class="gk-row"><button type="button" class="btn primary small" data-act="savenotice">保存</button><button type="button" class="btn lac small" data-act="nocancel">やめる</button></div></div>`
       : '<button type="button" class="gk-nedit-btn" data-act="editnotice">お知らせを書く</button>';
-    let h = sign(g) + host(g, note);
+    let h = sign(g) + roomBox(g) + host(g, note);
     if (g.recall) {
       const r = g.recall;
       h += `<div class="gk-panel hi"><h3>マスターのリコール投票中</h3><p class="gk-note">店長がマスターのリコールをはじめました。賛成 ${r.yes}／必要 ${r.need}（マスターをのぞくメンバーの8割）・反対 ${r.no}</p>
@@ -184,7 +197,7 @@
       h += `<div class="gk-panel gk-boardp"><div class="gk-ph"><h3>碁会所掲示板</h3>${g.canPost ? '<button type="button" class="btn primary small" data-go="post">＋ スレッドを立てる</button>' : ''}</div>`;
       if (!board) h += '<p class="gk-note">読みこみ中……</p>';
       else if (board.err) h += `<p class="gk-note">${why({ reason: board.err })}</p>`;
-      else h += `<ul class="gk-threads">${board.threads.length ? board.threads.map(x => `<li><button type="button" data-bopen="${x.id}"><span class="gk-ti">${icon(x.av)}</span><b>${esc(x.title)}</b>${x.n ? `<small>${x.n}</small>` : ''}</button></li>`).join('') : '<li class="gk-none">まだスレッドはありません</li>'}</ul>`;
+      else h += `<ul class="gk-threads">${board.threads.length ? board.threads.map(x => `<li><button type="button" data-bopen="${x.id}"><span class="gk-ti" data-visit="${esc(x.pid)}">${icon(x.av)}</span><b>${esc(x.title)}</b>${x.n ? `<small>${x.n}</small>` : ''}</button></li>`).join('') : '<li class="gk-none">まだスレッドはありません</li>'}</ul>`;
       h += '</div>';
     }
     h += `<div class="gk-foot">${g.role === 'master' ? '<button type="button" class="btn lac small" data-go="members">碁会所の設定</button>' : ''}${g.role === 'manager' && !g.recall ? '<button type="button" class="btn lac small" data-act="recall">マスターをリコールする</button>' : ''}<button type="button" class="btn danger small" data-act="leave">碁会所を抜ける</button></div>`;
@@ -192,7 +205,7 @@
   }
   // kids碁会所：看板・マスターの全身アバター＋「いらっしゃい」・ミッションだけ
   function kidsView() {
-    return sign(G) + host(G, `<p class="gk-kids-hi">${esc(G.notice || 'いらっしゃい')}</p>`) + `<div class="gk-panel"><h3>ミッション</h3>${missionView()}</div>
+    return sign(G) + host(G, `<p class="gk-kids-hi">${esc(G.notice || 'いらっしゃい')}</p>`) + `<div class="gk-panel"><h3>ミッション</h3>${missionView()}</div><div class="gk-panel"><h3>ランキング</h3>${rankView()}</div>
       <div class="gk-foot"><button type="button" class="btn danger small" data-act="leave">碁会所を抜ける</button></div>`;
   }
   /* ---------- 掲示板 ---------- */
@@ -204,9 +217,9 @@
     const del = (it, rid) => (it.pid === board.me || board.boss) ? `<button type="button" class="sc-x" data-bdel="${th.id}" data-rid="${rid || ''}">消す</button>` : '';
     const nt = (SETS.notify.find(x => x[0] === th.notify) || [])[1] || '';
     const canC = th.cmt === 'on' && G.canCmt && !kidNow();
-    return `<div class="gk-thv"><div class="gk-thv-fig">${fig(th.av)}<b>${esc(th.name)}</b></div>
+    return `<div class="gk-thv"><div class="gk-thv-fig" data-visit="${esc(th.pid)}">${fig(th.av)}<b>${esc(th.name)}</b></div>
         <div class="gk-thv-main"><h3>${esc(th.title)}</h3><p>${esc(th.text)}</p><small>${dt(th.t)}・${th.cmt === 'on' ? 'コメントあり' : 'コメントなし'}・${nt}</small>${del(th)}</div></div>
-      ${th.cmt === 'on' ? `<div class="gk-panel"><h3>コメント（${th.replies.length}）</h3><ul class="gk-replies">${th.replies.length ? th.replies.map(x => `<li><span class="gk-ti">${icon(x.av)}</span><div><small>${esc(x.name)}・${dt(x.t)}</small><p>${esc(x.text)}</p>${del(x, x.id)}</div></li>`).join('') : '<li class="gk-none">まだコメントはありません</li>'}</ul>
+      ${th.cmt === 'on' ? `<div class="gk-panel"><h3>コメント（${th.replies.length}）</h3><ul class="gk-replies">${th.replies.length ? th.replies.map(x => `<li><span class="gk-ti" data-visit="${esc(x.pid)}">${icon(x.av)}</span><div><small>${esc(x.name)}・${dt(x.t)}</small><p>${esc(x.text)}</p>${del(x, x.id)}</div></li>`).join('') : '<li class="gk-none">まだコメントはありません</li>'}</ul>
         ${canC ? `<textarea class="gk-in" id="gbReply" maxlength="300" rows="3" placeholder="コメント（300字まで）"></textarea><button type="button" class="btn primary small" data-breply="${th.id}">コメントする</button><small class="gk-note">コメントは10分に1回までです。</small>` : `<p class="gk-note">${G.canCmt ? '' : 'この碁会所では、あなたはコメントできない設定です。'}</p>`}</div>` : ''}`;
   }
   function postView() {
@@ -226,7 +239,7 @@
     for (const m of g.members.slice().sort((a, b) => (b.on - a.on) || ({ master: 2, manager: 1, member: 0 }[b.role] - { master: 2, manager: 1, member: 0 }[a.role]) || b.wins - a.wins)) {
       const gave = g.gave.includes(m.pid), canKick = boss && m.role === 'member' && !m.me, openRow = open === m.pid, canDeny = boss && m.role !== 'master' && !m.me;
       h += `<li class="${m.on ? 'on' : ''}${m.me ? ' me' : ''}">
-        <span class="gk-av">${icon(m.av)}<i class="gk-dot${m.busy ? ' busy' : ''}"></i></span>
+        <span class="gk-av" data-visit="${esc(m.pid)}">${icon(m.av)}<i class="gk-dot${m.busy ? ' busy' : ''}"></i></span>
         <span class="gk-who"><b>${esc(m.name)}${m.me ? '（自分）' : ''}</b><small>${m.role !== 'member' ? `<em class="gk-role ${m.role}">${ROLE[m.role]}</em>` : ''}今月 ${m.wins}勝${m.on ? (m.busy ? '・対局中' : '・オンライン') : ''}${m.frown != null && m.frown ? `・<span class="gk-frown">☹️${m.frown}</span>` : ''}${m.noPost ? '・<span class="gk-frown">投稿拒否</span>' : ''}${m.noCmt ? '・<span class="gk-frown">コメント拒否</span>' : ''}</small></span>
         ${m.me ? '' : `<span class="gk-acts">${gave ? '<em>おくった</em>' : `<button type="button" class="btn primary small" data-give="${esc(m.pid)}">50銭</button>`}<button type="button" class="btn lac small" data-more="${esc(m.pid)}" aria-label="ほかの操作">…</button></span>`}
         ${openRow ? `<div class="gk-more"><button type="button" class="btn lac small" data-visit="${esc(m.pid)}">部屋へ</button><button type="button" class="btn lac small" data-mailto="${esc(m.pid)}" data-name="${esc(m.name)}">✉️</button>${m.on && !m.busy ? `<button type="button" class="btn lac small" data-callto="${esc(m.pid)}">マッチを呼ぶ</button>` : ''}${g.role === 'master' ? (m.role === 'manager' ? '<button type="button" class="btn lac small" data-boss="">店長をやめてもらう</button>' : `<button type="button" class="btn lac small" data-boss="${esc(m.pid)}">店長にする</button>`) : ''}${canDeny ? `<button type="button" class="btn lac small" data-deny="post" data-pid="${esc(m.pid)}" data-on="${m.noPost ? '' : '1'}">${m.noPost ? '掲示板投稿の拒否を解除' : '掲示板投稿を拒否'}</button><button type="button" class="btn lac small" data-deny="cmt" data-pid="${esc(m.pid)}" data-on="${m.noCmt ? '' : '1'}">${m.noCmt ? 'コメントの拒否を解除' : 'コメントを拒否'}</button>` : ''}${canKick ? `<button type="button" class="btn danger small" data-kick="${esc(m.pid)}">追放</button>` : ''}</div>` : ''}
@@ -309,7 +322,9 @@
   function loadRank() { req('rank', {}, r => { if (r.ok) { rank = r; if (!G) list = list || r.list; } render(); }); }
   function rankView() {
     if (!rank) return '<p class="rm-help">読みこみ中……</p>';
-    let h = `<p class="gk-note gk-lead">月ごとに、碁会所のメンバーが「自分の強さ以上」の相手（ランダムマッチ・キャラクター戦）に勝った数を合計してきそいます。1位は10000銭、上位5%にはトロフィー（家具）、最下位でも300銭。銭はメンバーの勝ち数に応じて山分け（マスターは1.3倍の重み）。</p>`;
+    const mem = G ? G.members.slice().sort((a, b) => b.wins - a.wins) : [];
+    let h = G ? `<div class="gk-panel"><h3>碁会所内ランキング（今月）</h3><ol class="gk-rank">${mem.map((m, i) => `<li class="${m.me ? 'me' : ''}"><span class="gk-no">${m.wins ? i + 1 : '−'}</span><span><b>${esc(m.name)}</b><small>${ROLE[m.role] || 'メンバー'}</small></span><span class="gk-w">${m.wins}勝</span><small class="gk-p"></small></li>`).join('')}</ol></div><h3 class="gk-h3">碁会所対抗ランキング</h3>` : '';
+    h += `<p class="gk-note gk-lead">月ごとに、碁会所のメンバーが「自分の強さ以上」の相手にランダムマッチで勝った数を合計してきそいます（キャラクター戦は数えません）。1位は10000銭、上位5%にはトロフィー（家具）、最下位でも300銭。銭はメンバーの勝ち数に応じて山分け（マスターは1.3倍の重み）。</p>`;
     h += '<ol class="gk-rank">' + (rank.list.length ? rank.list.map(x => `<li class="${x.id === (G && G.id) ? 'me' : ''}"><span class="gk-no">${x.rank || '−'}</span><span><b>${esc(x.name)}</b><small>${x.n}人</small></span><span class="gk-w">${x.wins}勝</span><small class="gk-p">${x.prize ? `${x.prize.zeni.toLocaleString()}銭${x.prize.trophy ? '🏆' : ''}` : ''}</small></li>`).join('') : '<li class="gk-none">まだ碁会所がありません</li>') + '</ol>';
     if (rank.last && rank.last.top && rank.last.top.length) h += `<div class="sc-sec"><b>先月の結果</b><ol class="gk-rank small">${rank.last.top.slice(0, 5).map(x => `<li><span class="gk-no">${x.rank}</span><span><b>${esc(x.name)}</b></span><span class="gk-w">${x.total}勝</span><small class="gk-p">${x.zeni.toLocaleString()}銭</small></li>`).join('')}</ol></div>`;
     return h;
@@ -319,6 +334,8 @@
   const fail = r => { P.sound('bad'); P.toast(why(r)); };
   $('#gkBack').onclick = () => { P.sound('tap'); if (seeking) { seeking = false; P.guild('gunseek', {}); } if (back === 'pvp') P.openPvp(); else { P.showScreen('home'); P.renderHome(); } };
   $('#gkBody').addEventListener('click', e => {
+    const vis = e.target.closest('[data-visit]');
+    if (vis && vis.tagName !== 'BUTTON' && vis.dataset.visit) { e.stopPropagation(); P.sound('stone'); window.ROOM.visit(vis.dataset.visit); return; }   // アバター・アイコンをタップ → その人の部屋
     const b = e.target.closest('button'); if (!b || b.disabled || busy) return;
     const d = b.dataset;
     const done = (r, msg) => { busy = false; if (!r.ok) { fail(r); render(); return; } if (msg) P.toast(msg); P.sound('ok'); render(); };
@@ -335,6 +352,16 @@
     if (d.act === 'savenotice') { go_('notice', { text: $('#gkNotice').value }, 'お知らせを保存しました', () => { editNotice = false; render(); }); return; }
     if (d.deny) { go_('deny', { pid: d.pid, kind: d.deny, on: !!d.on }, d.on ? '拒否しました' : '解除しました'); return; }
     if (d.mailto) { window.MAIL.compose(d.mailto, d.name, 'guild'); return; }
+    if (d.act === 'groom') { P.sound('stone'); window.ROOM.openGuild(G); return; }
+    if (d.act === 'donateopen' || d.act === 'annopen') { P.sound('tap'); open = open === d.act.replace('open', '') ? null : d.act.replace('open', ''); render(); return; }
+    if (d.act === 'donate') {
+      const n = Math.floor(+$('#gkDon').value || 0);
+      if (n < 10) { P.toast('10銭から寄付できます'); return; }
+      if (n > (S.zeni | 0)) { P.toast('銭が足りません'); return; }
+      P.confirmBox(`${n.toLocaleString()} 銭を碁会所に寄付しますか？（戻せません）`, () => go_('donate', { n }, `${n.toLocaleString()} 銭を寄付しました。ありがとう！`, r => { if (typeof r.myZeni === 'number') { S.zeni = r.myZeni; P.saveLocal(); } open = null; render(); }), null, { yes: '寄付する', no: 'やめる' });
+      return;
+    }
+    if (d.act === 'ann') { const text = $('#gkAnn').value.trim(); if (!text) return; P.confirmBox('アナウンス券を1枚使って、全国にお知らせしますか？', () => go_('ann', { text }, '全国にアナウンスしました！', () => { open = null; render(); })); return; }
     if (d.act === 'create') { const f = readForm(); if (!f.name) { P.toast(WHY.name); return; } if (!f.short) { P.toast(WHY.short); return; } go_('create', f, `碁会所「${f.name}」をつくりました！ あなたがマスターです`, () => { making = false; }); }
     else if (d.act === 'make') { P.sound('stone'); making = true; render(); $('#gkBody').scrollTop = 0; window.scrollTo(0, 0); }
     else if (d.act === 'unmake') { P.sound('tap'); making = false; render(); }
