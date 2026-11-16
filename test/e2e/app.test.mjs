@@ -118,6 +118,20 @@ test('ホームの「今日のミッション」をひらける（5つ＋ぜん�
   await p.click('#dmClose');
 });
 
+test('新しいキャラの知らせは、結果画面の裏では出さず、ホームで出す（「行く」で移動できる）', async () => {
+  const p = await open('chara');
+  await p.evaluate(() => {
+    const S = window.APP.S; S.charaOpenN = window.ART.VARIANTS.length - 99;   // まだ知らせていない、ことにする
+    S.charaBuy = ['shima']; document.querySelector('#result').hidden = false; window.APP.renderHome();
+  });
+  await p.waitForTimeout(1300);
+  assert.ok(await p.evaluate(() => document.querySelector('#confirm').hidden), '結果画面の裏では聞かない');
+  await p.evaluate(() => { document.querySelector('#result').hidden = true; window.APP.showScreen('home'); window.APP.renderHome(); });
+  await p.waitForSelector('#confirm:not([hidden])', { timeout: 3000 });
+  await p.click('#cfYes'); await p.waitForTimeout(400);
+  assert.equal(await screen(p), 'chara');
+});
+
 test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
   const p = await open('rv');
   const ok = await p.evaluate(() => window.ART.VARIANTS.every(v => ['w3', 'strong', 'rival', 'catch'].every(k => window.RIVAL_LINES[v.key] && window.RIVAL_LINES[v.key][k])));

@@ -302,7 +302,11 @@
   function askChara(name) {
     S.charaOpenN = A.VARIANTS.filter((v, i) => charaOpen(i)).length; saveLocal();   // ホームで、もう一度きかない
     if (window.PROG && !window.PROG.isOpen('room')) { toast(`新しいキャラ「${name}」が仲間になりました！`, 5000); return; }
-    confirmBox(`新しいキャラ「${name}」が仲間になりました！ キャラクター選択画面に行きますか？`, () => { renderSettings(); showScreen('chara'); }, null, { yes: '行く', no: 'あとで' });
+    confirmBox(`新しいキャラ「${name}」が仲間になりました！ キャラクター選択画面に行きますか？`, () => {
+      // 上にかぶさっているもの（結果画面・設定など）を閉じてから移る
+      for (const id of ['result', 'settings', 'giftBox', 'dmBox', 'scorePanel']) { const e = $('#' + id); if (e) e.hidden = true; }
+      renderSettings(); showScreen('chara');
+    }, null, { yes: '行く', no: 'あとで' });
   }
 
   /* ---------- ホーム描画 ---------- */
@@ -314,12 +318,16 @@
     if (window.AVATAR) $('#homeAv').innerHTML = window.AVATAR.svg(S.av || window.AVATAR.PRESETS.girl);
     setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('shima')));
     // 新しく使えるようになったキャラを知らせる
+    // （ホームが見えているときだけ。対局や結果画面の裏では聞かず、ホームにもどってから聞く）
     const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
+    const onHome = () => !$('#home').hidden && $('#result').hidden && !document.body.classList.contains('on-title');
     if (S.charaOpenN != null && nOpen > S.charaOpenN) {
-      const nv = A.VARIANTS.filter((v, i) => charaOpen(i) && UNLOCK[v.key] > 0).sort((a, b) => UNLOCK[b.key] - UNLOCK[a.key])[0];
-      if (nv) setTimeout(() => askChara(nv.name), 900);
-    }
-    if (S.charaOpenN !== nOpen) { S.charaOpenN = nOpen; saveLocal(); }
+      if (onHome()) {
+        const nv = A.VARIANTS.filter((v, i) => charaOpen(i) && UNLOCK[v.key] > 0).sort((a, b) => UNLOCK[b.key] - UNLOCK[a.key])[0];
+        if (nv) setTimeout(() => askChara(nv.name), 900);
+        S.charaOpenN = nOpen; saveLocal();
+      }   // ホームでないときは覚えておかない（次にホームが出たときに聞く）
+    } else if (S.charaOpenN !== nOpen) { S.charaOpenN = nOpen; saveLocal(); }
     if (window.ROOM && !document.body.classList.contains('on-title')) window.ROOM.todayVisitor();
     if (window.AVATAR) $('#chipFace').innerHTML = window.AVATAR.thumb(S.av || window.AVATAR.PRESETS.girl, 'icon');
     $('#homeName').textContent = S.name;
