@@ -42,7 +42,6 @@
 
   /* ================= プレゼントボックス ================= */
   let gifts = [];
-  const LOCAL = () => !P.online() && !P.FR.available();     // サーバーなしのお試し版
   function setGifts(list) {
     gifts = (list || []).slice();
     const n = gifts.length, b = $('#giftBadge');
@@ -50,19 +49,8 @@
     $('#openGift').classList.toggle('has', !!n);
     if (!$('#giftBox').hidden) draw();
   }
-  // この端末だけで数える版（サーバーにつながっていないとき）
-  function localDaily() {
-    S.gifts = S.gifts || [];
-    const day = new Date().toLocaleDateString('sv-SE');
-    if (S.loginDay !== day) { S.loginDay = day; S.gifts.push({ id: Date.now(), kind: 'daily', amount: 100, label: `ログインボーナス（${day.slice(5).replace('-', '/')}）`, t: Date.now() }); P.saveLocal(); }
-    setGifts(S.gifts);
-  }
-  function add(kind, amount, label) {   // お試し版で、昇級のごほうびなどを入れる
-    S.gifts = S.gifts || []; S.gifts.push({ id: Date.now() + Math.random(), kind, amount, label, t: Date.now() }); P.saveLocal(); setGifts(S.gifts);
-  }
   function refresh() {
     if (P.online()) P.giftReq({ t: 'gifts' }, m => setGifts(m.gifts));
-    else if (LOCAL()) localDaily();
   }
   const ICON = { welcome: '🎁', daily: '📅', rank: '🏮', freq: '🤝', fzeni: '💌', pack: '🎎' };
   // 中身（アバター・家具・勾玉）の名前と絵
@@ -104,9 +92,7 @@
       P.renderHome();
     };
     if (P.online()) { P.giftReq({ t: 'gifttake', id }, m => { setGifts(m.gifts); done(m.got, m.things); }); return; }
-    if (!LOCAL()) { P.toast('サーバーにつながっていません'); return; }
-    let got = 0; S.gifts = (S.gifts || []).filter(g => { if (id === 'all' || g.id === id) { got += g.amount; return false; } return true; });
-    S.zeni = (S.zeni || 0) + got; P.saveLocal(); setGifts(S.gifts); done(got);
+    P.toast('サーバーにつながっていません');
   }
   function open() { P.sound('stone'); $('#giftBox').hidden = false; draw(); refresh(); }
   $('#openGift').onclick = open;
@@ -122,7 +108,7 @@
       });
       return;
     }
-    const b = e.target.closest('[data-id]'); if (b) { const v = b.dataset.id; take(LOCAL() ? +v : (v | 0)); }
+    const b = e.target.closest('[data-id]'); if (b) { const v = b.dataset.id; take(v === 'all' ? v : (v | 0)); }
   });
   $('#giftAll').onclick = () => take('all');
   P.setImg($('#giftChara'), A.charaUri(A.VARIANTS.findIndex(v => v.key === 'hinata')));
@@ -164,7 +150,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) BGM.stop(); else if (S.settings.bgm) setTimeout(kick, 300); });
 
   window.FX = { stamp };
-  window.GIFT = { open, refresh, setGifts, add };
+  window.GIFT = { open, refresh, setGifts };
   window.BGM = BGM;
   setTimeout(refresh, 1500);
 })();

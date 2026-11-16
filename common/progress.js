@@ -83,7 +83,7 @@
     const g = prog(); if (g.all || g.seen.haru || playing) return;
     playing = true;
     let atari = false;
-    if (P.online()) P.claimTutorial(); else if (window.GIFT) window.GIFT.add('welcome', 1000, '「春告げの一局」を読んでくれたお礼（小春より）');
+    P.claimTutorial();   // 1000銭のお礼（つながっていなければ、つながったときに）
     window.FANFARE.scene({
       who: 'koharu', doors: true,
       steps: [

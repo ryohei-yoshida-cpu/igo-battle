@@ -44,7 +44,7 @@
   if (S.settings.board !== 'washi') S.settings.board = 'kaya';
   S.solo = Object.assign({ mode: 'beginner', bot: 3, open: {}, lessons: [] }, S.solo);
   // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
-  if (S.zeni == null) { S.zeni = 0; S.gifts = [{ id: 1, kind: 'welcome', amount: 3000, label: 'はじめてのプレゼント', t: Date.now() }]; }   // はじめの3000銭はプレゼントボックスへ
+  if (S.zeni == null) S.zeni = 0;   // はじめの3000銭はプレゼントボックスへ
   S.vs = S.vs || {};
   // 13路の戦績・段級位は9路と別（レート・連勝・昇段も別に数える）
   const fresh13 = () => ({ rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, rankGift: [] });
@@ -699,7 +699,6 @@
     if (first) {
       if (window.TICKER) window.TICKER.mine({ type: 'myrank', rank: rname });
       if (econOn()) { APP_SOC('rank', { rank: rname }); netSend({ t: 'rankup', rank: nr, name: rname, key: 'go' + size }); }   // ごほうび1000銭はプレゼントボックスへ（9路・13路それぞれ）
-      else { T.rankGift = T.rankGift || []; if (!T.rankGift.includes(nr) && window.GIFT) { T.rankGift.push(nr); window.GIFT.add('rank', 1000, `${rname}昇格のごほうび`); } }
     }
     return { old, d, oldRank, newRank: nr, capped, size, first };
   }
@@ -737,7 +736,7 @@
     if (econOn()) {
       // 銭はサーバーが決める（対人戦はサーバーが結果を知っている。Bot戦は時間と手数を確かめてから）
       if (!G.online && G.botId) sendBotEnd({ t: 'botend', g: G.botId, result: win ? 'win' : draw ? 'draw' : 'loss', moves: G.record.length });
-    } else if (zeni) S.zeni += zeni;   // サーバーにつながっていないとき（お試し版など）は、この端末で数える
+    }
     save();
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
@@ -1046,8 +1045,19 @@
     else if (m.gained && m.why === 'episode') toast(`エピソードクリア！ ＋${m.gained} 銭`, 4000);
     else if (m.gained && (m.why === 'lesson' || m.why === 'drill')) toast(`＋${m.gained} 銭`);
   }
-  let buyReq = 0; const buyCb = {}, socCb = {}, giftCb = {}, guildCb = {}, mailCb = {}, adminCb = {};
-  const APP_SOC = (op, data, cb) => { const req = ++buyReq; if (cb) socCb[req] = cb; netSend(Object.assign({ t: 'soc', op, req }, data || {})); };
+  // サーバーへのお願いと返事：req 番号で返事をまつ（返事に同じ req がついて返ってくる）
+  let reqSeq = 0; const waiting = {};
+  function request(msg, cb) { const req = ++reqSeq; if (cb) waiting[req] = cb; netSend(Object.assign({}, msg, { req })); }
+  function answer(m) { const cb = m.req && waiting[m.req]; if (!cb) return false; delete waiting[m.req]; cb(m); return true; }
+  // サーバーにつながっていなければ、すぐ { ok:false, reason:'offline' }
+  const rpc = t => (op, data, cb) => { if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; } request(Object.assign({ t, op }, data || {}), cb); };
+  const APP_SOC = rpc('soc');
+  // ごほうびの受け取り（claim）：つながっていないときは覚えておいて、つながったら送る（サーバーが1回だけ出す）
+  function claimSend(msg) {
+    if (econOn()) { netSend(msg); return; }
+    S.claimQ = (S.claimQ || []).filter(x => !(x.kind === msg.kind && x.id === msg.id)).concat(msg); save();
+  }
+  function claimFlush() { const q = S.claimQ || []; if (!q.length) return; S.claimQ = []; save(); for (const x of q) netSend(x); }
   function onAccount(m) {
     NET.authed = true;
     if (m.pass) { S.acct = { id: m.id, pass: m.pass }; save(); netSync(); }                 // 新しく作った
@@ -1060,6 +1070,7 @@
     else if ((S._at || 0) > (m.at || 0) || !m.data) netSync();                              // この端末のほうが新しい
     if (!$('#settings').hidden) renderAccount();
     applyEcon(m.econ);
+    claimFlush();
     netHello();
     NET.authed = true; flushBotEnd();
   }
@@ -1157,24 +1168,23 @@
       case 'pid': if (m.pid) applyEcon({ pid: m.pid }); break;
       case 'rate': onRate(m); break;
       case 'zeni': onZeni(m); break;
-      case 'sold': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
-      case 'bought': applyEcon(m.econ, false); if (buyCb[m.req]) { buyCb[m.req](m); delete buyCb[m.req]; } break;
+      case 'sold': case 'bought': applyEcon(m.econ, false); answer(m); break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
       case 'delacct': onDelAcct(m); break;
       case 'busy': toast(m.what === 'login' ? 'ログインの失敗が多すぎます。1時間ほどたってから、もう一度ためしてください' : 'アカウントの作成が多すぎます。しばらくたってから、もう一度ためしてください', 5000); break;
-      case 'gifts': if (m.econ) applyEcon(m.econ, false); if (giftCb[m.req]) { giftCb[m.req](m); delete giftCb[m.req]; } else if (window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
+      case 'gifts': if (m.econ) applyEcon(m.econ, false); if (!answer(m) && window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
       case 'soc':
         if (m.op === 'push') { if (window.TICKER) window.TICKER.push(m.item); break; }
-        if (socCb[m.req]) { socCb[m.req](m); delete socCb[m.req]; } break;
+        answer(m); break;
       case 'mail':
         if (m.op === 'push') { if (window.MAIL) window.MAIL.push(m); break; }
-        if (mailCb[m.req]) { mailCb[m.req](m); delete mailCb[m.req]; } break;
-      case 'admin': if (adminCb[m.req]) { adminCb[m.req](m); delete adminCb[m.req]; } break;
+        answer(m); break;
+      case 'admin': answer(m); break;
       case 'banned': onBanned(m); break;
       case 'guild':
         if (m.op === 'push') { if (window.GUILD) window.GUILD.push(m); break; }
-        if (guildCb[m.req]) { guildCb[m.req](m); delete guildCb[m.req]; } break;
+        answer(m); break;
       case 'froom': if (M && M.friend && !M.found) { M.code = m.code; if (window.FRIEND) window.FRIEND.onRoom(m); } break;
       case 'fnone': if (M && M.friend && M.joining) { M = null; } if (window.FRIEND) window.FRIEND.onNone(m); break;
       case 'rematch':
@@ -1680,125 +1690,35 @@
   window.APP = {
     E: E9, A, S, save, RANKS, BOT_MAX, botRating, KOMI, showScreen, renderHome, toast, sound, buzz, setImg,
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch, openPvp, askChara,
-    rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq(msg, cb) { const req = ++buyReq; giftCb[req] = cb; netSend(Object.assign({ req }, msg)); }, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
-    // レクチャー初クリア・ドリル正解の銭（サーバーにつながっていればサーバーが1回だけ出す）
-    claim(kind, id, amount) {
-      if (econOn()) netSend({ t: 'claim', kind, id });
-      else { S.zeni = (S.zeni || 0) + amount; save(); toast(`＋${amount} 銭`); }
-    },
-    // 買い物：what は { item } / { floor } / { wall }。cb({ ok, reason })
-    buy(what, price, cb0) {
+    rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq: request, charaOpen, UNLOCK, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
+    // ---------- 銭・持ち物（サーバーが正。つながっていないときは使えない） ----------
+    // レクチャー初クリア・ドリル正解・開放・チュートリアルの銭：サーバーが1回だけ出す。つながっていなければ、つながったときに送る
+    claim(kind, id) { claimSend({ t: 'claim', kind, id }); },
+    claimUnlock(id) { claimSend({ t: 'claim', kind: 'unlock', id }); },
+    claimTutorial() { claimSend({ t: 'claim', kind: 'tutorial', id: 'go' }); },
+    // 買い物：what は { item } / { floor } / { wall } / { av } / { roomAdd } / { roomBig }。cb({ ok, reason, half, paid })
+    buy(what, price, cb) {
+      if (!econOn()) { cb({ ok: false, reason: 'offline' }); return; }
       // 32回に1回の半額サービス（サーバーが決める）。店員さんのセリフは、次の演出の前に出る
-      let cb = res => { if (res && res.ok && res.half && window.FANFARE) window.FANFARE.noteHalf(what.av ? 'hinata' : 'shima', Math.max(0, price - (res.paid | 0))); cb0(res); };
-      if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'buy', req }, what)); return; }
-      if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
-      const tm = what.av && window.AVATAR.TAMA[what.av];
-      if (tm) {   // 勾玉限定
-        if ((S.avOwned || []).includes(what.av)) { cb({ ok: false, reason: 'have' }); return; }
-        if ((S.tama | 0) < tm) { cb({ ok: false, reason: 'tama' }); return; }
-        S.tama -= tm; S.avOwned = (S.avOwned || []).concat(what.av); save(); cb({ ok: true }); return;
-      }
-      const half = price > 0 && !what.roomAdd && what.roomBig == null && Math.random() < 1 / 32;
-      const pay = half ? Math.floor(price / 2) : price;
-      if ((S.zeni || 0) < pay) { cb({ ok: false, reason: 'zeni' }); return; }
-      S.zeni -= pay;
-      const cb1 = cb; cb = res => cb1(Object.assign(res, { half, paid: pay }));
-      const r = S.room;
-      if (what.av) { S.avOwned = (S.avOwned || []).concat(what.av); save(); cb({ ok: true }); return; }
-      if (what.item) r.ownedItems[what.item] = (r.ownedItems[what.item] || 0) + 1;
-      else if (what.floor) r.owned.floors.push(what.floor);
-      else if (what.wall) r.owned.walls.push(what.wall);
-      else if (what.roomAdd) { r.extra = r.extra || []; r.extra.push({ floor: 'wood', wall: 'plain', items: [], walls: [], at: { p: what.p | 0, d: what.d === 'y' ? 'y' : 'x' }, n: 12 }); }
-      else if (what.roomBig != null) { const rm = what.roomBig ? (r.extra || [])[what.roomBig - 1] : r; if (rm) rm.n = 17; }
-      save(); cb({ ok: true });
+      request(Object.assign({ t: 'buy' }, what), res => { if (res && res.ok && res.half && window.FANFARE) window.FANFARE.noteHalf(what.av ? 'hinata' : 'shima', Math.max(0, price - (res.paid | 0))); cb(res); });
     },
+    // 勾玉：op 'swap'（n こを銭に）／ 'chara'（key のキャラを開放）。cb({ ok, reason })
+    TAMA_ZENI: 10, TAMA_CHARA: 300,
+    tama(op, data, cb) { if (!econOn()) { cb({ ok: false, reason: 'offline' }); return; } request(Object.assign({ t: 'tama', op }, data), cb); },
+    // 骨董屋：売る（what は { item } / { av }）。cb({ ok, reason, got, offer })。offer があれば玄斎からのおくりもの
+    sell(what, cb) { if (!econOn()) { cb({ ok: false, reason: 'offline' }); return; } request(Object.assign({ t: 'sell' }, what), cb); },
+    // 玄斎のおくりものを、もらう（yes=true）か、ことわる
+    offer(yes, cb) { if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; } request({ t: 'offer', yes: !!yes }, cb || (() => {})); },
     // はじめての一局：小春とアタリ碁（石を1つ取ったら勝ち）。done(勝った？) でもどる
     startAtari(done) {
       // 勝ったら done(true)。負けて「もう一度挑戦」ならもう一局、「もどる」なら done(false)
       const solo = { clearText: 'はじめての勝利！ おめでとう！', failText: 'おしい！ もう一度やってみよう', nextText: 'つぎへ', done: c => { if (c) { if (done) done(true); } else window.APP.startAtari(done); }, back: () => done && done(false) };
       newGame(Object.assign(nyumonBot(), { name: 'アタリ碁' }), 1, { solo, atari: true });
     },
-    // 開放のおくりもの（id：rec / av / room / kotto）。つながっていないときは、この端末で受け取る
-    claimUnlock(id) {
-      if (econOn()) { netSend({ t: 'claim', kind: 'unlock', id }); return; }
-      const G2 = { rec: { av: ['tool:t13'] }, av: { av: ['body:b05'] }, room: { items: ['goban'] }, kotto: { items: ['makie_goke'] } }[id]; if (!G2) return;
-      S.unlockGot = S.unlockGot || {}; if (S.unlockGot[id]) return; S.unlockGot[id] = 1;
-      for (const k of G2.av || []) if (!(S.avOwned || []).includes(k)) S.avOwned = (S.avOwned || []).concat(k);
-      for (const k of G2.items || []) if (S.room && S.room.ownedItems) S.room.ownedItems[k] = (S.room.ownedItems[k] || 0) + 1;
-      save();
-    },
-    claimTutorial() { netSend({ t: 'claim', kind: 'tutorial', id: 'go' }); },
-    // 勾玉：op 'swap'（n こを銭に）／ 'chara'（key のキャラを開放）。cb({ ok, reason })
-    TAMA_ZENI: 10, TAMA_CHARA: 300,
-    tama(op, data, cb) {
-      if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'tama', req, op }, data)); return; }
-      if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
-      const have = S.tama | 0;
-      if (op === 'swap') { const n = Math.floor(data.n || 0); if (n < 1 || have < n) { cb({ ok: false, reason: 'tama' }); return; } S.tama = have - n; S.zeni = (S.zeni || 0) + n * 10; }
-      else if (op === 'chara') { S.charaBuy = S.charaBuy || []; if (S.charaBuy.includes(data.key)) { cb({ ok: false, reason: 'have' }); return; } if (have < 300) { cb({ ok: false, reason: 'tama' }); return; } S.tama = have - 300; S.charaBuy.push(data.key); }
-      save(); renderHome(); cb({ ok: true });
-    },
-    // 骨董屋：売る（what は { item } / { av }）。cb({ ok, reason, got, offer })。offer があれば玄斎からのおくりもの
-    sell(what, cb) {
-      if (econOn()) { const req = ++buyReq; buyCb[req] = cb; netSend(Object.assign({ t: 'sell', req }, what)); return; }
-      if (NET_URL && !NET.ok) { cb({ ok: false, reason: 'offline' }); return; }
-      const r = S.room; let price = 0;
-      if (what.av) {
-        const p = window.AVATAR.PRICE[what.av], [sl, id] = what.av.split(':');
-        if (!(p > 0) || !(S.avOwned || []).includes(what.av)) { cb({ ok: false, reason: 'item' }); return; }
-        if (S.av && S.av[sl] === id) { cb({ ok: false, reason: 'wear' }); return; }
-        price = p; S.avOwned = S.avOwned.filter(k => k !== what.av);
-      } else if (what.item) {
-        const c = window.ROOMART.BY_ID[what.item], have = r.ownedItems[what.item] || 0;
-        let placed = 0;
-        for (const rm of [r].concat(r.extra || [])) for (const it of (rm.items || []).concat(rm.walls || [])) if (it.k === what.item && !it.trial) placed++;
-        if (!c || !(c.price > 0) || have - placed < 1) { cb({ ok: false, reason: 'placed' }); return; }
-        price = c.price; if (have > 1) r.ownedItems[what.item] = have - 1; else delete r.ownedItems[what.item];
-      } else { cb({ ok: false, reason: 'item' }); return; }
-      const got = Math.floor(price / 3); S.zeni = (S.zeni || 0) + got;
-      // おくりもの（サーバーと同じ確率）
-      const x = Math.random(), pick = a => a.length ? a[Math.floor(Math.random() * a.length)] : null;
-      const avs = (lo, hi) => Object.entries(window.AVATAR.PRICE).filter(([k, p]) => p >= lo && p <= hi && !(S.avOwned || []).includes(k)).map(([k]) => k);
-      const its = f => window.ROOMART.CATALOG.filter(c => f(c.price)).map(c => c.id);
-      let offer = null;
-      if (x < 1 / 256) { const id = pick(avs(2000, 1e9)); if (id) offer = { kind: 'av', id }; }
-      else if (x < 1 / 256 + 1 / 64) { const id = pick(avs(1200, 1500)); if (id) offer = { kind: 'av', id }; }
-      else if (x < 1 / 256 + 1 / 64 + 1 / 16) { const id = pick(its(p => p === 600)); if (id) offer = { kind: 'item', id }; }
-      else if (x < 1 / 256 + 1 / 64 + 1 / 16 + 1 / 8) { const id = pick(its(p => p > 0 && p <= 300)); if (id) offer = { kind: 'item', id }; }
-      S.offer = offer; save(); cb({ ok: true, got, offer });
-    },
-    // 玄斎のおくりものを、もらう（yes=true）か、ことわる
-    offer(yes, cb) {
-      if (econOn()) { const req = ++buyReq; buyCb[req] = cb || (() => {}); netSend({ t: 'offer', req, yes: !!yes }); return; }
-      const o = S.offer; S.offer = null;
-      if (o && yes) { if (o.kind === 'av') S.avOwned = (S.avOwned || []).concat(o.id); else S.room.ownedItems[o.id] = (S.room.ownedItems[o.id] || 0) + 1; }
-      save(); if (cb) cb({ ok: !!(o && yes) });
-    },
-    // マイルームのつながり（日記・チャット・フレンドなど）。サーバーにつながっていないときは reason: 'offline'
-    soc(op, data, cb) {
-      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
-      const req = ++buyReq; if (cb) socCb[req] = cb;
-      netSend(Object.assign({ t: 'soc', op, req }, data || {}));
-    },
+    // マイルームのつながり・メッセージ・運営・碁会所。つながっていないときは reason: 'offline'
+    soc: rpc('soc'), mail: rpc('mail'), admin: rpc('admin'), guild: rpc('guild'),
     online: () => econOn(),
     applyEcon: e => { if (e) applyEcon(e, false); },
-    // メッセージ・運営の画面
-    mail(op, data, cb) {
-      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
-      const req = ++buyReq; if (cb) mailCb[req] = cb;
-      netSend(Object.assign({ t: 'mail', op, req }, data || {}));
-    },
-    admin(op, data, cb) {
-      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
-      const req = ++buyReq; if (cb) adminCb[req] = cb;
-      netSend(Object.assign({ t: 'admin', op, req }, data || {}));
-    },
-    // 碁会所（ギルド）。サーバーにつながっていないときは reason: 'offline'
-    guild(op, data, cb) {
-      if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
-      const req = ++buyReq; if (cb) guildCb[req] = cb;
-      netSend(Object.assign({ t: 'guild', op, req }, data || {}));
-    },
     // 部屋の配置をサーバーへ（もようがえを終えたとき・部屋を出るとき）
     saveRoom() {
       saveLocal();

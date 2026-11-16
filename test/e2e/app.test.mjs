@@ -95,6 +95,17 @@ test('設定からアカウントを削除できる', async () => {
   assert.notEqual(await A.evaluate(() => window.APP.S.acct.id), id0, '最初からやりなおし');
 });
 
+test('プレゼントを受け取って、家具を買える（サーバーが正）', async () => {
+  const p = await open('buy');
+  const got = await p.evaluate(() => new Promise(r => window.APP.giftReq({ t: 'gifttake', id: 'all' }, m => r(m.got))));
+  assert.ok(got >= 3000, 'はじめてのプレゼント');
+  await p.waitForFunction(() => window.APP.S.zeni >= 3000);
+  const before = await p.evaluate(() => window.APP.S.room.ownedItems.zaisu | 0);
+  const res = await p.evaluate(() => new Promise(r => window.APP.buy({ item: 'zaisu' }, 0, r)));
+  assert.equal(res.ok, true);
+  assert.equal(await p.evaluate(() => window.APP.S.room.ownedItems.zaisu | 0), before + 1);
+});
+
 test('おもな画面をひととおり開ける（エラーが出ない）', async () => {
   const p = await open('tour');
   const home = async () => { await p.evaluate(() => { document.querySelectorAll('.overlay, .modal, #settings').forEach(x => { if (x.id === 'settings') x.hidden = true; }); window.APP.showScreen('home'); window.APP.renderHome(); }); await p.waitForTimeout(300); };
