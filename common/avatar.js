@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S, AV = window.AVATAR;
-  const $ = s => document.querySelector(s);
+  const $ = window.U.$;
   let look = null, slot = 'face', mode = 'shop', from = 'hub';
 
   // いまの姿。持っていない物（取りやめた服など）を着ていたら、その場所は最初のものにもどす
@@ -36,7 +36,7 @@
   $('#openAvShop').onclick = () => { P.sound('stone'); open('shop', null, 'hub'); };
 
   /* ---------- ひなた（服ショップの店員） ---------- */
-  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const pick = window.U.pick;
   const SAY = {
     hello: ['いらっしゃいませ♪ 気になる服は、タップで試着できるよ！', 'いらっしゃいませー！ 新作、入ってますよ♪', 'ゆっくり見ていってね♪ 試着はタダだよ！'],
     pick: ['似合うじゃん！', '試着室へご案内ー♪', 'わぁ、かわいい！', 'それ、今いちばん人気だよ♪', 'その色、ぴったり！', 'ちょっと大人っぽいね♪', '迷ったら、ぜんぶ試着しちゃお！', 'もう一回タップで、お買い上げ〜♪', 'いいセンスしてる〜！', 'それ着て対局したら、勝てそう！'],
@@ -132,7 +132,7 @@
     }).join('');
     return h;
   }
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = window.U.esc;
   function sayPreview(id) {
     const old = $('#avBigSay'); if (old) old.remove();
     if (!id) return;
@@ -280,7 +280,7 @@
   }
   $('#avGrid2').addEventListener('click', e => {
     const b = e.target.closest('.av-item'); if (!b || b.dataset.line) return;
-    const sl = b.dataset.sl, id = b.dataset.id, entry = AV.CATALOG[sl].find(x => x[0] === id);
+    const sl = b.dataset.sl, id = b.dataset.id;
     const again = look[sl] === id;
     look[sl] = id;
     if (look.full && look.full !== 'none' && (sl === 'head' || sl === 'body' || sl === 'tool')) { look.full = 'none'; P.toast('オールセットを外しました'); }   // オールセット中は、頭・身体・道具は使わない

@@ -4,8 +4,8 @@
  */
 (() => {
   'use strict';
-  const P = window.APP, A = P.A, S = P.S, FR = P.FR;
-  const $ = s => document.querySelector(s);
+  const P = window.APP, A = P.A, FR = P.FR;
+  const $ = window.U.$;
   const ci = key => Math.max(0, A.VARIANTS.findIndex(v => v.key === key));
 
   // 手合いごとに、説明してくれるキャラ

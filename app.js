@@ -3,7 +3,7 @@
   'use strict';
   const E9 = window.GoEngine;
   let E = E9, BN = 9;   // 今の盤（9路・13路）とそのエンジン
-  const $ = s => document.querySelector(s);
+  const $ = window.U.$;
   const KOMI = 7; // 同点は持碁（引き分け）
   const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000;
   const NET_LIMIT = 180; // 秒
@@ -143,12 +143,10 @@
   const myCharaSrc = () => A.charaUri(charaIdx());
   const myFaceSrc = () => A.faceUri(charaIdx());
   const rivalIdx = lv => A.rivalOf(charaIdx(), lv);
-  const rivalSrc = lv => A.charaUri(rivalIdx(lv));
   const rivalFace = lv => A.faceUri(rivalIdx(lv));
   const rivalName = lv => A.VARIANTS[rivalIdx(lv)].name;
   // 対局相手のキャラ番号（人ならその人のアバター、マイルームから誘ったキャラならそのキャラ）
   const oppChara = bot => bot.human ? bot.ava : bot.chara != null ? bot.chara : rivalIdx(bot.level);
-  const myAvatarSrc = () => myFaceSrc();
   const setImg = (el, src) => { if (el.getAttribute('src') !== src) el.src = src; };
   function applyBoardStyle() { document.body.classList.toggle('washi', S.settings.board === 'washi'); }
 
@@ -1644,7 +1642,6 @@
   // タイトル：キャラクター総出演（扇のように並べる）。カードをタップすると、そのキャラが真ん中に来て名前が出る
   (() => {
     const order = ['mike', 'shima', 'koharu', 'hinata', 'gensai', 'tomoe', 'tono'], n = order.length;
-    let sel = order.indexOf('koharu');
     $('#ttCast').innerHTML = order.map((k, j) => {
       const i = A.VARIANTS.findIndex(v => v.key === k), t = j - (n - 1) / 2;
       return `<figure class="tt-card" data-j="${j}" style="--t:${t};--d:${(j * 0.09).toFixed(2)}s;z-index:${10 - Math.abs(Math.round(t))}"><img src="${A.charaUri(i)}" alt=""><figcaption>${A.VARIANTS[i].name}</figcaption></figure>`;
@@ -1653,7 +1650,7 @@
     const cards = [...document.querySelectorAll('.tt-card')];
     cards.forEach(c => c.addEventListener('animationend', () => c.classList.add('in'), { once: true }));
     function focus(j, say) {
-      sel = j;
+
       cards.forEach((c, k) => { const t = k - j; c.style.setProperty('--t', t); c.style.zIndex = 10 - Math.abs(t); c.classList.toggle('sel', k === j && !!say); });
       if (!say) return;
       const v = A.VARIANTS[A.VARIANTS.findIndex(x => x.key === order[j])], el = $('#ttName');

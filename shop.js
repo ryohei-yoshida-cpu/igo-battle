@@ -5,8 +5,8 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
-  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const $ = window.U.$;
+  const pick = window.U.pick;
   const H_HELLO = [
     'いらっしゃいませ♪ 新作、入ってますよ！', 'あっ、来てくれたんだ！ 試着はタダだよ♪', 'その服もかわいいけど、ほかのも似合いそう！',
     '勝った銭で、ぱーっとお買いもの！', '迷ったら、ひなたのおすすめ聞いてね♪'
@@ -35,7 +35,7 @@
   }
   /* ---------- 骨董屋（店主：玄斎） ---------- */
   let ktTab = 'item';
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = window.U.esc;
   const R = () => window.ROOMART, AV = () => window.AVATAR;
   function avEntry(key) { const [sl, id] = key.split(':'), e = (AV().CATALOG[sl] || []).find(x => x[0] === id); return e ? { sl, id, name: e[1], price: e[2] } : null; }
   function placedCount(k) {

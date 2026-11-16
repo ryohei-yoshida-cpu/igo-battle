@@ -5,9 +5,9 @@
  */
 (function () {
   'use strict';
-  const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const P = window.APP;
+  const $ = window.U.$;
+  const esc = window.U.esc;
   const when = t => { const d = new Date(t), n = new Date(); return d.toDateString() === n.toDateString() ? `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}` : `${d.getMonth() + 1}/${d.getDate()}`; };
   const WHY = {
     offline: 'サーバーにつながっているときに使えます', who: 'フレンドか、同じ碁会所のメンバーにだけ送れます', blocked: 'ブロックしているか、されているので送れません',
@@ -16,9 +16,9 @@
   };
   const why = r => WHY[r && r.reason] || 'うまくいきませんでした';
   const req = (op, data, cb) => P.mail(op, data, r => { if (r && typeof r.unread === 'number') badge(r.unread); if (cb) cb(r); });
-  let list = [], cur = null, back = 'home', unread = 0;
+  let list = [], cur = null, back = 'home';
 
-  function badge(n) { unread = n; const b = $('#mailBadge'); if (b) { b.hidden = !n; b.textContent = n > 99 ? '99+' : n; } }
+  function badge(n) { const b = $('#mailBadge'); if (b) { b.hidden = !n; b.textContent = n > 99 ? '99+' : n; } }
 
   function open(from) {
     if (from) back = from;

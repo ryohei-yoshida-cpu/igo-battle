@@ -7,8 +7,7 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
 
   // 1歩ずつ：go（画面を開く）、at（光らせる場所）、say（小春のセリフ）
   const home = () => { P.showScreen('home'); P.renderHome(); };
@@ -72,7 +71,7 @@
     return SECS[sec].concat([last]);
   }
 
-  let el = null, i = -1, typing = 0, full = '', busy = false, done = null, pos = null;
+  let el = null, i = -1, typing = 0, full = '', busy = false, pos = null;
   function buildEl() {
     el = document.createElement('div'); el.className = 'tut';
     el.innerHTML = `<div class="tut-hole" hidden></div>

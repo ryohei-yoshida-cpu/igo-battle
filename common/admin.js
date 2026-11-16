@@ -6,8 +6,8 @@
 (function () {
   'use strict';
   const P = window.APP;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
+  const esc = window.U.esc;
   const dt = t => { const d = new Date(t); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
   const KIND = { prof: 'プロフィール', chat: '部屋の一言', diary: '日記', comment: '日記のコメント' };
   let tab = 'rep', rep = null, user = null;

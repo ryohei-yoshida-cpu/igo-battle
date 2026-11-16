@@ -4,7 +4,7 @@
   "description": "囲碁BLITZ（テストと開発用の設定。アプリ本体はビルドなしでそのまま公開）",
   "scripts": {
     "dev": "node server/dev.mjs",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "test": "node --test \"test/server/*.test.mjs\"",
     "test:e2e": "node --test --test-concurrency=1 \"test/e2e/*.test.mjs\"",
     "test:all": "npm run lint && npm test && npm run test:e2e"

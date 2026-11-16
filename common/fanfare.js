@@ -12,7 +12,7 @@
     shima: '…礼だ。こいつは半額でいいぞ。その、なんだ…いつも買いに来てくれて、感謝している。'
   };
   let halves = [];
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = window.U.esc;
 
   // ---- 紙ふぶき・金の粒・小判（キャンバス） ----
   function confetti(cv, ms) {

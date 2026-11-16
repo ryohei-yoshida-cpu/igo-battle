@@ -406,7 +406,7 @@
   //  dames: 黒白の境目の空点（ダメ）
   // 自陣にある相手の死に石を抜く手や、必要のないツナギは含めない
   function endgameMoves(f, c) {
-    const o = 3 - c, saves = [], kos = [], dames = [];
+    const saves = [], kos = [], dames = [];
     const seen = new Set();
     for (let p = 0; p < NN; p++) {
       const v = f.col[p];
@@ -443,7 +443,7 @@
 
   // botの着手
   function think(d) {
-    const L = Math.max(0, Math.min(9, d.level)), S = L + 5, c = d.toPlay;
+    const L = Math.max(0, Math.min(9, d.level)), c = d.toPlay;
     const last = d.last === undefined ? -1 : d.last;
     const { playouts, ms } = budget(L, d.timeLeft);
     const t = treeFor(d.board, c, d.ko, d.komi, last);

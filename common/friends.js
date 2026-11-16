@@ -5,8 +5,8 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
+  const esc = window.U.esc;
   const md = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
   const why = r => window.SOCIAL ? window.SOCIAL.why(r) : 'うまくいきませんでした';
   const MSG = { myfull: 'フレンドは100人までです', theirfull: '相手のフレンドがいっぱいです（100人まで）' };
@@ -135,7 +135,7 @@
 (function () {
   'use strict';
   const P = window.APP;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.U.esc;
   let box = null;
   function ensure() {
     if (box) return box;

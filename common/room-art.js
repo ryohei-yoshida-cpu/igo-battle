@@ -102,7 +102,7 @@
    * kind: floor（床）/ flat（ラグ：ほかの家具と重ねられる）/ wall（壁）
    * style: wa（和）/ yo（洋）/ chu（中）。price は銭。light は電気（タップでつく・消える）
    */
-  const WOOD = '#9a6a3c', DARKWOOD = '#5c3a22', KAYA = '#d9b26b', RED = '#b8322a', GOLD = '#d9a93a', CREAM = '#efe4cf';
+  const WOOD = '#9a6a3c', DARKWOOD = '#5c3a22', KAYA = '#d9b26b', RED = '#b8322a', GOLD = '#d9a93a';
   const CATALOG = [
     /* 和 */
     { id: 'goban', name: '碁盤', style: 'wa', kind: 'floor', w: 2, d: 2, price: 0, note: 'タップで対局',
@@ -547,7 +547,6 @@
   }
 
   // 遊びに来たキャラ（顔の写真＋着物のからだ）
-  const CHARA_COLORS = { koharu: '#2f4f8a', gensai: '#4a6a8a', hinata: '#e58fb0', shima: '#6b5a4a', tomoe: '#8a2a2a', mike: '#d9a35a', tono: '#5a3a8a', dgensai: '#2a1a3a' };
   // 遊びに来たキャラ：カットインの絵から切りぬいた立ち姿（img/visit_<key>.webp）。足もとはふわっと消えて、床の影に立つ
   function drawVisitor(v, faceUrl, key) {
     const [sx, sy] = proj(v.x + .5, v.y + .5, 0);

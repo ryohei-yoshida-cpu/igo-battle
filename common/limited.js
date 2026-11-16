@@ -3,7 +3,7 @@
  *   タップで静馬のルームショップの「限定」タブへ。マイルームがまだ開いていない人には出さない。
  */
 (function () {
-  const P = window.APP, S = P.S, $ = s => document.querySelector(s);
+  const P = window.APP, S = P.S;
   const THEME = {   // [地の色, ふちの色, 字の色, ひとこと]
     newyear: ['#7a1414', '#e8c15a', '#fff4dc', '新年の飾りで、福を呼びこもう'], hina: ['#c2557a', '#f6d0de', '#fff6f9', '桃の節句の、やさしい飾り'],
     kodomo: ['#1f4f8a', '#f2c94c', '#f3f8ff', '鯉のぼりと兜で、端午の節句'], tanabata: ['#1c2559', '#f5d76e', '#eef1ff', '星に願いを。天の川の飾り'],

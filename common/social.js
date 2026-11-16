@@ -7,8 +7,8 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
+  const esc = window.U.esc;
   const when = t => { const d = new Date(t), now = new Date(); const md = `${d.getMonth() + 1}/${d.getDate()}`; const hm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; return d.toDateString() === now.toDateString() ? hm : md + ' ' + hm; };
   const WHY = {
     sexual: '性的な言葉が入っているので、書きこめません', violent: '暴力的な言葉が入っているので、書きこめません',
@@ -17,7 +17,7 @@
     closed: 'この部屋は今、書きこみを受け付けていません', kid: '15歳以下の人は、一言・コメントを書けません', kidroom: '15歳以下の人の部屋には書きこめません', blocked: 'この部屋には入れません', nobody: 'その番号の部屋はありません',
     offline: 'サーバーにつながっていません', full: '相手のフレンド申請がいっぱいです', myfull: 'フレンドは100人までです', theirfull: '相手のフレンドがいっぱいです（100人まで）', today: '日記は1日1回です', gone: 'その日記は消されました', self: '自分にはできません'
   };
-  const why = r => r && r.reason === 'wait' ? `連続では書きこめません。あと${r.sec >= 60 ? Math.ceil(r.sec / 60) + '分' : r.sec + '秒'}待ってください` : WHY[r && r.reason] || 'うまくいきませんでした';
+  const why = r => r && r.reason === 'wait' ? window.U.waitText(r) : WHY[r && r.reason] || 'うまくいきませんでした';
   const CSET = [['all', '全員'], ['friends', 'フレンドだけ'], ['none', '受け付けない']];
 
   // 名前（タップでその人の部屋へ）＋ 持ち主なら「ブロック」

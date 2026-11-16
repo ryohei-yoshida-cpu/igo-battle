@@ -305,7 +305,7 @@
   // kind: 'tap'（どこでも）/ 'black' / 'white'（着手）/ 'bad'（打てない点）/ 'win'
   function burst(x, y, kind) {
     if (!fx) return;
-    const gold = '255,214,120', white = '255,250,235', sak = '255,190,210', shu = '230,80,60';
+    const gold = '255,214,120', white = '255,250,235', shu = '230,80,60';
     if (kind === 'tap') {
       parts.push({ type: 'flash', x, y, r: 34, c: white, a: .45, t: 0, life: 14 });
       parts.push({ type: 'ring', x, y, r0: 4, r1: 34, w: 2.4, c: gold, a: .9, t: 0, life: 22 });

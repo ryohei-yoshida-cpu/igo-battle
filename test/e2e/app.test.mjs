@@ -95,6 +95,26 @@ test('設定からアカウントを削除できる', async () => {
   assert.notEqual(await A.evaluate(() => window.APP.S.acct.id), id0, '最初からやりなおし');
 });
 
+test('おもな画面をひととおり開ける（エラーが出ない）', async () => {
+  const p = await open('tour');
+  const home = async () => { await p.evaluate(() => { document.querySelectorAll('.overlay, .modal, #settings').forEach(x => { if (x.id === 'settings') x.hidden = true; }); window.APP.showScreen('home'); window.APP.renderHome(); }); await p.waitForTimeout(300); };
+  // ホームのボタン → 開いた画面
+  const tour = [['#openSolo', 'solo'], ['#openRoom', 'myroom'], ['#openAvatar', 'avatar'], ['#openChara', 'chara'], ['#openRecord', 'record'], ['#openDiary', null], ['#openFriends', 'friends'], ['#openMail', 'mail'], ['#openShop', 'shop'], ['#openExplore', 'explore'], ['#openHub', 'hub'], ['#openGift', null], ['#openSettings', null]];
+  for (const [btn, scr] of tour) {
+    await home();
+    const b = await p.$(btn);
+    if (!b || !(await b.isVisible())) continue;
+    await b.evaluate(x => x.click()); await p.waitForTimeout(700);
+    if (scr) assert.equal(await screen(p), scr, btn + ' で ' + scr + ' が開く');
+  }
+  // ショップの中のお店
+  await home(); await p.evaluate(() => { window.APP.showScreen('shop'); window.SHOP.open(); });
+  for (const b of ['#shopAvatar', '#shopRoom', '#shopKotto']) {
+    await p.evaluate(() => { window.APP.showScreen('shop'); window.SHOP.open(); }); await p.waitForTimeout(300);
+    const el = await p.$(b); if (el && await el.isVisible()) { await el.evaluate(x => x.click()); await p.waitForTimeout(2500); await p.mouse.click(200, 400); await p.waitForTimeout(600); }
+  }
+});
+
 test('画面でエラーが出ていない', () => {
   assert.deepEqual(errors, []);
 });

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.U.esc;
   const REASONS = ['ひどい名前・ことば', 'いやがらせ・悪口', '性的・暴力的な内容', '連絡先・個人情報', 'その他'];
   const KIND = { prof: '名前・ひとこと', chat: '一言コメント', diary: '日記', comment: '日記へのコメント' };
   let box = null, ctx = null;

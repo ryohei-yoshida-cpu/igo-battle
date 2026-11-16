@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
+  const $ = window.U.$;
   const NEED = { rec: 3, av: 5, room: 10, kotto: 20, gk: 50 };
   const LOCKS = [
     ['pvp', ['#startMatch']],

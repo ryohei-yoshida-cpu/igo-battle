@@ -7,8 +7,8 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S, AV = window.AVATAR;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
+  const esc = window.U.esc;
   const ymd = t => { const d = new Date(t); return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`; };
   const md = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
   const PUB = [['all', 'みんなに公開'], ['friends', 'フレンドだけ'], ['me', '自分だけ']];

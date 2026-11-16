@@ -6,7 +6,7 @@
  */
 (function () {
   const P = window.APP, A = P.A, S = P.S, R = window.ROOMART, LINES = window.ROOM_LINES || {}, AV = window.AVATAR, SO = window.SOCIAL;
-  const $ = s => document.querySelector(s);
+  const $ = window.U.$;
   let N = R.N;   // いま操作している部屋の広さ（12、広くした部屋は17）
 
   /* ---------- データ ---------- */
@@ -450,8 +450,7 @@
   // キャラごとの、一局打つときの強さ（Bot の級）
   const CHARA_LV = { mike: 1, hinata: 3, shima: 5, tomoe: 7, tono: 8, gensai: 9, dgensai: 13 };
   // 立ち姿の絵（透過画像があるキャラはそれ、ないキャラはカットインの切りぬき）
-  const STAND = new Set(['hinata', 'shima', 'tomoe', 'mike', 'tono']);
-  const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
+  const standSrc = window.U.standSrc;
   function showVisit() {
     const box = $('#visit');
     if (!guest) { const k = room().g, v = k && guests.find(g => g.key === k); if (v) curGuest = v; }
@@ -463,7 +462,7 @@
   function talk(v, quiet) {
     curGuest = v;
     const img = $('#visitImg');
-    if (img.dataset.key !== v.key) { img.dataset.key = v.key; img.src = standSrc(v.key); img.classList.toggle('bust', !STAND.has(v.key)); img.classList.remove('in'); void img.offsetWidth; img.classList.add('in'); }
+    if (img.dataset.key !== v.key) { img.dataset.key = v.key; img.src = standSrc(v.key); img.classList.toggle('bust', !window.U.isStand(v.key)); img.classList.remove('in'); void img.offsetWidth; img.classList.add('in'); }
     $('#visitName').textContent = v.name;
     $('#visitLine').textContent = pickLine(v.key);
     const b = $('#visitBubble'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
@@ -731,34 +730,8 @@
     if (sel && sel.trial) sel = null;
   }
   // 買う（list：試し置きの家具）。買えたら「そのまま置きますか？」
-  function buyTrials(list) {
-    const total = list.reduce((a, it) => a + cat(it.k).price, 0);
-    if ((ZENI() || 0) < total) { shima('poor'); P.toast('銭が足りません'); return; }
-    const names = list.length === 1 ? cat(list[0].k).name : `試し置きの ${list.length} 点`;
-    P.confirmBox(`${names}を、${list.length > 1 ? '合計 ' : ''}${total.toLocaleString()} 銭で買いますか？`, () => {
-      const bought = [];
-      const next = () => {
-        const it = list[bought.length];
-        if (!it) { done(); return; }
-        BUY({ item: it.k }, cat(it.k).price, res => { if (!res.ok) { P.toast(BUY_NG[res.reason] || '買えませんでした'); done(); return; } bought.push(it); next(); });
-      };
-      const done = () => {
-        if (!bought.length) { render(); renderPanel(); return; }
-        shima('buy');
-        window.FANFARE.thanks({ who: gk ? 'mike' : 'shima',  items: bought.map(it => ({ thumb: thumb(it.k), name: cat(it.k).name })), then: () => P.confirmBox(`${bought.length === 1 ? cat(bought[0].k).name : bought.length + ' 点'}を買いました！ そのまま部屋に置きますか？`, () => {
-          for (const it of bought) delete it.trial;
-          touch(); flush(); P.toast(`${gk ? 'みけ' : '静馬'}「${clerkLine}」`); render(); renderPanel();
-        }, () => {
-          for (const it of bought) { const r = room(); r.items = r.items.filter(i => i !== it); r.walls = r.walls.filter(i => i !== it); }
-          sel = null; P.toast('買った家具は、倉庫に入れました'); render(); renderPanel();
-        }, { yes: '置く', no: '倉庫へ' }) });
-      };
-      next();
-    });
-  }
-
   /* ---------- パネル（ショップ・倉庫・お客さん） ---------- */
-  let tab = 'shop', shopKind = 'floor', shopStyle = 'all';
+  let tab = 'shop', shopKind = 'floor';
   // 家具ひとつを小さく描く（ショップ・倉庫の見本）
   function thumb(k) {
     const c = cat(k);
@@ -771,7 +744,7 @@
     return `<svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" class="rm-thumb">${R.DEFS}${R.drawFloorItem(it)}</svg>`;
   }
   /* ---------- 静馬（ルームショップの店主） ---------- */
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = window.U.esc;
   const SHIMA = {
     hello: ['……いらっしゃい。ゆっくり見ていけ。', '部屋は、打ち手の心をうつす。', '掘り出し物が入っている。'],
     pick: ['いい部屋になりそうだな。', '……センスがいい。', 'よく見つけたな。', 'そいつは代物だ。', '買ったアイテムは大きくできるぞ。', '置き場所まで考えてあるか？', '……悪くない。', '和・洋・中、混ぜるのもまた一興。'],
@@ -790,7 +763,6 @@
     const el = $('#rmClerk'); if (!el) return;
     el.querySelector('span').textContent = clerkLine; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
-  const STYLE_NAME = { wa: '和', yo: '洋', chu: '中', fun: 'おもしろ' };
   const BUY_NG = { cap: '同じ家具は99個までです', zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています', season: '季節がかわったので、もう買えません' };
   // 交流パネル（common/social.js）にわたす情報
   const ctx = () => ({

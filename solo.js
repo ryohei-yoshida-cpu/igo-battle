@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const P = window.APP, E = P.E, A = P.A, S = P.S;
-  const $ = s => document.querySelector(s);
+  const $ = window.U.$;
   const STORIES = window.STORIES || [], LESSONS = window.LESSONS || [];
   const COLS = 'ABCDEFGHJ';
   const pt = s => COLS.indexOf(s[0]) + (9 - (+s.slice(1))) * 9;
@@ -13,8 +13,6 @@
   const idxOf = key => Math.max(0, A.VARIANTS.findIndex(v => v.key === key));
   const faceOf = who => A.faceUri(idxOf(keyOf(who) || 'koharu'));
   const nameClass = who => who === '小春' ? '' : who === '玄斎' ? 'gensai' : 'other';
-  const STAND = new Set(['hinata', 'shima', 'tomoe', 'mike', 'tono']);
-  const standSrc = key => STAND.has(key) ? `img/stand_${key}.webp` : `img/visit_${key}.webp`;
   const opened = id => S.soloFree ? 999 : (S.solo.open[id] || 0);   // soloFree：試し用に全部あける               // 読める幕の最後（0 = 第一幕だけ）
   const nextLesson = () => LESSONS.find(l => !l.ep && !S.solo.lessons.includes(l.id));   // エピソード専用のトレーニングは別
 

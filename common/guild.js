@@ -13,8 +13,8 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
+  const esc = window.U.esc;
   const WORD = '碁会所';
   const MISSIONS = [
     ['inner', '碁会所内で5局', 5, 100, '日'], ['random', 'ランダムマッチ20局', 20, 100, '日'], ['bot', 'キャラクターと20局', 20, 100, '日'],
@@ -30,7 +30,7 @@
     blocked: 'ブロックしているか、されているので招待できません', zeni: '銭が足りません', tama: '勾玉が足りません', cap: '同じ家具は99個までです', placed: '部屋に置いている家具は提供できません', item: 'それは提供できません', total: '全部の部屋あわせて600個までです', ticket: 'アナウンス券がありません', num: '金額を入れてください', room: '部屋を保存できませんでした', kid: '15歳以下の人は使えません', kidto: 'その人は15歳以下なので招待できません', kids: 'kids碁会所では使えません', kidsonly: '15歳以下の人の碁会所です',
     birth: '先に生年月日を登録してください', mpost: 'この碁会所では、スレッドはマスター・店長だけが立てられます', denied: 'この碁会所では使えないように設定されています', nocmt: 'このスレッドはコメントなしです', noinv: 'その人は碁会所の勧誘を受けない設定です', theirs: 'その人は、もうほかの碁会所に入っています', invited: 'もう招待しています', talkoff: 'この碁会所は会話なしの設定です', board: '掲示板は使わない設定です'
   };
-  const why = r => r && r.reason === 'wait' ? `連続では書きこめません。あと${r.sec >= 60 ? Math.ceil(r.sec / 60) + '分' : r.sec + '秒'}待ってください` : WHY[r && r.reason] || 'うまくいきませんでした';
+  const why = r => r && r.reason === 'wait' ? window.U.waitText(r) : WHY[r && r.reason] || 'うまくいきませんでした';
   const ROLE = { master: 'マスター', manager: '店長', member: '' };
   // タグ
   const LVLS = [['beg', '初心者歓迎']].concat([10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(n => ['k' + n, n + '級以上のみ']), [1, 2, 3, 4].map(n => ['d' + n, ['初', '二', '三', '四'][n - 1] + '段以上のみ']));

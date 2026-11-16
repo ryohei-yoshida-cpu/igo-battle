@@ -12,8 +12,8 @@
 (function () {
   'use strict';
   const P = window.APP, S = P.S, A = P.A, AV = window.AVATAR;
-  const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = window.U.$;
+  const esc = window.U.esc;
   let chat = [], notes = [], ann = [], friends = [], gchat = null, gboss = false, screen = 'home', loaded = false;
   const isTalk = it => it.kind === 'chat' || it.kind === 'gchat';
   const link = (go, text) => `<u data-go="${esc(go)}">${esc(text)}</u>`;
