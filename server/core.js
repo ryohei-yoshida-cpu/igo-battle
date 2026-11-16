@@ -80,7 +80,7 @@ export class Core {
     this.store = opts.store || memStore();
     this.sockInfo = new Map();  // sock → { acct }
     this.rooms = new Map();     // 合言葉 → { code, host, hc, at }  フレンドマッチの部屋
-    this.guild = new Guild(this, { rateOf, dispRank, ITEMS, FLOORS, WALLS, SEASON, limitOpen, cleanRoom, defAt, ROOM_MAX, ROOM_PRICE, BIG_N, BIG_PRICE });   // 碁会所（ギルド）
+    this.guild = new Guild(this, { pubEcon, tamaOf, addTama, ROOM_LIM, rateOf, dispRank, ITEMS, FLOORS, WALLS, SEASON, limitOpen, cleanRoom, defAt, ROOM_MAX, ROOM_PRICE, BIG_N, BIG_PRICE });   // 碁会所（ギルド）
     this.social = new Social(this);
     this.mail = new Mail(this);       // メッセージ（全ゲーム共通）
     this.admin = new Admin(this);     // 運営の画面   // マイルームのつながり（日記・チャット・フレンド・ブロック。全ゲーム共通）
@@ -421,7 +421,7 @@ export class Core {
             if (g.tama || g.av || g.items) things = true;
             if (g.tama) addTama(r, g.game || 'go', g.tama);
             for (const k of g.av || []) if (AVP[k] != null && !r.owned.av.includes(k)) r.owned.av.push(k);
-            for (const k of g.items || []) if (ITEMS[k]) r.owned.items[k] = (r.owned.items[k] || 0) + 1;
+            for (const k of g.items || []) if (ITEMS[k]) r.owned.items[k] = Math.min(ROOM_LIM.perKind, (r.owned.items[k] || 0) + 1);
           } else keep.push(g);
         }
         r.gifts = keep; r.zeni += got;
@@ -456,7 +456,7 @@ export class Core {
         }
         if (m.av && AVP[m.av] > 0) { if (r.owned.av.includes(m.av)) { reason = 'have'; return; } price = AVP[m.av]; apply = () => r.owned.av.push(m.av); }
         else if (m.item && ITEMS[m.item] && ITEMS[m.item][0] <= 0) { reason = 'item'; return; }   // 碁盤・ごほうびの家具は売っていない
-        else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
+        else if (m.item && ITEMS[m.item]) { if (SEASON[m.item] && !limitOpen(SEASON[m.item], this.now())) { reason = 'season'; return; } if ((r.owned.items[m.item] || 0) >= ROOM_LIM.perKind) { reason = 'cap'; return; } price = ITEMS[m.item][0]; apply = () => { r.owned.items[m.item] = (r.owned.items[m.item] || 0) + 1; }; }
         else if (m.floor && FLOORS[m.floor] != null) { if (r.owned.floors.includes(m.floor)) { reason = 'have'; return; } price = FLOORS[m.floor]; apply = () => r.owned.floors.push(m.floor); }
         else if (m.wall && WALLS[m.wall] != null) { if (r.owned.walls.includes(m.wall)) { reason = 'have'; return; } price = WALLS[m.wall]; apply = () => r.owned.walls.push(m.wall); }
         else if (m.roomAdd) {
@@ -538,7 +538,7 @@ export class Core {
         const o = r.offer; r.offer = null;
         if (!o || !m.yes) return;
         if (o.kind === 'av' && AVP[o.id] != null && !r.owned.av.includes(o.id)) { r.owned.av.push(o.id); ok = true; }
-        else if (o.kind === 'item' && ITEMS[o.id]) { r.owned.items[o.id] = (r.owned.items[o.id] || 0) + 1; ok = true; }
+        else if (o.kind === 'item' && ITEMS[o.id]) { if ((r.owned.items[o.id] || 0) >= ROOM_LIM.perKind) return; r.owned.items[o.id] = (r.owned.items[o.id] || 0) + 1; ok = true; }
       });
       if (rec) out({ t: 'bought', ok, reason: ok ? '' : 'item', req: m.req, econ: pubEcon(rec) });
     } else if (m.t === 'room') {
@@ -559,6 +559,7 @@ export class Core {
           if (rooms2.some(x => !x)) return;
         } else for (const x of extra) for (const it of (x.items || []).concat(x.walls || [])) cnt[it.k] = (cnt[it.k] || 0) + 1;
         for (const [k, n] of Object.entries(cnt)) if (n > (r.owned.items[k] || 0)) return;
+        if ([room].concat(rooms2).reduce((a, x) => a + x.items.length + x.walls.length, 0) > ROOM_LIM.total) return;   // 全部屋で600個まで
         r.room = room; r.rooms2 = rooms2; ok = true;
       });
       if (ok) this.social.roomChanged(id).catch(() => {});
@@ -950,7 +951,9 @@ function gamePack(r, game, now) {
   r.packs[game] = 1; addGift(r, 'pack', 0, pk.label, now, { av: pk.av, items: pk.items });
 }
 // 部屋は最大6つ（はじめの部屋＋5）。1つ増やすのに 10000銭
-const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 5000;
+const ROOM_MAX = 20, ROOM_PRICE = 10000, BIG_N = 17, BIG_PRICE = 5000;
+// 上限：1部屋に置ける家具（床＋壁）99個・同じ家具を持てるのは99個まで・全部屋あわせて置けるのは600個まで（保存の大きさを守るため）
+export const ROOM_LIM = { perRoom: 99, perKind: 99, total: 600 };
 const defAt = i => i === 1 ? { p: 0, d: 'x' } : i === 2 ? { p: 0, d: 'y' } : { p: i - 1, d: 'x' };   // 位置の記録がない部屋（はじめのころに買った部屋）
 // 部屋の配置を確かめる：持っている数より多く置いていない・範囲の中・床と壁紙は持っているもの
 function cleanRoom(room, owned, total, n) {
@@ -958,15 +961,19 @@ function cleanRoom(room, owned, total, n) {
   if (!room || typeof room !== 'object') return null;
   const cnt = {}, items = [], walls = [];
   const num = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-  for (const it of (Array.isArray(room.items) ? room.items : []).slice(0, 200)) {
+  if ((Array.isArray(room.items) ? room.items.length : 0) + (Array.isArray(room.walls) ? room.walls.length : 0) > ROOM_LIM.perRoom) return null;
+  for (const it of (Array.isArray(room.items) ? room.items : [])) {
     if (!it || !ITEMS[it.k] || ITEMS[it.k][1] === 'w' || !num(it.x, 0, n - 1) || !num(it.y, 0, n - 1)) return null;
     cnt[it.k] = (cnt[it.k] || 0) + 1;
-    items.push({ uid: it.uid | 0, k: it.k, x: it.x, y: it.y, rot: it.rot ? 1 : 0, on: !!it.on, s: [0.5, 1.5, 2].includes(it.s) ? it.s : 1 });   // s：大きさ（0.5・1・1.5・2倍）
+    // 小さく保存：rot・on・s はふつうの値なら書かない（s：大きさ 0.5・1.5・2倍）
+    const o = { uid: it.uid | 0, k: it.k, x: it.x, y: it.y }; if (it.rot) o.rot = 1; if (it.on) o.on = true; if ([0.5, 1.5, 2].includes(it.s)) o.s = it.s;
+    items.push(o);
   }
-  for (const it of (Array.isArray(room.walls) ? room.walls : []).slice(0, 100)) {
+  for (const it of (Array.isArray(room.walls) ? room.walls : [])) {
     if (!it || !ITEMS[it.k] || ITEMS[it.k][1] !== 'w' || !num(it.u, 0, n - 1) || (it.side !== 'L' && it.side !== 'R')) return null;
     cnt[it.k] = (cnt[it.k] || 0) + 1;
-    walls.push({ uid: it.uid | 0, k: it.k, side: it.side, u: it.u, on: !!it.on, s: [0.5, 1.5, 2].includes(it.s) ? it.s : 1 });
+    const o = { uid: it.uid | 0, k: it.k, side: it.side, u: it.u }; if (it.on) o.on = true; if ([0.5, 1.5, 2].includes(it.s)) o.s = it.s;
+    walls.push(o);
   }
   for (const [k, n] of Object.entries(cnt)) { if (n > (owned.items[k] || 0)) return null; if (total) total[k] = (total[k] || 0) + n; }
   const floor = owned.floors.includes(room.floor) ? room.floor : 'wood', wall = owned.walls.includes(room.wall) ? room.wall : 'plain';

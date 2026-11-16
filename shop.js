@@ -30,6 +30,8 @@
     bubble('#shopBubbleH', '#shopTalkH', (S.zeni || 0) < 300 ? '銭が少なくても、見るだけでも楽しいよ♪' : pick(H_HELLO));
     bubble('#shopBubbleS', '#shopTalkS', pick(S_HELLO));
     bubble('#shopBubbleK', '#shopTalkK', pick(K_HELLO));
+    bubble('#shopBubbleG', '#shopTalkG', gkLine());
+    $('#shopGuild').hidden = !!(window.AGE && window.AGE.kid());
   }
   /* ---------- 骨董屋（店主：玄斎） ---------- */
   let ktTab = 'item';
@@ -137,13 +139,14 @@
   const WELCOME = {
     hinata: ['いらっしゃいませー♪ 今日はどれにする？', 'いらっしゃいませっ！ 新作、入ってるよ♪'],
     shima: ['……いらっしゃい。ゆっくり見ていけ。', '……来たか。いらっしゃい。'],
-    gensai: ['いらっしゃい。……何か売りに来たのかい？', 'おう、いらっしゃい。掘り出し物があるかもしれねえぜ。']
+    gensai: ['いらっしゃい。……何か売りに来たのかい？', 'おう、いらっしゃい。掘り出し物があるかもしれねえぜ。'],
+    mike: ['いらっしゃいにゃ！ 碁会所のお店だにゃ♪', 'こむぎ、お客さんだにゃ！（「わん！」）']
   };
   const SHOJI = '<div class="sj-lat"></div>';
   function enterShop(who, then) {
     if (S.settings.shopFx === false || matchMedia('(prefers-reduced-motion: reduce)').matches) { P.sound('stone'); setTimeout(then, 200); return; }
     const el = document.createElement('div'); el.className = 'sj ' + who;
-    el.innerHTML = `<div class="sj-room"><img class="sj-clerk" src="img/bust_${who}.webp" alt=""><div class="sj-say"><b>${{ hinata: 'ひなた', shima: '静馬', gensai: '玄斎' }[who]}</b><span></span></div></div>
+    el.innerHTML = `<div class="sj-room"><img class="sj-clerk" src="img/bust_${who}.webp" alt=""><div class="sj-say"><b>${{ hinata: 'ひなた', shima: '静馬', gensai: '玄斎', mike: 'みけ＆こむぎ' }[who]}</b><span></span></div></div>
       <div class="sj-door l">${SHOJI}</div><div class="sj-door r">${SHOJI}</div><div class="sj-flash"></div><div class="sj-skip">タップでスキップ</div>`;
     document.body.append(el);
     const T = [];
@@ -163,6 +166,20 @@
     at(4600, flash);
     el.addEventListener('click', flash);
   }
+  // 碁会所ショップ（みけ＆こむぎ）：碁会所の銭で、碁会所の部屋の家具・アナウンス券（マスター・店長）
+  const M_HELLO = ['碁会所のお店だにゃ！（こむぎ「わん！」）', 'みんなの部屋をかざるにゃ♪', 'アナウンス券もあるにゃ！ 仲間を呼ぶにゃ！', 'こむぎ、お客さんだにゃ！（「わふっ」）'];
+  function gkLine() {
+    const g = window.GUILD && window.GUILD.info();
+    if (!g || g.kids) return '碁会所に入ったら、使えるにゃ！（こむぎ「くぅん」）';
+    if (g.role !== 'master' && g.role !== 'manager') return 'お買い物はマスターと店長だけにゃ。寄付や家具の提供はだれでもできるにゃ！';
+    return pick(M_HELLO);
+  }
+  $('#shopGuild').onclick = () => {
+    const g = window.GUILD && window.GUILD.info();
+    if (!g || g.kids || !g.groom) { bubble('#shopBubbleG', '#shopTalkG', gkLine()); P.sound('tap'); return; }
+    bubble('#shopBubbleG', '#shopTalkG', 'いらっしゃいにゃ！');
+    enterShop('mike', () => window.ROOM.openGuild(g, 'shop', 'shop'));
+  };
   $('#shopKotto').onclick = () => { bubble('#shopBubbleK', '#shopTalkK', '……こっちだ。奥へ入んな。'); enterShop('gensai', openKotto); };
   $('#openShop').onclick = () => { P.sound('stone'); open(); };
   $('#shopBack').onclick = () => { P.renderHome(); P.showScreen('home'); };

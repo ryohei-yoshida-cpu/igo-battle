@@ -321,7 +321,17 @@
     if (!quiet) P.sound('stone');
     viewKey = 'x'; render(); renderPanel(); showVisit(); focusRoom();
   }
-  const ROOM_MAX = 6, ROOM_PRICE = 10000, BIG_PRICE = 5000, BIG_N = 17;
+  const ROOM_MAX = 20, ROOM_PRICE = 10000, BIG_PRICE = 5000, BIG_N = 17;
+  // 上限（サーバーと同じ）：1部屋99個・同じ家具は99個まで・全部屋あわせて600個まで
+  const LIM = { perRoom: 99, perKind: 99, total: 600 };
+  const placedHere = () => { const r = room(); return r.items.length + r.walls.length; };
+  const placedAll = () => [base()].concat(base().extra || []).reduce((a, r) => a + (r.items || []).length + (r.walls || []).length, 0);
+  // 置けるか：だめなら理由を言って false
+  function roomFull() {
+    if (placedHere() >= LIM.perRoom) { P.toast(`1つの部屋に置けるのは${LIM.perRoom}個までです`); return true; }
+    if (placedAll() >= LIM.total) { P.toast(`全部の部屋あわせて${LIM.total}個までです`); return true; }
+    return false;
+  }
   let addMode = false;
   // 家のメニュー（もようがえの上）：部屋を増やす（右下・左下）・広くする
   function houseBar() {}
@@ -701,6 +711,7 @@
     sel = null; touch(); render(); if (tab === 'inv') renderPanel();
   }
   function placeFromInv(k) {
+    if (roomFull()) return;
     const r = room(), c = cat(k);
     if (invOf(k) <= 0) return;
     const it = { uid: base().seq++, k, rot: 0 };
@@ -713,6 +724,9 @@
   /* ---------- 試し置き（ルームショップ）：買う前に部屋に置いてみる。買ったら「そのまま置く？」 ---------- */
   const trials = () => room().items.concat(room().walls).filter(i => i.trial);
   function addTrial(k) {
+    if (roomFull()) return;
+    { let n = (base().ownedItems || {})[k] || 0; for (const r of [base()].concat(base().extra || [])) for (const it of (r.items || []).concat(r.walls || [])) if (it.k === k && it.trial) n++;
+      if (n >= LIM.perKind) { P.toast(`同じ家具は${LIM.perKind}個までです`); return; } }
     const r = room(), c = cat(k), it = { uid: base().seq++, k, rot: 0, trial: true };
     if (c.kind === 'wall') { const sp = freeWallSpot(it); if (!sp) { P.toast('壁に空きがありません'); return; } Object.assign(it, sp); r.walls.push(it); }
     else { const sp = freeSpot(it); if (!sp) { P.toast('床に空きがありません'); return; } Object.assign(it, sp); r.items.push(it); }
@@ -788,7 +802,7 @@
     el.querySelector('span').textContent = clerkLine; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
   const STYLE_NAME = { wa: '和', yo: '洋', chu: '中', fun: 'おもしろ' };
-  const BUY_NG = { zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています', season: '季節がかわったので、もう買えません' };
+  const BUY_NG = { cap: '同じ家具は99個までです', zeni: '銭が足りません', offline: 'サーバーにつながっていないので、今は買えません', have: 'もう持っています', season: '季節がかわったので、もう買えません' };
   // 交流パネル（common/social.js）にわたす情報
   const ctx = () => ({
     mine: !guest, pid: guest ? guest.pid : meInfo.pid, name: guest ? guest.name : P.S.name, data: guest || mySoc || {}, me: meInfo,
@@ -1119,14 +1133,17 @@
   $('#rmStore').onclick = storeSel;
   $('#rmDone').onclick = () => { sel = null; render(); };
   // 碁会所の部屋をひらく（g：碁会所の画面が持っている情報）
-  function openGuildRoom(g) {
+  let gkFrom = null;
+  function openGuildRoom(g, start, back) {
     if (!g || !g.groom) return;
+    gkFrom = back || null;
     gk = { gid: g.id, name: g.name, zeni: 0, tickets: 0, edit: false, base: { floor: 'wood', wall: 'plain', items: [], walls: [], extra: [], owned: { floors: ['wood'], walls: ['plain'] }, ownedItems: {}, seq: 2, seen: [], sizeV: 2 } };
     syncGk(g, false);
     guest = null; cur = 0; viewKey = ''; snaps = {}; tryInts = {}; dockTab = null; sel = null; mode = 'view';
     P.showScreen('myroom'); setMode('view'); setZoom(1, null, null, true);
+    if (start === 'shop' && gk.edit) enterShop();
   }
-  function leaveGuildRoom() { if (mode !== 'view') leaveMode(true); clearTrials(); flush(); gk = null; cur = 0; viewKey = ''; mode = 'view'; if (window.GUILD) window.GUILD.open('home'); }
+  function leaveGuildRoom() { if (mode !== 'view') leaveMode(true); clearTrials(); flush(); gk = null; cur = 0; viewKey = ''; mode = 'view'; if (gkFrom === 'shop' && window.SHOP) window.SHOP.open(); else if (window.GUILD) window.GUILD.open('home'); gkFrom = null; }
   $('#roomBack').onclick = () => {
     if (gk) { P.sound('tap'); leaveGuildRoom(); return; }
     if (guest && guestBack) { const f = guestBack; guestBack = null; guest = null; f(); return; }
@@ -1156,5 +1173,5 @@
     flush(); P.sound('stone');
     window.FRIEND.inviteTo(to);
   };
-  window.ROOM = { openGuild: openGuildRoom, open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
+  window.ROOM = { thumb: k => thumb(k), LIM, openGuild: openGuildRoom, open, openShop, cloaks, thumb, refresh, visit, mini, miniOf, todayVisitor, info: () => ({ guest: !!guest }) };
 })();

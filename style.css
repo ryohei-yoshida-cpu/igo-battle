@@ -2170,3 +2170,52 @@ details summary { cursor: pointer; font-size: 12px; color: var(--kin); }
 .tk-item > .tk-ic svg, .tk-item > .tk-ic img { width: 32px; height: 32px; display: block; border-radius: 50%; object-fit: cover; object-position: 50% 18%; }
 .tk-item > .tk-ic .tk-mega { width: 32px; height: 32px; }
 .tk-item > span:not(.tk-ic) { flex: 1; }
+
+/* 碁会所の看板デザイン（勾玉で購入） */
+.gk-sign-board.sg-kuro { background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.12), transparent 60%), linear-gradient(160deg, #2a1d14, #120c08); border-color: #b8913a; box-shadow: inset 0 0 0 2px #e6c36a, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-kuro b { color: #f2d27a; text-shadow: 0 1px 0 #6a4b12; }
+.gk-sign-board.sg-kuro small, .gk-sign-board.sg-kuro span { color: #d9b35c; }
+.gk-sign-board.sg-shu { background: radial-gradient(ellipse at 30% 20%, rgba(255,220,180,.25), transparent 60%), linear-gradient(160deg, #d2452c, #9c2414); border-color: #2a120a; box-shadow: inset 0 0 0 2px #f0c060, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-shu b { color: #fff4dc; text-shadow: 0 2px 0 #5a1208; }
+.gk-sign-board.sg-shu small, .gk-sign-board.sg-shu span { color: #ffe0a0; }
+.gk-sign-board.sg-take { background: repeating-linear-gradient(90deg, rgba(20,60,20,.35) 0 2px, transparent 2px 38px), repeating-linear-gradient(0deg, transparent 0 46%, rgba(20,60,20,.4) 46% 50%, transparent 50% 100%), linear-gradient(90deg, #7fb05a, #a8cf78 30%, #6c9c48 60%, #9cc66c); border-color: #3d5e22; box-shadow: inset 0 0 0 2px #c8e09a, 0 10px 22px rgba(0,0,0,.5); }
+.gk-sign-board.sg-take b { color: #18300c; text-shadow: 0 1px 0 rgba(240,255,210,.6); }
+.gk-sign-board.sg-take small, .gk-sign-board.sg-take span { color: #24420f; }
+.gk-sign-board.sg-nami { background: radial-gradient(circle at 50% 100%, transparent 0 9px, rgba(255,255,255,.55) 9px 11px, transparent 11px 14px, rgba(255,255,255,.4) 14px 16px, transparent 16px) 0 0 / 32px 16px, linear-gradient(160deg, #2f5f9e, #173866); border-color: #e9e2cc; box-shadow: inset 0 0 0 2px #0e2444, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-nami b { color: #fff; text-shadow: 0 2px 4px #0b1d38; }
+.gk-sign-board.sg-nami small, .gk-sign-board.sg-nami span { color: #e6efff; text-shadow: 0 1px 2px #0b1d38; }
+.gk-sign-board.sg-sakura { background: radial-gradient(circle at 15% 25%, #ffc4d6 0 5px, transparent 6px), radial-gradient(circle at 82% 30%, #ffd6e2 0 6px, transparent 7px), radial-gradient(circle at 70% 80%, #ffb4c8 0 4px, transparent 5px), radial-gradient(circle at 28% 78%, #ffd0de 0 5px, transparent 6px), radial-gradient(ellipse at 50% 0%, #6a3a64, #2a1834 70%); border-color: #f2a8c0; box-shadow: inset 0 0 0 2px #7a3a5a, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-sakura b { color: #fff0f5; text-shadow: 0 0 10px #ff8fb4; }
+.gk-sign-board.sg-sakura small, .gk-sign-board.sg-sakura span { color: #ffd0e0; }
+.gk-sign-board.sg-momiji { background: radial-gradient(circle at 12% 30%, #ff7a2a 0 6px, transparent 7px), radial-gradient(circle at 88% 22%, #e8401c 0 7px, transparent 8px), radial-gradient(circle at 78% 82%, #ffb030 0 5px, transparent 6px), radial-gradient(circle at 22% 80%, #d6301a 0 6px, transparent 7px), linear-gradient(160deg, #f7e2b8, #e7c088); border-color: #8a2a10; box-shadow: inset 0 0 0 2px #e07040, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-momiji b { color: #5a1408; }
+.gk-sign-board.sg-momiji small, .gk-sign-board.sg-momiji span { color: #8a2a10; }
+.gk-sign-board.sg-yuki { background: radial-gradient(circle at 10% 20%, #fff 0 2px, transparent 3px) 0 0 / 40px 36px, radial-gradient(circle at 60% 70%, #fff 0 1.5px, transparent 2.5px) 0 0 / 28px 30px, linear-gradient(180deg, #8fb4d8, #cfe2f2 70%, #fff); border-color: #f4f8fc; box-shadow: inset 0 0 0 2px #7a9cc0, 0 10px 22px rgba(0,0,0,.5); }
+.gk-sign-board.sg-yuki b { color: #1c3454; text-shadow: 0 1px 0 #fff; }
+.gk-sign-board.sg-yuki small, .gk-sign-board.sg-yuki span { color: #2c4a70; }
+.gk-sign-board.sg-yoru { background: radial-gradient(circle at 84% 26%, #fff6c8 0 12px, rgba(255,240,180,.25) 13px 20px, transparent 21px), radial-gradient(circle at 20% 30%, #fff 0 1px, transparent 2px) 0 0 / 34px 28px, linear-gradient(180deg, #0c1638, #22306a); border-color: #c8b070; box-shadow: inset 0 0 0 2px #3a4a8a, 0 10px 22px rgba(0,0,0,.6); }
+.gk-sign-board.sg-yoru b { color: #fff8dc; text-shadow: 0 0 10px rgba(255,236,170,.6); }
+.gk-sign-board.sg-yoru small, .gk-sign-board.sg-yoru span { color: #e8dcb0; }
+.gk-sign-board.sg-kin { background: repeating-linear-gradient(90deg, rgba(120,80,0,.25) 0 1px, transparent 1px 25%), radial-gradient(ellipse at 30% 20%, #fff6c0, transparent 55%), linear-gradient(135deg, #e8bf4a, #f8e08a 40%, #c8962a 70%, #f0cc60); border-color: #3a2408; box-shadow: inset 0 0 0 2px #fff0a0, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-kin b { color: #2a1804; text-shadow: 0 1px 0 rgba(255,250,220,.8); }
+.gk-sign-board.sg-kin small, .gk-sign-board.sg-kin span { color: #4a2c06; }
+.gk-sign-board.sg-ishi { background: radial-gradient(circle at 30% 30%, #555 0 2px, #111 9px, transparent 10px) 0 0 / 44px 44px, radial-gradient(circle at 30% 30%, #fff 0 2px, #ddd 9px, transparent 10px) 22px 22px / 44px 44px, linear-gradient(160deg, #e2b870, #c8964a); border-color: #222; box-shadow: inset 0 0 0 2px #f4f4f4, 0 10px 22px rgba(0,0,0,.55); }
+.gk-sign-board.sg-ishi b { color: #111; background: rgba(255,248,230,.82); padding: 0 10px; border-radius: 6px; text-shadow: none; }
+.gk-sign-board.sg-ishi small, .gk-sign-board.sg-ishi span { color: #111; background: rgba(255,248,230,.7); padding: 0 6px; border-radius: 4px; }
+.gk-sign-board.sg-kuro .gk-st, .gk-sign-board.sg-yoru .gk-st, .gk-sign-board.sg-ishi .gk-st { opacity: .8; }
+/* 看板えらび */
+.gk-signs { width: 100%; align-self: stretch; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+.gk-signpick { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 10px; border: 2px solid transparent; background: rgba(255,255,255,.06); color: inherit; cursor: pointer; }
+.gk-signpick.on { border-color: var(--gold, #e6c36a); }
+.gk-signpick small { font-size: 11.5px; font-weight: 700; }
+.gk-sign-board.mini { padding: 10px 6px; border-width: 3px; min-height: 56px; justify-content: center; }
+.gk-sign-board.mini b { font-size: 18px; }
+/* 家具の提供 */
+.gk-gitems { width: 100%; align-self: stretch; list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.gk-gitems li { display: flex; align-items: center; gap: 8px; }
+.gk-gitems li > :first-child { width: 44px; height: 44px; flex: none; }
+.gk-gitems li span { flex: 1; min-width: 0; display: flex; flex-direction: column; font-weight: 800; }
+.gk-gitems li span small { font-weight: 600; opacity: .75; }
+/* 碁会所ショップ（ショップ画面） */
+.shop2.gkshop { background: radial-gradient(ellipse at 25% 30%, #ffe8c4, #d8925a 55%, #5a2e14); }
+.shop2.gkshop .shop2-bubble b { color: #a0521e; }

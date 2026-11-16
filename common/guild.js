@@ -27,7 +27,7 @@
     empty: '一言を入れてください', long: '40字までです', fast: '少し待ってから送ってください', mine: '自分の一言です', gone: 'その呼びかけは、もうありません',
     turn: '相手の返事を待っています', off: '相手がオンラインではありません', busy: 'どちらかが対局中です', net: 'つながっていません', auth: 'アカウントが必要です',
     short: '省略名（3文字まで）を入れてください', lvl: '段級位の条件に届いていません', invite: '招待された人だけが入れる碁会所です', applied: 'もう申請しています',
-    blocked: 'ブロックしているか、されているので招待できません', zeni: '銭が足りません', ticket: 'アナウンス券がありません', num: '金額を入れてください', room: '部屋を保存できませんでした', kid: '15歳以下の人は使えません', kidto: 'その人は15歳以下なので招待できません', kids: 'kids碁会所では使えません', kidsonly: '15歳以下の人の碁会所です',
+    blocked: 'ブロックしているか、されているので招待できません', zeni: '銭が足りません', tama: '勾玉が足りません', cap: '同じ家具は99個までです', placed: '部屋に置いている家具は提供できません', item: 'それは提供できません', total: '全部の部屋あわせて600個までです', ticket: 'アナウンス券がありません', num: '金額を入れてください', room: '部屋を保存できませんでした', kid: '15歳以下の人は使えません', kidto: 'その人は15歳以下なので招待できません', kids: 'kids碁会所では使えません', kidsonly: '15歳以下の人の碁会所です',
     birth: '先に生年月日を登録してください', mpost: 'この碁会所では、スレッドはマスター・店長だけが立てられます', denied: 'この碁会所では使えないように設定されています', nocmt: 'このスレッドはコメントなしです', noinv: 'その人は碁会所の勧誘を受けない設定です', theirs: 'その人は、もうほかの碁会所に入っています', invited: 'もう招待しています', talkoff: 'この碁会所は会話なしの設定です', board: '掲示板は使わない設定です'
   };
   const why = r => r && r.reason === 'wait' ? `連続では書きこめません。あと${r.sec >= 60 ? Math.ceil(r.sec / 60) + '分' : r.sec + '秒'}待ってください` : WHY[r && r.reason] || 'うまくいきませんでした';
@@ -45,6 +45,8 @@
     notify: [['none', '通知なし'], ['past', '書きこんだメンバーに通知'], ['me', '自分にだけ通知'], ['all', '碁会所みんなに通知']]
   };
   const kidNow = () => !!(window.AGE && window.AGE.kid());
+  // 看板のデザイン（勾玉。マスター・店長だけ買える）
+  const SIGNS = [['kaya', '榧の碁盤', 0], ['kuro', '黒漆に金文字', 60], ['shu', '朱塗り', 60], ['take', '青竹', 80], ['nami', '青海波', 80], ['sakura', '夜桜', 100], ['momiji', '紅葉', 100], ['yuki', '雪景色', 100], ['yoru', '月夜', 120], ['kin', '金屏風', 150], ['ishi', '白黒の碁石', 150]];
   const tagName = (k, v) => (SETS[k].find(x => x[0] === v) || [])[1] || '';
   const tags = set => set ? `<span class="gk-tags"><i class="lv">${esc(LVL_NAME[set.lvl] || '初心者歓迎')}</i><i>${tagName('join', set.join)}</i><i>${tagName('talk', set.talk)}</i>${set.idle === 'bye' ? '<i>非活動はバイバイ</i>' : ''}${set.board === 'on' ? '<i>掲示板</i>' : ''}</span>` : '';
   // つくる・設定の入力欄
@@ -149,14 +151,24 @@
   // 看板（碁盤の木目に、碁会所の名前）
   function sign(g) {
     const on = g.members.filter(m => m.on).length;
-    return `<div class="gk-sign"><div class="gk-sign-board"><i class="gk-st b"></i><i class="gk-st w"></i><small>${g.kids ? 'kids碁会所' : '碁会所'}</small><b>${esc(g.name)}</b><span>${g.short ? `「${esc(g.short)}」・` : ''}${g.members.length}/${g.max}人・オンライン ${on}人${g.kids ? '' : `・今月 ${g.wins}勝`}</span></div></div>`;
+    return `<div class="gk-sign"><div class="gk-sign-board sg-${esc(g.sign || 'kaya')}"><i class="gk-st b"></i><i class="gk-st w"></i><small>${g.kids ? 'kids碁会所' : '碁会所'}</small><b>${esc(g.name)}</b><span>${g.short ? `「${esc(g.short)}」・` : ''}${g.members.length}/${g.max}人・オンライン ${on}人${g.kids ? '' : `・今月 ${g.wins}勝`}</span></div></div>`;
   }
   // 碁会所の部屋（看板の下）・碁会所の銭（寄付）・アナウンス券
   function roomBox(g) {
     if (!g.groom || !window.ROOM) return '';
     const boss = g.role === 'master' || g.role === 'manager';
     let h = `<div class="gk-room"><button type="button" class="gk-room-view" data-act="groom" aria-label="碁会所の部屋に入る">${window.ROOM.miniOf(g.groom.room, null)}<span>碁会所の部屋に入る ›</span></button>
-      <div class="gk-pool"><span>碁会所の銭 <b>${(g.zeni | 0).toLocaleString()}</b>${g.donated ? `<small>（あなたの寄付 ${g.donated.toLocaleString()}）</small>` : ''}</span><button type="button" class="btn primary small" data-act="donateopen">寄付する</button>${boss ? `<button type="button" class="btn lac small" data-act="annopen">📣 アナウンス（券 ${g.tickets | 0}枚）</button>` : ''}</div>`;
+      <div class="gk-pool"><span>碁会所の銭 <b>${(g.zeni | 0).toLocaleString()}</b>${g.donated ? `<small>（あなたの寄付 ${g.donated.toLocaleString()}）</small>` : ''}</span><button type="button" class="btn primary small" data-act="donateopen">寄付する</button><button type="button" class="btn lac small" data-act="gitemopen">家具を提供</button>${boss ? `<button type="button" class="btn lac small" data-act="annopen">📣 アナウンス（券 ${g.tickets | 0}枚）</button><button type="button" class="btn lac small" data-act="signopen">看板をかえる</button>` : ''}</div>`;
+    if (open === 'gitem') {   // 余っている家具（部屋に置いていないもの）を提供
+      const R = window.ROOMART, own = (S.room && S.room.ownedItems) || {}, placed = {};
+      for (const r of [S.room || {}].concat((S.room && S.room.extra) || [])) for (const it of (r.items || []).concat(r.walls || [])) placed[it.k] = (placed[it.k] || 0) + 1;
+      const spare = Object.keys(own).filter(k => k !== 'goban' && R.BY_ID[k] && own[k] - (placed[k] || 0) > 0);
+      h += `<div class="gk-pool-form"><small class="gk-note">部屋に置いていない家具を、碁会所に提供できます。提供した家具は碁会所のものになり、戻せません。</small>${spare.length ? `<ul class="gk-gitems">${spare.map(k => `<li>${window.ROOM.thumb(k)}<span>${esc(R.BY_ID[k].name)}<small>あまり ${own[k] - (placed[k] || 0)}個</small></span><button type="button" class="btn primary small" data-gitem="${esc(k)}">1つ提供</button></li>`).join('')}</ul>` : '<p class="gk-note">提供できる家具がありません（部屋に置いているものは提供できません）。</p>'}</div>`;
+    }
+    if (open === 'sign') {
+      const own = g.signs || ['kaya'];
+      h += `<div class="gk-pool-form"><small class="gk-note">看板のデザインを、あなたの勾玉で買えます（今 ${(S.tama | 0).toLocaleString()} 勾玉）。一度買ったデザインは、マスター・店長がいつでも切りかえられます。</small><div class="gk-signs">${SIGNS.map(([id, name, price]) => `<button type="button" class="gk-signpick${g.sign === id ? ' on' : ''}" data-sign="${id}"><span class="gk-sign-board sg-${id} mini"><b>${esc(g.name)}</b></span><small>${name}・${g.sign === id ? '使用中' : own.includes(id) ? '持っている' : price + ' 勾玉'}</small></button>`).join('')}</div></div>`;
+    }
     if (open === 'donate') h += `<div class="gk-pool-form"><input type="number" class="gk-in" id="gkDon" min="10" step="10" placeholder="寄付する銭（10〜）"><button type="button" class="btn primary small" data-act="donate">寄付</button><small class="gk-note">寄付した銭は碁会所のものになり、戻せません。マスターと店長が、部屋の家具やアナウンス券に使います（今 ${(S.zeni | 0).toLocaleString()} 銭持っています）。</small></div>`;
     if (open === 'ann') h += g.tickets > 0 ? `<div class="gk-pool-form"><textarea class="gk-in" id="gkAnn" maxlength="60" rows="2" placeholder="全国へのお知らせ（60字まで）"></textarea><button type="button" class="btn primary small" data-act="ann">券を1枚使ってアナウンス</button><small class="gk-note">みんなの一言コメント欄のお知らせに出ます。</small></div>`
       : `<div class="gk-pool-form"><small class="gk-note">アナウンス券がありません。碁会所の部屋の「ショップ」で、ミケとこむぎが売っています（碁会所の銭 5,000）。</small><button type="button" class="btn lac small" data-act="groom">碁会所の部屋へ</button></div>`;
@@ -353,7 +365,20 @@
     if (d.deny) { go_('deny', { pid: d.pid, kind: d.deny, on: !!d.on }, d.on ? '拒否しました' : '解除しました'); return; }
     if (d.mailto) { window.MAIL.compose(d.mailto, d.name, 'guild'); return; }
     if (d.act === 'groom') { P.sound('stone'); window.ROOM.openGuild(G); return; }
-    if (d.act === 'donateopen' || d.act === 'annopen') { P.sound('tap'); open = open === d.act.replace('open', '') ? null : d.act.replace('open', ''); render(); return; }
+    if (['donateopen', 'annopen', 'gitemopen', 'signopen'].includes(d.act)) { P.sound('tap'); open = open === d.act.replace('open', '') ? null : d.act.replace('open', ''); render(); return; }
+    if (d.gitem) {
+      const name = (window.ROOMART.BY_ID[d.gitem] || {}).name || '';
+      P.confirmBox(`「${name}」を1つ、碁会所に提供しますか？（戻せません）`, () => go_('gitem', { k: d.gitem, n: 1 }, `「${name}」を提供しました。ありがとう！`, r => { P.applyEcon(r.econ); render(); }), null, { yes: '提供する', no: 'やめる' });
+      return;
+    }
+    if (d.sign) {
+      const sg = SIGNS.find(x => x[0] === d.sign), own = (G.signs || ['kaya']).includes(d.sign);
+      if (G.sign === d.sign) return;
+      if (own) { go_('sign', { id: d.sign }, '看板をかえました'); return; }
+      if ((S.tama | 0) < sg[2]) { P.toast('勾玉が足りません'); return; }
+      P.confirmBox(`看板「${sg[1]}」を ${sg[2]} 勾玉で買って、かえますか？`, () => go_('sign', { id: d.sign }, `看板を「${sg[1]}」にかえました！`, r => { P.applyEcon(r.econ); render(); }), null, { yes: '買う', no: 'やめる' });
+      return;
+    }
     if (d.act === 'donate') {
       const n = Math.floor(+$('#gkDon').value || 0);
       if (n < 10) { P.toast('10銭から寄付できます'); return; }

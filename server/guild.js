@@ -27,6 +27,8 @@
  *   碁会所の部屋（kidsはなし）：groom { room, rooms2 } … 配置を保存（マスター・店長）
  *     donate { n } … 自分の銭を碁会所の銭へ寄付（戻せない）   gbuy { item|floor|wall|roomAdd|roomBig|ticket } … 碁会所の銭で買う（マスター・店長）
  *     ann { text } … アナウンス券を1枚使って、全国にお知らせ（マスター・店長）
+ *     gitem { k, n } … 余っている家具を碁会所に提供（だれでも。戻せない）
+ *     sign { id } … 看板のデザインをかえる（持っていなければ自分の勾玉で買う。マスター・店長）
  *   掲示板：threads … スレッド一覧   post { title, text } … スレ立て   reply { tid, text } … 返信   bdel { tid, rid } … 消す（書いた人・マスター・店長）
  *   碁会所内マッチ：gseek { size } / gunseek … ランダム   gcall { pid, hc, auto } … 呼ぶ   gcalls … 一覧
  *                   gok { id } … その手合いでOK（対局開始）   gprop { id, hc } … ハンデの変更を提案   gdrop { id } … やめる
@@ -61,7 +63,9 @@ export function cleanSet(m) {
 // kids碁会所（15歳以下だけ）：ミッション・自動参加・お知らせだけ。細かい設定はなし
 export const KIDS_SET = { lvl: 'beg', join: 'open', talk: 'off', idle: 'bye', board: 'off', mpost: 'off' };
 export const KIDS_NOTICE = 'いらっしゃい';
-export const ANN_PRICE = 5000;   // アナウンス券（ミケとこむぎの碁会所ショップ）
+export const ANN_PRICE = 5000;
+// 看板のデザイン（勾玉で買う。マスター・店長だけ。kaya は最初からある）
+export const SIGNS = { kaya: 0, kuro: 60, shu: 60, take: 80, nami: 80, sakura: 100, momiji: 100, yuki: 100, yoru: 120, kin: 150, ishi: 150 };   // アナウンス券（ミケとこむぎの碁会所ショップ）
 const DEF_GROOM = () => ({ floor: 'wood', wall: 'plain', items: [], walls: [], n: 12 });
 // 月のランキングのごほうび（碁会所ぜんたいの銭。勝ちの数に応じて山分け、マスターは1.3倍の重み）
 //   1位 10000銭、上位5%ずつの帯で 8000 → 300銭 へなめらかに下がる。上位5%（と1位）はトロフィーも
@@ -101,6 +105,7 @@ export class Guild {
       g.room = g.room || DEF_GROOM(); g.rooms2 = Array.isArray(g.rooms2) ? g.rooms2 : [];
       g.owned = g.owned || { floors: ['wood'], walls: ['plain'], items: {} };
       g.zeni = g.zeni | 0; g.tickets = g.tickets | 0; g.donors = g.donors || {};
+      g.signs = g.signs || ['kaya']; if (!g.sign) g.sign = 'kaya';
     }
     if (!g.short) g.short = String(g.name || '').slice(0, 3);
     // 1か月来ていない人は自動で退会（マスターも。マスターは店長か、いちばん古いメンバーに）
@@ -161,7 +166,7 @@ export class Guild {
       short: g.short, set: g.set, pr: g.pr || '',
       apps: boss ? g.apps.map(a => ({ pid: a.pid, name: a.name, at: a.at })) : undefined,
       kids: !!g.kids, notice: g.notice || '',
-      groom: g.kids ? null : { room: g.room, rooms2: g.rooms2, owned: g.owned }, zeni: g.zeni | 0, tickets: g.tickets | 0, donated: g.donors ? (g.donors[id] | 0) : 0, master: master ? { pid: master.pid, name: master.name, av: master.av } : null,
+      groom: g.kids ? null : { room: g.room, rooms2: g.rooms2, owned: g.owned }, sign: g.sign || 'kaya', signs: g.signs || ['kaya'], zeni: g.zeni | 0, tickets: g.tickets | 0, donated: g.donors ? (g.donors[id] | 0) : 0, master: master ? { pid: master.pid, name: master.name, av: master.av } : null,
       canPost: !g.kids && g.set.board === 'on' && (boss || g.set.mpost === 'on') && !g.deny.post.includes(id),
       canCmt: !g.kids && g.set.board === 'on' && !g.deny.cmt.includes(id)
     };
@@ -429,7 +434,7 @@ export class Guild {
       if (!g) return fail(why);
       return reply();
     }
-    if (['donate', 'gbuy', 'groom', 'ann'].includes(op)) return this.roomOps(op, m, id, gid, out, fail, reply);
+    if (['donate', 'gbuy', 'groom', 'ann', 'gitem', 'sign'].includes(op)) return this.roomOps(op, m, id, gid, out, fail, reply);
     if (op === 'notice') {   // マスターからのお知らせ（[[スレッド番号]] で掲示板へのリンク）
       const notice = String(m.text || '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, GUILD.notice);
       if (notice && check(notice)) return fail('ng');
@@ -727,6 +732,40 @@ export class Guild {
       this.pushAll(g, { kind: 'member', text: `${(g.members.find(x => x.id === id) || {}).name || ''}さんが碁会所に${n.toLocaleString()}銭を寄付しました` }, id);
       return reply({ myZeni: rec.zeni });
     }
+    if (op === 'gitem') {   // 余っている家具を碁会所へ（戻せない）
+      const k = String(m.k || ''), n = Math.max(1, Math.min(99, m.n | 0));
+      if (!H.ITEMS[k] || k === 'goban') return fail('item');
+      const g0 = await this.store.get('guild:' + gid); if (!g0 || g0.kids) return fail('kids');
+      this.roll(g0);
+      if ((g0.owned.items[k] || 0) + n > H.ROOM_LIM.perKind) return fail('cap');
+      let why2 = '';
+      const rec = await this.core.withAcct(id, async r => {
+        const have = (r.owned && r.owned.items && r.owned.items[k]) | 0;
+        let placed = 0; for (const rm of [r.room].concat(r.rooms2 || [])) if (rm) for (const it of (rm.items || []).concat(rm.walls || [])) if (it.k === k) placed++;
+        if (have - placed < n) { why2 = 'placed'; return false; }
+        if (have - n > 0) r.owned.items[k] = have - n; else delete r.owned.items[k];
+      });
+      if (!rec) return fail(why2 || 'none');
+      const g = await this.withG(gid, g => { g.owned.items[k] = Math.min(H.ROOM_LIM.perKind, (g.owned.items[k] || 0) + n); });
+      if (g) this.pushAll(g, { kind: 'member', text: `${(g.members.find(x => x.id === id) || {}).name || ''}さんが碁会所に家具を提供しました` }, id);
+      return reply({ econ: H.pubEcon(rec) });
+    }
+    if (op === 'sign') {   // 看板のデザイン
+      const sid = String(m.id || '');
+      if (SIGNS[sid] == null) return fail('item');
+      const g0 = await this.store.get('guild:' + gid); if (!g0 || g0.kids) return fail('kids');
+      if (g0.master !== id && g0.manager !== id) return fail('role');
+      const owned = (g0.signs || ['kaya']).includes(sid);
+      let rec = null;
+      if (!owned) {
+        let short = false;
+        rec = await this.core.withAcct(id, async r => { if (H.tamaOf(r, g0.game || 'go') < SIGNS[sid]) { short = true; return false; } H.addTama(r, g0.game || 'go', -SIGNS[sid]); });
+        if (!rec) return fail(short ? 'tama' : 'none');
+      }
+      const g = await this.withG(gid, g => { g.signs = g.signs || ['kaya']; if (!g.signs.includes(sid)) g.signs.push(sid); g.sign = sid; });
+      if (!g) return fail('none');
+      return reply(rec ? { econ: H.pubEcon(rec) } : {});
+    }
     let why = '', bought = null;
     const g = await this.withG(gid, async g => {
       if (g.kids) { why = 'kids'; return false; }
@@ -738,6 +777,7 @@ export class Guild {
         if (!Array.isArray(m.rooms2) || m.rooms2.length !== g.rooms2.length) { why = 'room'; return false; }
         const rooms2 = m.rooms2.map((x, i) => { const c = H.cleanRoom(x, g.owned, cnt, g.rooms2[i].n || 12); if (c) { delete c.g; delete c.gp; delete c.av; c.at = g.rooms2[i].at; c.n = g.rooms2[i].n || 12; } return c; });
         if (rooms2.some(x => !x)) { why = 'room'; return false; }
+        if ([room].concat(rooms2).reduce((a, x) => a + x.items.length + x.walls.length, 0) > H.ROOM_LIM.total) { why = 'total'; return false; }
         g.room = room; g.rooms2 = rooms2; return;
       }
       if (op === 'ann') {   // アナウンス券を使う
@@ -753,6 +793,7 @@ export class Guild {
       else if (m.item && H.ITEMS[m.item]) {
         if (H.ITEMS[m.item][0] <= 0) { why = 'item'; return false; }
         if (H.SEASON[m.item] && !H.limitOpen(H.SEASON[m.item], now)) { why = 'season'; return false; }
+        if ((g.owned.items[m.item] || 0) >= H.ROOM_LIM.perKind) { why = 'cap'; return false; }
         price = H.ITEMS[m.item][0]; apply = () => { g.owned.items[m.item] = (g.owned.items[m.item] || 0) + 1; };
       }
       else if (m.floor && H.FLOORS[m.floor] != null) { if (g.owned.floors.includes(m.floor)) { why = 'have'; return false; } price = H.FLOORS[m.floor]; apply = () => g.owned.floors.push(m.floor); }

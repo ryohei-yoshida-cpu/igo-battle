@@ -1758,6 +1758,7 @@
       netSend(Object.assign({ t: 'soc', op, req }, data || {}));
     },
     online: () => econOn(),
+    applyEcon: e => { if (e) applyEcon(e, false); },
     // メッセージ・運営の画面
     mail(op, data, cb) {
       if (!econOn()) { if (cb) cb({ ok: false, reason: 'offline' }); return; }
