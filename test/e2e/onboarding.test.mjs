@@ -91,6 +91,12 @@ test('九路の剣客まで読むと「アタリ碁を打ってみよう」。�
   await p.evaluate(() => { window.APP.showScreen('home'); window.APP.renderHome(); });
 });
 
+test('3回打ったら「アタリ碁を打ってみよう」は消える（押してもう1局はじまらない）。キャラクターミッションもまだ出ない', async () => {
+  await p.evaluate(() => { window.APP.S.prog.games = 3; window.APP.save(); window.APP.renderHome(); });
+  const g = await goals();
+  assert.equal(g.length, 1); assert.match(g[0], /巴がやってくる/);
+});
+
 test('3局：巴 →「戦歴を見てみよう」→ お駄賃の扇子 →「クロークで扇子を持ってみよう」', async () => {
   await games(3); await through();
   assert.match((await goals())[0], /特別ミッション.*戦歴/);

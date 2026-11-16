@@ -24,7 +24,8 @@
     if (next.startsWith('ep_') && !g.all && !seen.recLook) {
       if (seen.rec) return { icon: '📖', kind: '初心者ミッション', text: '特別ミッション「戦歴を見てみよう」をクリアしよう', go: () => PR().runSpecial() };
       const n = PR().gamesLeft('rec');
-      return { icon: '📖', kind: '初心者ミッション', text: `アタリ碁を打ってみよう（あと ${n} 回）`, go: () => P.startAtari(() => { P.showScreen('home'); P.renderHome(); }) };
+      if (n <= 0) return false;   // 3回打った：あとは巴の登場（共通ミッションの行）。キャラクターミッションにはまだ進まない
+      return { icon: '📖', kind: '初心者ミッション', text: `アタリ碁を打ってみよう（あと ${n} 回）`, go: () => P.startAtari(() => { P.showScreen('home'); P.renderHome(); setTimeout(() => PR().check(), 500); }) };
     }
     return { icon: '📖', kind: '初心者ミッション', text: `ソロモード「${titleOf(next)}」を読もう`, go: () => window.SOLO.open() };
   }
@@ -68,7 +69,8 @@
     if (sp) out.push({ icon: '★', kind: '特別ミッション', text: sp.title, sp: true, go: () => PR().runSpecial() });
     if (!PR()) return out;
     const beg = PR().beginner();
-    const main = (beg ? soloGoal() : null) || charaGoal();
+    const sg = beg ? soloGoal() : null;
+    const main = sg === false ? null : sg || charaGoal();
     if (main) out.push(main);
     const c = commonGoal(); if (c) out.push(c);
     return out;
@@ -84,6 +86,7 @@
   $('#goalBox').addEventListener('click', e => {
     const b = e.target.closest('[data-goal]'); if (!b) return;
     const x = cur[+b.dataset.goal]; if (!x) return;
+    if (PR().busy() || document.querySelector('.sj, .tut, .ff')) return;   // キャラの登場・案内のさいちゅう（とじた直後のタップも）は動かさない
     P.sound('tap'); x.go();
   });
   document.addEventListener('kuro9screen', e => { if (e.detail === 'home') setTimeout(render, 0); });

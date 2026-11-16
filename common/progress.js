@@ -398,5 +398,5 @@
     check();
   }
 
-  window.PROG = { isOpen, ready, refresh, check, start, haruDone, intro, gamesLeft, spInfo, runSpecial, beginner, NEED, GK_AFTER };
+  window.PROG = { busy: () => playing || spBusy, isOpen, ready, refresh, check, start, haruDone, intro, gamesLeft, spInfo, runSpecial, beginner, NEED, GK_AFTER };
 })();
