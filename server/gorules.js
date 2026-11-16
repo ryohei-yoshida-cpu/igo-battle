@@ -2,6 +2,7 @@
  *   start(size, h)            … 最初の盤面（置き石 h 子。アプリの HC_PTS と同じ位置）
  *   play(board, size, p, c, ko) … 打てれば { board, ko }、打てなければ null（石がある・自殺手・コウ）
  *   score(board, size, dead, komi) … 死に石を取りのぞいて地を数える（中国ルール：石＋地）。{ dead, terr, black, white, winner }
+ *   libs(board, size, p)       … p の石のつながり（グループ）のダメの数
  */
 const HC_PTS = { 9: [24, 56, 60, 20, 40], 13: [48, 120, 126, 42, 84] };
 const NBS = {};
@@ -18,6 +19,7 @@ function group(b, NB, p) {
   }
   return { stones: st, libs: libs.size };
 }
+export function libs(b, size, p) { return b[p] ? group(b, nbOf(size === 13 ? 13 : 9), p).libs : 0; }
 export function start(size, h) {
   const N = size === 13 ? 13 : 9, b = new Array(N * N).fill(0);
   if (h >= 2) for (const p of HC_PTS[N].slice(0, h)) b[p] = 1;

@@ -61,6 +61,9 @@ test('ランダムマッチで対局して、両方パスで終局できる', as
       await p.waitForTimeout(600);
     }
   }
+  for (const p of [A, B]) await p.waitForFunction(() => document.querySelector('#scorePanel') && !document.querySelector('#scorePanel').hidden, null, { timeout: 30000 });   // 整地の説明
+  assert.match(await A.textContent('#scorePanel'), /石 \d+ ＋ 地 \d+/);
+  await A.click('#spNext');
   for (const p of [A, B]) await p.waitForFunction(() => !document.querySelector('#result').hidden, null, { timeout: 30000 });
 });
 
@@ -104,6 +107,21 @@ test('プレゼントを受け取って、家具を買える（サーバーが�
   const res = await p.evaluate(() => new Promise(r => window.APP.buy({ item: 'zaisu' }, 0, r)));
   assert.equal(res.ok, true);
   assert.equal(await p.evaluate(() => window.APP.S.room.ownedItems.zaisu | 0), before + 1);
+});
+
+test('ホームの「今日のミッション」をひらける（5つ＋ぜんぶクリア）', async () => {
+  const p = await open('dm');
+  assert.equal(await p.textContent('#dmCount'), '0/5');
+  await p.click('#homeDm');
+  await p.waitForFunction(() => document.querySelectorAll('#dmList li').length === 6);
+  assert.match(await p.textContent('#dmList'), /アタリを20回/);
+  await p.click('#dmClose');
+});
+
+test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
+  const p = await open('rv');
+  const ok = await p.evaluate(() => window.ART.VARIANTS.every(v => ['w3', 'strong', 'rival', 'catch'].every(k => window.RIVAL_LINES[v.key] && window.RIVAL_LINES[v.key][k])));
+  assert.ok(ok);
 });
 
 test('運営画面：合言葉を入れるまで中が見えない', async () => {

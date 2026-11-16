@@ -258,3 +258,22 @@
 .brand .logo span { font-size: 10px; letter-spacing: .35em; }
 .brand .me-chip { min-width: 0; flex: 0 1 auto; max-width: none; }
 .brand .me-chip small { white-space: nowrap; }
+
+/* デイリーミッション */
+.dm-bar em { margin-left: auto; font-style: normal; font-size: 13px; color: var(--kin); letter-spacing: 0; }
+.dm-bar em + i { margin-left: 4px; }
+.dm-bar.done { border-color: var(--kin); box-shadow: 0 0 0 1px rgba(232, 196, 110, .4) inset; }
+#dmBox { z-index: 45; }
+.dm-card .gf-head { margin-right: 0; }
+.dm-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.dm-list { margin-top: 0; }
+.dm-list li.ok { border-color: rgba(232, 196, 110, .6); background: rgba(232, 196, 110, .12); }
+.dm-pic { flex: none; width: 44px; height: 44px; border-radius: 8px; background: #e8c88e; }
+.dm-pic-go { display: grid; place-items: center; font-weight: 900; color: #3a2412; font-size: 18px; }
+.dm-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.dm-t b { font-size: 13.5px; }
+.dm-t small { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.dm-gauge { display: block; height: 6px; margin-top: 3px; border-radius: 3px; background: rgba(255, 246, 234, .12); overflow: hidden; }
+.dm-gauge i { display: block; height: 100%; background: linear-gradient(90deg, #e8c46e, #f0a640); }
+.dm-n { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-weight: 900; color: var(--kin); font-size: 14px; }
+.dm-n small { font-size: 10.5px; color: var(--muted); font-weight: 700; }

@@ -67,6 +67,13 @@
     <button type="button" class="btn primary" id="giftAll" hidden>ぜんぶ受け取る</button>
   </div>
 </div>
+<div class="overlay dim" id="dmBox" hidden>
+  <div class="gf-card dm-card">
+    <div class="gf-head"><b>今日のミッション</b><button type="button" class="btn lac small" id="dmClose">とじる</button></div>
+    <p class="dm-note">クリアすると1つ50銭、ぜんぶで さらに100銭がプレゼントボックスに届きます。毎日0時に新しくなります。</p>
+    <ul class="gf-list dm-list" id="dmList"></ul>
+  </div>
+</div>
 <div id="ticker" hidden>
   <button type="button" class="tk-line" id="tkLine" aria-label="一言コメントの履歴">
     <span class="tk-ava" id="tkAva"></span>
@@ -116,6 +123,7 @@
       <button class="tile rec" id="openRecord" type="button"><img id="tileRec" alt=""><b>戦歴</b></button>
       <button class="tile gk" id="openGuild" type="button"><img id="tileGk" alt=""><b>碁会所</b></button>
     </nav>
+    <button class="diary-bar dm-bar" id="homeDm" type="button"><span aria-hidden="true">📜</span>今日のミッション<em id="dmCount">0/5</em><i aria-hidden="true">›</i></button>
     <button class="diary-bar" id="homeDiary" type="button"><span aria-hidden="true">✒</span>日記を書く<i aria-hidden="true">›</i></button>
 
     <div class="lim-slot" hidden></div>
@@ -756,6 +764,7 @@
       </div>
     </div>
     <div class="res-btns">
+      <button class="btn lac small" id="resLook">盤面を見る</button>
       <button class="btn lac small" id="resBoard">検討する</button>
       <button class="btn lac small" id="resHome" hidden>もどる</button>
     </div>
@@ -911,6 +920,8 @@
 <script src="common/agree.js"></script>
 <script src="common/fanfare.js"></script>
 <script src="shop.js"></script>
+<script src="missions.js"></script>
+<script src="rival-lines.js"></script>
 <script src="common/limited.js"></script>
 </body>
 </html>

@@ -47,9 +47,12 @@ export function rankItems(r, now) {
 }
 export const RANK_ITEM_NAME = { rw_zashiki: '対局の座敷', rw_isshu: '一手入魂の額', rw_gogudana: '碁具の飾り棚', rw_shinbo: '深謀遠慮の額', rw_tokonoma: '碁打ちの床の間',
   rw_menjo1: '初段の免状', rw_makiegoban: '蒔絵の名品碁盤', rw_menjo2: '二段の免状', rw_kinbyobu: '富士と鶴の金屏風', rw_menjo3: '三段の免状', rw_meijin: '名人の盾', rw_menjo4: '四段の免状', rw_kisei: '棋聖のトロフィー' };
+// 初心者の保護：はじめの10局は、負けてもレートが下がらない
+export const PROTECT_GAMES = 10;
 export function applyRate(t, op, score, vsBot) {
   let d = eloD(t.rating, op, score, t.games);
   if (vsBot && d > 0 && op < t.rating) d = 0;
+  if (d < 0 && t.games < PROTECT_GAMES) d = 0;
   t.rating = Math.max(800, t.rating + d); t.games++;
   if (score === 1) { t.wins++; t.streak++; } else if (score === 0.5) t.draws++; else t.streak = 0;
   const rr = rankFrom(t.rating); if (rr >= DAN_FROM && t.streak >= DAN_STREAK && rr > t.earnedDan) t.earnedDan = rr;

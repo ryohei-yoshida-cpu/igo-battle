@@ -1,4 +1,5 @@
 /* 銭・勾玉・持ち物・部屋・プレゼント（サーバーが正。アプリから送られてきた数字は使わない） */
+import { countShapes, addMissions, missionsOf, MISSIONS, MISSION_ZENI, MISSION_ALL } from './missions.js';
 import { START_RATE, applyRate, botRating, dispRank, rankGift, rankItems, rateOf } from './rating.js';
 import { ITEMS, FLOORS, WALLS, SEASON } from './prices.js';
 import '../common/avatar-art.js';
@@ -14,7 +15,7 @@ export function limitOpen(tag, t) {
 export const AVP = globalThis.AVATAR.PRICE, AV_SEASON = globalThis.AVATAR.SEASON || {};
 
 /* ---------- 銭まわりの決まり ---------- */
-export const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'tama', 'ratereset', 'room', 'gifts', 'gifttake', 'rankup'];
+export const ECON = ['botstart', 'botend', 'claim', 'buy', 'sell', 'offer', 'tama', 'ratereset', 'room', 'gifts', 'gifttake', 'rankup', 'dm'];
 export const BOT_DAILY = 2000, GAME_ZENI = 100, EPISODE_ZENI = 500, WELCOME = 3000, RANKUP = 1000, DAILY = 100;
 // プレゼントボックス：受け取るまで銭にならない。{ id, kind, amount, label, t }
 export function addGift(r, kind, amount, label, t, extra) {
@@ -55,7 +56,7 @@ export function antiqueGift(r, x) {
 }
 // 2026/11/15 取りやめた家具（線で描いた家具・角度の合わない絵の家具）と、その値段。持っていた人には、銭をおかえし
 // 足もとのないアバターの服（2026/11/14 取りやめ）。持っていた人には、銭をおかえし
-export function pubEcon(r) { return { zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {}, rates: { go9: rateOf(r, 'go9'), go13: rateOf(r, 'go13') } }; }
+export function pubEcon(r) { return { dm: missionsOf(r, Date.now()), zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {}, rates: { go9: rateOf(r, 'go9'), go13: rateOf(r, 'go13') } }; }
 /* ---------- 勾玉（課金石）：アプリ（ゲーム）ごとに持つ。お金で買った分は、そのアプリの中だけで使う（Google Play のきまり） ---------- */
 export const TAMA = globalThis.AVATAR.TAMA || {}, TAMA_ZENI = 10, TAMA_CHARA = 300;
 export const tamaOf = (r, g) => (r.tama && r.tama[g]) | 0;
@@ -149,6 +150,15 @@ export class EconMethods {
     else for (const p of this.players.values()) if (p.acct === id && p.sock) { try { p.sock.send(JSON.stringify(msg)); } catch (e) {} }
   }
 
+  // デイリーミッションに1局ぶん足す。クリアがあればプレゼントボックスと、ミッションの進み具合を知らせる
+  async missionGame(id, add, sock) {
+    let cleared = [];
+    const rec = await this.withAcct(id, async r => { ensureEcon(r); cleared = addMissions(r, this.now(), add); });
+    if (!rec) return;
+    const msg = JSON.stringify({ t: 'dm', dm: missionsOf(rec, this.now()), cleared, gifts: cleared.length ? rec.gifts || [] : undefined });
+    const socks = sock ? [sock] : [...this.players.values()].filter(p => p.acct === id && p.sock).map(p => p.sock);
+    for (const s of socks) { try { s.send(msg); } catch (e) {} }
+  }
   async rateBot(id, bg, score, gid) {
     const key = 'go' + (bg.size || 9); let t = null, d = 0;
     await this.withAcct(id, async r => { t = rateOf(r, key); const b = dispRank(t); d = applyRate(t, bg.lv < 0 ? 1000 : botRating(bg.lv), score, true); rankGift(r, key, b, t, this.now()); rankItems(r, this.now()); });
@@ -163,7 +173,7 @@ export class EconMethods {
       // Bot 戦の開始を記録（勝ったときに「早すぎないか」を確かめるため）
       const gid = String(m.g || '').slice(0, 40); if (!gid) return;
       // 始まりはアカウントに保存する（サーバーが入れかわっても、勝ち負けが消えないように）
-      const bg = { gid, t0: this.now(), lv: m.lv === -1 ? -1 : Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9 };
+      const bg = { gid, t0: this.now(), lv: m.lv === -1 ? -1 : Math.max(0, Math.min(13, m.lv | 0)), solo: !!m.solo, size: m.size === 13 ? 13 : 9, color: m.color === 2 ? 2 : 1 };
       let prev = null;
       await this.withAcct(id, async r => { prev = r.botg || null; r.botg = bg; });
       // 前の Bot 戦が終わらないまま新しく始めた（アプリを閉じた など）→ 前のは負けとして数える
@@ -182,6 +192,8 @@ export class EconMethods {
       // レート：負けはいつでも数える。勝ち・引き分けは、早すぎる・短すぎる対局なら数えない
       if (!bg.solo && (m.result === 'loss' || !short)) await this.rateBot(id, bg, m.result === 'win' ? 1 : m.result === 'draw' ? 0.5 : 0, key);
       if (short) { out({ t: 'zeni', gained: 0, why: 'short' }); return; }   // 早すぎる・短すぎる対局は数えない
+      // デイリーミッション：対局数と、手順から数えた形（アタリ・ケイマ・一間トビ・大ゲイマ）
+      await this.missionGame(id, Object.assign({ games: 1 }, countShapes(bg.size, Array.isArray(m.rec) ? m.rec : [], bg.color, 0) || {}), sock);
       let amount = GAME_ZENI;   // 対局1回につき100銭（勝ち負けに関係なく）
       const rec = await this.withAcct(id, async r => {
         ensureEcon(r);
@@ -207,6 +219,9 @@ export class EconMethods {
       });
       if (rec && gained === -1) out({ t: 'gifts', gifts: rec.gifts || [], zeni: rec.zeni });
       else if (rec) out({ t: 'zeni', zeni: rec.zeni, gained, why: kind });
+    } else if (m.t === 'dm') {   // 今日のデイリーミッション
+      const r = await this.store.get('acct:' + id);
+      out({ t: 'dm', req: m.req, dm: missionsOf(r || {}, this.now()), list: MISSIONS.map(x => ({ id: x.id, name: x.name, n: x.n })), zeni: MISSION_ZENI, all: MISSION_ALL });
     } else if (m.t === 'gifts') {
       const rec = await this.withAcct(id, async r => { ensureEcon(r); dailyGift(r, this.now()); });
       if (rec) out({ t: 'gifts', req: m.req, gifts: rec.gifts || [], zeni: rec.zeni });

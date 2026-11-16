@@ -46,6 +46,7 @@
   // マイルーム：銭と、キャラごとの勝ち数（5勝で遊びに来る）
   if (S.zeni == null) S.zeni = 0;   // はじめの3000銭はプレゼントボックスへ
   S.vs = S.vs || {};
+  S.rival = S.rival || {};   // キャラクター（Bot）ごとの戦績 { key: { w, l, seen: ['w3', …] } }：ライバル台詞（rival-lines.js）
   // 13路の戦績・段級位は9路と別（レート・連勝・昇段も別に数える）
   const fresh13 = () => ({ rating: START_RATE, games: 0, wins: 0, draws: 0, streak: 0, earnedDan: -1, bw: { bw: 0, bl: 0, ww: 0, wl: 0 }, rankGift: [] });
   S.r13 = Object.assign(fresh13(), S.r13);
@@ -444,7 +445,7 @@
       for (const p of hcStones(G.hc.h, BN)) G.board[p] = 1;
       if (G.hc.h >= 2) G.toPlay = 2;
     }
-    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.nyumon ? -1 : bot.level, solo: !!G.solo, size: BN }); }
+    if (!G.online && econOn()) { G.botId = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); netSend({ t: 'botstart', g: G.botId, lv: bot.nyumon ? -1 : bot.level, solo: !!G.solo, size: BN, color: myColor }); }
     if (!G.solo) { try { localStorage.setItem(KEY + '.active', JSON.stringify({ op: bot.rating, color: myColor, name: bot.name, g: G.online ? G.online.g : null, friend: G.friend || undefined, h: G.hc ? G.hc.h : undefined, size: BN })); } catch (e) {} }
     showScreen('game'); setMode('play');
     setPb($('#meAvatar'), S.av || (window.AVATAR && window.AVATAR.PRESETS.girl), charaIdx()); $('#meName').textContent = S.name; $('#meRank').textContent = `${BN === 13 ? '13路 ' : ''}${RANKS[displayRank(BN)]} ${RS(BN).rating}`;
@@ -656,7 +657,31 @@
     render();
     if (res.void) { endGame(0, '無効試合', '整地の結果が両者で一致しなかったため、この対局は記録しません（レートは変わりません）', true); return; }
     const pts = Math.abs(res.black - (res.white + G.komi));
+    G.scoreInfo = scoreBreak(res, pts);
     endGame(res.winner, res.winner === 0 ? '持碁' : `${pts}目${res.winner === G.me ? '勝ち' : '負け'}`, `黒 ${res.black}  ／  白 ${res.white}${G.komi ? ' + コミ ' + G.komi : '（コミなし）'}`, true);
+  }
+  /* ---------- 整地の説明：盤の上に地（■）を出したまま、「石＋地」の数え方を見せてから結果へ ---------- */
+  function scoreBreak(res, pts) {
+    const dead = new Set(G.final.dead), st = { 1: 0, 2: 0 }, te = { 1: 0, 2: 0 };
+    for (let p = 0; p < BN * BN; p++) { const c = G.board[p]; if (c && !dead.has(p)) st[c]++; else if (G.final.terr[p]) te[G.final.terr[p]]++; }
+    return { st, te, black: res.black, white: res.white, komi: G.komi, winner: res.winner, pts, dead: dead.size };
+  }
+  function scorePanel(info, then) {
+    let el = $('#scorePanel');
+    if (!el) { el = document.createElement('div'); el.id = 'scorePanel'; el.className = 'score-panel'; $('#game').append(el); }
+    const who = info.winner === 0 ? '持碁（引き分け）' : `${info.winner === 1 ? '黒' : '白'}の ${info.pts}目勝ち`;
+    const mine = info.winner === 0 ? '' : info.winner === G.me ? 'win' : 'lose';
+    el.innerHTML = `<b class="sp-h">整地の結果</b>
+      <div class="sp-row"><i class="sp-stone b"></i><span>石 ${info.st[1]} ＋ 地 ${info.te[1]}</span><b>＝ ${info.black}</b></div>
+      <div class="sp-row"><i class="sp-stone w"></i><span>石 ${info.st[2]} ＋ 地 ${info.te[2]}${info.komi ? ` ＋ コミ ${info.komi}` : ''}</span><b>＝ ${info.white + info.komi}</b></div>
+      <p class="sp-who ${mine}">${who}</p>
+      <p class="sp-note">盤の上の石と、囲んだ地（■）を合わせて数えます。${info.dead ? '取られる形の石（死に石）は、相手の地になります。' : ''}${info.komi ? '白には先に打てない分の「コミ」がつきます。' : ''}</p>
+      <button type="button" class="btn primary small" id="spNext">結果へ</button>`;
+    el.hidden = false;
+    let done = false;
+    const go = () => { if (done) return; done = true; clearTimeout(t); el.hidden = true; then(); };
+    const t = setTimeout(go, 6000);
+    $('#spNext').onclick = () => { sound('tap'); go(); };
   }
   async function scoreGame() {
     G.over = true;
@@ -680,6 +705,7 @@
     const old = T.rating, oldRank = displayRank(size);
     let d = eloDelta(T.rating, opRating, score, T.games), capped = false;
     if (vsBot && d > 0 && opRating < T.rating) { d = 0; capped = true; }
+    if (d < 0 && T.games < 10) d = 0;   // 初心者の保護：はじめの10局は下がらない（サーバーと同じ）
     T.rating = Math.max(800, T.rating + d);
     T.games++;
     if (win) { T.wins++; T.streak++; } else if (draw) T.draws = (T.draws || 0) + 1; else T.streak = 0;
@@ -732,15 +758,18 @@
     const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
     G.zeniBase = S.zeni || 0;
     if (win && !G.friend) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
+    G.rivalEv = rivalCount(win, draw);
     G.zeni = zeni;
     if (econOn()) {
       // 銭はサーバーが決める（対人戦はサーバーが結果を知っている。Bot戦は時間と手数を確かめてから）
-      if (!G.online && G.botId) sendBotEnd({ t: 'botend', g: G.botId, result: win ? 'win' : draw ? 'draw' : 'loss', moves: G.record.length });
+      if (!G.online && G.botId) sendBotEnd({ t: 'botend', g: G.botId, result: win ? 'win' : draw ? 'draw' : 'loss', moves: G.record.length, rec: G.record.slice(0, 400) });   // rec：デイリーミッションの形をサーバーが数える
     }
     save();
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
-    setTimeout(() => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r), scored ? 900 : 500);
+    const show = () => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r);
+    if (scored && G.scoreInfo && !G.scoreInfo.shown) { G.scoreInfo.shown = true; const g = G; setTimeout(() => { if (G === g) scorePanel(g.scoreInfo, show); }, 600); }   // 整地の説明 → 結果
+    else setTimeout(show, scored ? 900 : 500);
   }
 
   // 結果画面：右上に持っている銭（もらった銭が飛んで合わさる）、右の三分の一に相手、下に大きな「もう一局」（ハンコのように出る）
@@ -792,6 +821,30 @@
     el.append(b); setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 400); }, ms || 3200);
   }
   // 勝ち・負けの台詞 → おわりの台詞 の順に
+  /* ---------- キャラクター（Bot）とのライバル台詞：そのキャラとの勝ち負けで、1回ずつ ----------
+   *   3勝 → w3（遊びに行ってもいい？）／ 勝ち越し10 → strong ／ 10勝目で五分 → rival ／ 10勝目で負け越し → catch */
+  function rivalCount(win, draw) {
+    if (!G.bot || G.bot.human || G.friend || G.online || G.solo || G.bot.nyumon || G.atari || draw) return null;
+    if (G.record.length < 16) return null;   // すぐ終わった対局は数えない
+    const key = A.VARIANTS[oppChara(G.bot)].key, rv = S.rival[key] = S.rival[key] || { w: 0, l: 0, seen: [] };
+    if (win) rv.w++; else rv.l++;
+    const once = ev => { if (rv.seen.includes(ev)) return null; rv.seen.push(ev); return { key, ev }; };
+    if (win && rv.w === 3) return once('w3');
+    if (rv.w - rv.l >= 10) return once('strong');
+    if (win && rv.w === 10) { const d = rv.w - rv.l; if (Math.abs(d) <= 2) return once('rival'); if (d < -2) return once('catch'); }
+    return null;
+  }
+  function rivalSay(ev) {
+    const L = window.RIVAL_LINES && window.RIVAL_LINES[ev.key], text = L && L[ev.ev]; if (!text) return;
+    const i = A.VARIANTS.findIndex(v => v.key === ev.key), rv = S.rival[ev.key];
+    let el = $('#rivalSay');
+    if (!el) { el = document.createElement('div'); el.id = 'rivalSay'; el.className = 'rival-say'; document.body.append(el); }
+    el.innerHTML = `<div class="rvl-card" role="dialog" aria-modal="true"><img class="rvl-face" src="${A.charaUri(i)}" alt=""><div class="rvl-body"><b>${window.U.esc(A.VARIANTS[i].name)}</b><small>あなたとの対戦成績 ${rv.w}勝${rv.l}敗</small><p>${window.U.esc(text)}</p><button type="button" class="btn primary small">うん</button></div></div>`;
+    el.hidden = false; sound('ok');
+    const close = () => { el.hidden = true; };
+    el.querySelector('button').onclick = () => { sound('tap'); close(); };
+    el.onclick = e => { if (e.target === el) close(); };
+  }
   function sayEnd(el, look, win, dir) {
     const a = lnText(look, win > 0 ? 'w' : win < 0 ? 'l' : ''), e = lnText(look, 'e');
     if (a) { sayAt(el, a, dir, 2600); if (e) setTimeout(() => sayAt(el, e, dir, 3000), 2900); }
@@ -811,6 +864,7 @@
     $('#resScore').textContent = scoreText;
     if (win > 0) { const kr = k.getBoundingClientRect(); setTimeout(() => A.burst(kr.left + kr.width / 2, kr.top + kr.height / 2, 'win'), 250); sound('ok'); }
     // 台詞：自分（キャラの上）と、相手（人のとき）
+    if (G.rivalEv) { const ev = G.rivalEv; G.rivalEv = null; setTimeout(() => rivalSay(ev), 2200); }   // キャラクターのライバル台詞
     setTimeout(() => {
       sayEnd($('#resChara').parentNode, S.av, win, 'up');
       if (G && G.bot && G.bot.human && G.bot.av) sayEnd($('#resOppFig'), G.bot.av, -win, 'up');
@@ -874,6 +928,7 @@
   function leaveGame() {
     if (M && M.rematch) M = null;
     $('#result').hidden = true;
+    if ($('#scorePanel')) $('#scorePanel').hidden = true;
     const size = G && G.size;
     G = null; renderHome();
     openPvp();
@@ -1008,6 +1063,7 @@
     if (!e) return;
     if (typeof e.zeni === 'number') S.zeni = e.zeni;
     if (e.gifts && window.GIFT) window.GIFT.setGifts(e.gifts);
+    if (e.dm && window.DM) window.DM.set(e.dm);   // デイリーミッション
     if (e.welcome) setTimeout(() => toast('ようこそ！ プレゼントボックスに3000銭が届いています', 5000), 1200);
     const r = S.room = S.room || {};
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }
@@ -1171,6 +1227,7 @@
       case 'sold': case 'bought': applyEcon(m.econ, false); answer(m); break;
       case 'roomsaved': if (!m.ok) { applyEcon(m.econ); toast('部屋の配置を保存できなかったので、元に戻しました'); } break;
       case 'authfail': onAuthFail(m); break;
+      case 'dm': if (!answer(m) && window.DM) window.DM.push(m); break;   // デイリーミッション
       case 'delacct': onDelAcct(m); break;
       case 'busy': toast(m.what === 'login' ? 'ログインの失敗が多すぎます。1時間ほどたってから、もう一度ためしてください' : 'アカウントの作成が多すぎます。しばらくたってから、もう一度ためしてください', 5000); break;
       case 'gifts': if (m.econ) applyEcon(m.econ, false); if (!answer(m) && window.GIFT) window.GIFT.setGifts(m.gifts); if (typeof m.zeni === 'number') { S.zeni = m.zeni; saveLocal(); renderHome(); } break;
@@ -1404,6 +1461,13 @@
   $('#resignBtn').onclick = () => { if (G && !G.over) confirmBox('投了しますか？ 負けになります。', () => { if (!G || G.over) return; if (G.online) netSend({ t: 'resign', g: G.online.g }); endGame(3 - G.me, '中押し'); }); };
   $('#startMatch').onclick = () => { sound('stone'); openPvp(); };
   $('#resHome').addEventListener('click', stopPonder);
+  // 結果画面 →「盤面を見る」：終わった盤（地の ■）と数え方を見て、「結果へ」でもどる
+  $('#resLook').onclick = () => {
+    sound('tap'); $('#result').hidden = true;
+    if (G && G.scoreInfo) scorePanel(G.scoreInfo, () => { $('#result').hidden = false; });
+    else { let el = $('#scorePanel'); if (!el) { el = document.createElement('div'); el.id = 'scorePanel'; el.className = 'score-panel'; $('#game').append(el); }
+      el.innerHTML = '<button type="button" class="btn primary small" id="spNext">結果へ</button>'; el.hidden = false; $('#spNext').onclick = () => { el.hidden = true; $('#result').hidden = false; }; }
+  };
   $('#resBoard').onclick = () => { const rec = G ? (G.hc ? hcRec(G.hc.h, BN) : []).concat(G.record) : []; reviewBack = G && G.solo ? (G.soloCleared ? (s => () => s.done(true))(G.solo) : G.solo.back) : null; $('#result').hidden = true; G = null; openReview(rec); };
 
   /* ---------- 設定 ---------- */

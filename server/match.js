@@ -2,8 +2,10 @@
 import { GAME_ZENI } from './econ.js';
 import { START_RATE, applyRate, dispRank, rankGift, rankItems, rateOf } from './rating.js';
 import * as GO from './gorules.js';
+import { countShapes } from './missions.js';
 import { cleanName } from './ng.js';
 export const MAIN_MS = 5 * 60 * 1000, INC_MS = 5000, AWAY_MS = 180 * 1000, START_DELAY_MS = 2500;
+export const MATCH_GAP = 200, MATCH_GAP_PER_SEC = 20;   // マッチングで許すレート差（20秒待つと600まで）
 export const KOMI = 7;   // ランダムマッチのコミ（アプリと同じ。同点は持碁）
 
 export class MatchMethods {
@@ -29,16 +31,27 @@ export class MatchMethods {
   gameOf(pl, gid) { const g = this.games.get(gid); return g && g.colorOf[pl.cid] ? g : null; }
 
   /* ---------- マッチング：待っている人どうし、レートの近い順に ---------- */
+  /* 近い強さの人どうしを出会わせる。はじめはレート差200まで、待つほど1秒に20ずつ広げる（20秒で600）
+   * 近い相手がいないまま20秒たつと、アプリが同じくらいの強さのキャラクター（Bot）と対局を始める */
   match() {
+    const now = this.now(), gap = p => MATCH_GAP + MATCH_GAP_PER_SEC * Math.max(0, (now - p.seekAt) / 1000);
     const q = [...this.players.values()].filter(p => p.seekAt && p.sock && !p.game).sort((a, b) => a.seekAt - b.seekAt);
     while (q.length >= 2) {
       const a = q.shift();
       let bi = -1, best = Infinity;
-      q.forEach((b, i) => { if ((b.size || 9) !== (a.size || 9)) return; const d = Math.abs(a.rating - b.rating); if (d < best) { best = d; bi = i; } });   // 同じ盤の大きさどうし
+      q.forEach((b, i) => {
+        if ((b.size || 9) !== (a.size || 9)) return;   // 同じ盤の大きさどうし
+        const d = Math.abs(a.rating - b.rating);
+        if (d > Math.max(gap(a), gap(b))) return;   // 強さが離れすぎ
+        if (d < best) { best = d; bi = i; }
+      });
       if (bi < 0) continue;
       const b = q.splice(bi, 1)[0];
       this.create(a, b, null, null, a.size || 9);
     }
+    // まだ待っている人がいれば、1秒後にもう一度（待つほど広がるので）
+    const left = [...this.players.values()].filter(p => p.seekAt && p.sock && !p.game);
+    if (left.length >= 2 && !this.matchT) this.matchT = this.setTimeout(() => { this.matchT = null; this.match(); }, 1000);
   }
   // a, b: プレイヤー。hc があればフレンド戦（a が部屋をつくった人）。black を指定すると黒番が決まる
   create(a, b, hc, black, size, gk) {
@@ -214,6 +227,11 @@ export class MatchMethods {
       const p = this.players.get(g.players[c]);
       const amount = GAME_ZENI;
       if (p && p.acct && amount) this.give(p.acct, amount, 'online').catch(() => {});
+    }
+    // デイリーミッション（10手以上の対局。フレンド戦・碁会所の対局も数える）：サーバーの手順から形を数える
+    if (g.moves.length >= 10) for (const c of [1, 2]) {
+      const p = this.players.get(g.players[c]);
+      if (p && p.acct) this.missionGame(p.acct, Object.assign({ games: 1 }, countShapes(g.size || 9, g.moves, c, g.hc && g.hc.h >= 2 ? g.hc.h : 0) || {})).catch(() => {});
     }
     for (const c of [1, 2]) this.send(g.players[c], g.endMsg);
     // 碁会所の対局数・月のランキング（短すぎる対局は数えない。勝ち数は自分の強さ以上の相手に勝ったときだけ）
