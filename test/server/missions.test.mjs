@@ -21,10 +21,10 @@ test('ルールに合わない手順は数えない', () => {
 });
 test('クリアで50銭ずつ、5つ全部で100銭。日付が変わると0から', () => {
   const t = Date.UTC(2026, 10, 16, 3), r = { gifts: [] };
-  const c1 = addMissions(r, t, { games: 5, atari: 20, keima: 3 });
+  const c1 = addMissions(r, t, { games: 5, atari: 100, keima: 30 });
   assert.deepEqual(c1, ['games', 'atari']);
   assert.deepEqual(r.gifts.map(g => g.amount), [50, 50]);
-  const c2 = addMissions(r, t, { keima: 7, tobi: 10, ogeima: 9 });
+  const c2 = addMissions(r, t, { keima: 70, tobi: 100, ogeima: 120 });
   assert.deepEqual(c2, ['keima', 'tobi', 'ogeima', 'all']);
   assert.deepEqual(r.gifts.map(g => g.amount), [50, 50, 50, 50, 50, 100]);
   assert.equal(addMissions(r, t, { games: 1 }).length, 0, '同じ日に2回はもらえない');

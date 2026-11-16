@@ -62,7 +62,14 @@
   // キャラクターは段級位で順に使えるようになる（三段で全員）
   const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 12, dgensai: 12 };
   // キャラは 9路・13路の高いほうの段級位で開く。勾玉で先に開くこともできる（S.charaBuy）
-  const charaOpen = i => Math.max(displayRank(9), displayRank(13)) >= (UNLOCK[A.VARIANTS[i].key] || 0) || (S.charaBuy || []).includes(A.VARIANTS[i].key);
+  // キャラの開放：段級位が届いた・勾玉で買った・前に一度開放した（降格しても、開放したキャラはそのまま）
+  const charaOpen = i => { const k = A.VARIANTS[i].key; return Math.max(displayRank(9), displayRank(13)) >= (UNLOCK[k] || 0) || (S.charaBuy || []).includes(k) || (S.charaGot || []).includes(k); };
+  // 今の段級位で開いているキャラを、ずっと開いたままにする
+  function keepCharas() {
+    const r = Math.max(displayRank(9), displayRank(13)), got = S.charaGot = S.charaGot || [];
+    let n = 0; for (const v of A.VARIANTS) if (r >= (UNLOCK[v.key] || 0) && !got.includes(v.key)) { got.push(v.key); n++; }
+    if (n) save();   // サーバーにも（ほかの端末でも開いたまま）
+  }
   const GAME = 'go';   // このアプリのゲーム（セーブデータ・勾玉はゲームごと）
   const RS = size => size === 13 ? S.r13 : S;   // 盤の大きさごとの戦績（9路は前からの S そのもの）
   function displayRank(size) {
@@ -319,6 +326,7 @@
     setImg($('#roomCharaA'), A.charaUri(ki('mike'))); setImg($('#roomCharaB'), A.charaUri(ki('shima')));
     // 新しく使えるようになったキャラを知らせる
     // （ホームが見えているときだけ。対局や結果画面の裏では聞かず、ホームにもどってから聞く）
+    keepCharas();
     const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
     const onHome = () => !$('#home').hidden && $('#result').hidden && !document.body.classList.contains('on-title');
     if (S.charaOpenN != null && nOpen > S.charaOpenN) {
@@ -674,7 +682,8 @@
     for (let p = 0; p < BN * BN; p++) { const c = G.board[p]; if (c && !dead.has(p)) st[c]++; else if (G.final.terr[p]) te[G.final.terr[p]]++; }
     return { st, te, black: res.black, white: res.white, komi: G.komi, winner: res.winner, pts, dead: dead.size };
   }
-  function scorePanel(info, then) {
+  // auto：はじめて出すときだけ、しばらくしたら自動で結果へ（「盤面を見る」で開いたときは、自分で「結果へ」を押すまで出しておく）
+  function scorePanel(info, then, auto) {
     let el = $('#scorePanel');
     if (!el) { el = document.createElement('div'); el.id = 'scorePanel'; el.className = 'score-panel'; $('#game').append(el); }
     const who = info.winner === 0 ? '持碁（引き分け）' : `${info.winner === 1 ? '黒' : '白'}の ${info.pts}目勝ち`;
@@ -688,7 +697,7 @@
     el.hidden = false;
     let done = false;
     const go = () => { if (done) return; done = true; clearTimeout(t); el.hidden = true; then(); };
-    const t = setTimeout(go, 6000);
+    const t = auto ? setTimeout(go, 10000) : null;
     $('#spNext').onclick = () => { sound('tap'); go(); };
   }
   async function scoreGame() {
@@ -776,7 +785,7 @@
     render();
     $('#passBtn').disabled = true; $('#resignBtn').disabled = true;
     const show = () => showResult(draw ? 0 : win ? 1 : -1, label, scoreText || '', r);
-    if (scored && G.scoreInfo && !G.scoreInfo.shown) { G.scoreInfo.shown = true; const g = G; setTimeout(() => { if (G === g) scorePanel(g.scoreInfo, show); }, 600); }   // 整地の説明 → 結果
+    if (scored && G.scoreInfo && !G.scoreInfo.shown) { G.scoreInfo.shown = true; const g = G; setTimeout(() => { if (G === g) scorePanel(g.scoreInfo, show, true); }, 600); }   // 整地の説明 → 結果
     else setTimeout(show, scored ? 900 : 500);
   }
 

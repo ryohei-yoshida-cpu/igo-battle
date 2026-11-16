@@ -65,6 +65,11 @@ test('ランダムマッチで対局して、両方パスで終局できる', as
   assert.match(await A.textContent('#scorePanel'), /石 \d+ ＋ 地 \d+/);
   await A.click('#spNext');
   for (const p of [A, B]) await p.waitForFunction(() => !document.querySelector('#result').hidden, null, { timeout: 30000 });
+  // 「盤面を見る」で開いた整地の説明は、自分で「結果へ」を押すまで消えない
+  await A.click('#resLook'); await A.waitForTimeout(7500);
+  assert.equal(await A.evaluate(() => document.querySelector('#scorePanel').hidden), false);
+  await A.click('#spNext');
+  assert.equal(await A.evaluate(() => document.querySelector('#result').hidden), false);
 });
 
 test('碁会所を作って、看板のお店をひらける', async () => {
@@ -114,7 +119,7 @@ test('ホームの「今日のミッション」をひらける（5つ＋ぜん�
   assert.equal(await p.textContent('#dmCount'), '0/5');
   await p.click('#homeDm');
   await p.waitForFunction(() => document.querySelectorAll('#dmList li').length === 6);
-  assert.match(await p.textContent('#dmList'), /アタリを20回/);
+  assert.match(await p.textContent('#dmList'), /アタリを100回/);
   await p.click('#dmClose');
 });
 
@@ -130,6 +135,22 @@ test('新しいキャラの知らせは、結果画面の裏では出さず、�
   await p.waitForSelector('#confirm:not([hidden])', { timeout: 3000 });
   await p.click('#cfYes'); await p.waitForTimeout(400);
   assert.equal(await screen(p), 'chara');
+});
+
+test('一度開放したキャラは、降格しても開いたまま（もう一度知らせない）', async () => {
+  const p = await open('demote');
+  const r = await p.evaluate(() => {
+    const S = window.APP.S, i = window.ART.VARIANTS.findIndex(v => v.key === 'hinata');
+    S.charaGot = ['koharu', 'hinata'];   // 前に8級まで上がって、ひなたを開放した（今は降格して10級）
+    S.charaOpenN = window.ART.VARIANTS.filter((v, j) => window.APP.charaOpen(j)).length;   // そのとき知らせた
+    window.APP.showScreen('home'); window.APP.renderHome();
+    return { open: window.APP.charaOpen(i), n: S.charaOpenN };
+  });
+  assert.equal(r.open, true);
+  await p.waitForTimeout(1200);
+  await p.evaluate(() => { window.APP.renderHome(); });
+  await p.waitForTimeout(1200);
+  assert.ok(await p.evaluate(() => document.querySelector('#confirm').hidden), '同じキャラをもう一度は知らせない');
 });
 
 test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
