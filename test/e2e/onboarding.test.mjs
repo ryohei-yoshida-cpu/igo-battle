@@ -71,6 +71,8 @@ async function guideTap(sel) {
   await p.click(sel, { timeout: 8000 });
   await p.waitForTimeout(600);
 }
+// お店の人のお礼など（.ff）：タップでとじる
+async function ffClose() { if (!(await p.$('.ff'))) return false; await p.click('.ff', { position: { x: 200, y: 300 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(500); return true; }
 async function confirmYes() { await p.waitForSelector('#confirm:not([hidden])', { timeout: 8000 }); await p.click('#cfYes'); await p.waitForTimeout(500); }
 // 案内が終わるまで（最後のセリフをタップ）
 async function guideEnd() {
@@ -203,9 +205,9 @@ test('25局：玄斎がドライフラワーを投げ捨てる → 骨董屋で�
   if (await p.$('.sj')) await through();
   await guideTap('#kottoGrid [data-sell-item="w_dryflower"]');
   await confirmYes();
-  await p.waitForTimeout(800); if (await p.$('.sj, .ff')) await through().catch(() => {});
+  await p.waitForTimeout(800); if (await p.$('.sj')) await through().catch(() => {}); else await ffClose();
   await guideEnd();
-  for (let k = 0; k < 30 && await p.evaluate(() => !!window.APP.S.sp); k++) { if (await stampClose()) stamps++; else if (await p.$('.sj, .ff')) await through().catch(() => {}); else await p.waitForTimeout(300); }
+  for (let k = 0; k < 30 && await p.evaluate(() => !!window.APP.S.sp); k++) { if (await stampClose()) stamps++; else if (await p.$('.sj')) await through().catch(() => {}); else if (!(await ffClose())) await p.waitForTimeout(300); }
   assert.equal(await p.evaluate(() => window.APP.S.sp || null), null, '特別ミッションが終わった');
   assert.equal(await p.evaluate(() => window.APP.S.room.ownedItems.w_dryflower | 0), 0);
   assert.equal(await p.evaluate(() => window.PROG.isOpen('kotto')), true);
