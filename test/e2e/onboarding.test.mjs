@@ -63,6 +63,7 @@ async function guideTap(sel) {
     if (await stampClose()) { stamps++; continue; }
     if (await p.evaluate(s => { const t = document.querySelector('.tut.live:not(.away)'); return !!t && !!document.querySelector(s); }, sel)) break;
     if (await p.$('.sj')) { await through(); continue; }
+    if (await p.$('.tut.away') && await p.$('.ff')) { await p.click('.ff', { position: { x: 200, y: 300 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(400); continue; }   // お店の人のあいさつなど
     if (await p.$('.tut')) await tapTut(); else await p.waitForTimeout(300);
     await p.waitForTimeout(250);
   }

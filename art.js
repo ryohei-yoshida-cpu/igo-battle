@@ -23,11 +23,7 @@
   // Botの強さ → キャラ（開放する級とそろえる）：10・9級 小春／8・7級 ひなた／6・5級 みけ／4・3級 静馬／2・1級 巴／初段 玄斎／二段 殿／三段・四段 ダーク玄斎
   const RIVAL_BY_LEVEL = [0, 0, 2, 2, 5, 5, 3, 3, 4, 4, 1, 6, 7, 7];
   function rivalOf(me, level) {
-    const L = Math.max(0, Math.min(RIVAL_BY_LEVEL.length - 1, level | 0)), r = RIVAL_BY_LEVEL[L];
-    if (r !== me) return r;
-    // 自分のキャラと同じ：近い強さのほかのキャラ（上を先に）
-    for (let d = 1; d < RIVAL_BY_LEVEL.length; d++) for (const j of [L + d, L - d]) if (RIVAL_BY_LEVEL[j] != null && RIVAL_BY_LEVEL[j] !== me) return RIVAL_BY_LEVEL[j];
-    return me === 0 ? 1 : 0;
+    return RIVAL_BY_LEVEL[Math.max(0, Math.min(RIVAL_BY_LEVEL.length - 1, level | 0))];   // 自分と同じキャラが相手でもよい（小春どうしなど）
   }
   // 先に読みこんでおく（対局中のカットインが一瞬で出るように）
   setTimeout(() => VARIANTS.forEach((v, i) => { new Image().src = charaUri(i); new Image().src = faceUri(i); new Image().src = 'img/visit_' + v.key + '.webp'; }), 400);

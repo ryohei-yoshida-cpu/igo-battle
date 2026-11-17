@@ -196,7 +196,7 @@ export class EconMethods {
       await this.withAcct(id, async r => { if (!r.botg || r.botg.gid !== gid) return false; bg = r.botg; delete r.botg; });
       if (!bg) return;
       const sec = (this.now() - bg.t0) / 1000, moves = m.moves | 0;
-      const short = sec < 30 || moves < 16;
+      const short = sec < 10 || moves < 10;   // 短すぎる対局：おたがい合わせて10手未満（または10秒未満）
       if (!short) {   // 碁会所の対局数（キャラクター戦）。強さ以上のキャラクターに勝ったら月のランキングに数える
         this.guild.count(id, info.game || 'go', 'bot', false).catch(() => {});   // キャラクター戦は、月のランキングの勝ちには数えない
       }

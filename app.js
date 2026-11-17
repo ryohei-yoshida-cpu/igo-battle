@@ -387,6 +387,7 @@
     $('#stStreak').textContent = T.streak;
     $('#stBlack').textContent = `${T.bw.bw}-${T.bw.bl}`;
     $('#stWhite').textContent = `${T.bw.ww}-${T.bw.wl}`;
+    rateChart(size);
     const ol = $('#history'); ol.innerHTML = '';
     const hist = S.history.filter(h => (h.size === 13 ? 13 : 9) === size);
     if (!hist.length) {
@@ -398,12 +399,33 @@
       const li = document.createElement('li');
       const hk = h.draw ? ['d', '持'] : h.win ? ['w', '勝'] : ['l', '負'];
       if (h.rec) { li.className = 'rec'; li.title = 'タップで検討'; li.onclick = () => openReview(h.rec, h.size || 9); }
-      li.innerHTML = h.friend ? `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd fr">友</span>`
-        : `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
+      li.innerHTML = h.friend ? `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hi pb"></span><span class="hn"></span><span class="hr"></span><span class="hd fr">友</span>`
+        : `<span class="hk ${hk[0]}">${hk[1]}</span><span class="hi pb"></span><span class="hn"></span><span class="hr"></span><span class="hd ${h.delta >= 0 ? 'up' : 'down'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>`;
+      if (h.ch != null || h.av) setPb(li.querySelector('.hi'), h.av || null, h.ch != null ? h.ch : 0); else li.querySelector('.hi').remove();
       li.querySelector('.hn').textContent = h.op; const sm = document.createElement('small'); sm.textContent = (h.size === 13 ? '13路・' : '') + (h.color === 1 ? '黒番' : '白番') + (h.friend ? '・' + HC_NAME[h.hc || 0] : ''); li.querySelector('.hn').append(sm);
       li.querySelector('.hr').textContent = h.reason;
       ol.append(li);
     }
+  }
+  // レートのうつりかわり（囲碁クエストのように）：対局ごとの点を線でつなぐ。うしろに段級位の帯
+  function rateChart(size) {
+    const box = $('#rateChart'); if (!box) return;
+    const k = size === 13 ? 'go13' : 'go9', pts = ((S.rateLog || {})[k] || []).slice(-100);
+    if (pts.length < 2) { box.innerHTML = `<p class="rc-empty">対局するとレートのうつりかわりがグラフになります（${pts.length ? 'あと1局' : 'まだ記録がありません'}）</p>`; return; }
+    const W = 340, H = 150, L = 34, Rr = 8, Tp = 8, B = 18;
+    const rs = pts.map(p => p[1]);
+    let lo = Math.min(...rs), hi = Math.max(...rs); const pad = Math.max(30, (hi - lo) * 0.15); lo -= pad; hi += pad;
+    const x = i => L + (W - L - Rr) * (i / (pts.length - 1)), y = r => Tp + (H - Tp - B) * (1 - (r - lo) / (hi - lo));
+    let g = '';
+    // 段級位のさかい（見える範囲だけ）
+    TH.forEach((t, i) => { if (t > lo && t < hi) g += `<line x1="${L}" x2="${W - Rr}" y1="${y(t)}" y2="${y(t)}" class="rc-th"/><text x="${L - 4}" y="${y(t) + 3}" class="rc-lb" text-anchor="end">${RANKS[i]}</text>`; });
+    const line = pts.map((p, i) => `${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join(' ');
+    g += `<polyline points="${L},${H - B} ${line} ${W - Rr},${H - B}" class="rc-area"/><polyline points="${line}" class="rc-line"/>`;
+    const lx = x(pts.length - 1), ly = y(rs[rs.length - 1]);
+    g += `<circle cx="${lx}" cy="${ly}" r="3.5" class="rc-dot"/><text x="${Math.min(lx, W - Rr - 2)}" y="${Math.max(12, ly - 7)}" class="rc-now" text-anchor="end">${rs[rs.length - 1]}</text>`;
+    g += `<text x="${L}" y="${H - 4}" class="rc-ax">${pts.length}局前</text><text x="${W - Rr}" y="${H - 4}" class="rc-ax" text-anchor="end">いま</text>`;
+    const best = Math.max(...rs);
+    box.innerHTML = `<div class="rc-h"><b>レートのうつりかわり</b><small>最近${pts.length}局・最高 ${best}</small></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="レートのグラフ">${g}</svg>`;
   }
   $('#recTabs').addEventListener('click', e => { const b = e.target.closest('[data-rt]'); if (!b) return; recTab = b.dataset.rt; sound('tap'); renderRecord(); });
 
@@ -779,13 +801,20 @@
     let d = eloDelta(T.rating, opRating, score, T.games), capped = false;
     if (vsBot && d > 0 && opRating < T.rating) { d = 0; capped = true; }
     if (d < 0 && T.games < 10) d = 0;   // 初心者の保護：はじめの10局は下がらない（サーバーと同じ）
+    // 短すぎるBot戦（おたがい合わせて10手未満）の勝ち・引き分けは、戦績に数えない（サーバーと同じ。負けは数える）
+    const short = vsBot && score > 0 && (rec || []).length < 10;
+    if (short) d = 0;
     T.rating = Math.max(800, T.rating + d);
-    T.games++;
-    if (win) { T.wins++; T.streak++; } else if (draw) T.draws = (T.draws || 0) + 1; else T.streak = 0;
-    if (!draw) { if (color === 1) win ? T.bw.bw++ : T.bw.bl++; else win ? T.bw.ww++ : T.bw.wl++; }
+    if (!short) {
+      T.games++;
+      if (win) { T.wins++; T.streak++; } else if (draw) T.draws = (T.draws || 0) + 1; else T.streak = 0;
+      if (!draw) { if (color === 1) win ? T.bw.bw++ : T.bw.bl++; else win ? T.bw.ww++ : T.bw.wl++; }
+      rateLog(size, T.rating);
+    }
+    if (short) reason += '（短い対局：数えない）';
     const rr = rankFromRating(T.rating);
     if (rr >= DAN_FROM && T.streak >= DAN_STREAK && rr > T.earnedDan) T.earnedDan = rr;
-    S.history.unshift({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: d, size: size || BN, t: Date.now(), rec: rec || null });
+    S.history.unshift(Object.assign({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: d, size: size || BN, t: Date.now(), rec: rec || null }, opIcon()));
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
@@ -803,8 +832,15 @@
   }
 
   // フレンド戦の記録：レート・勝率は変えず、棋譜だけ残す（置き石は「黒・白パス」の形で棋譜の頭に入れる）
+  // 戦歴のアイコン：人はアバター（右下に相棒のキャラ）、Botはキャラ
+  function opIcon() { if (!G || !G.bot) return {}; const o = { ch: oppChara(G.bot) }; if (G.bot.human && G.bot.av) o.av = G.bot.av; return o; }
+  // レートの記録（チャート用）：対局ごとのレート。300局まで
+  function rateLog(size, r) {
+    S.rateLog = S.rateLog || {}; const k = size === 13 ? 'go13' : 'go9';
+    const l = S.rateLog[k] = S.rateLog[k] || []; l.push([Date.now(), r]); if (l.length > 300) l.splice(0, l.length - 300);
+  }
   function friendRecord(win, draw, color, opName, reason, rec, h, size) {
-    S.history.unshift({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: 0, friend: true, hc: h || 0, size: size || BN, t: Date.now(), rec: rec || null });
+    S.history.unshift(Object.assign({ win, draw, op: opName, opid: G && G.bot && G.bot.pid || null, color, reason, delta: 0, friend: true, hc: h || 0, size: size || BN, t: Date.now(), rec: rec || null }, opIcon()));
     S.history = S.history.slice(0, 30);
     save();
     try { localStorage.removeItem(KEY + '.active'); } catch (e) {}
@@ -829,7 +865,7 @@
     if (G.atari ? !G.noCount : (!G.solo && G.record.length >= 10)) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
     const r = G.solo ? null : (G.friend || reason === '無効試合') ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc ? G.hc.h : 0, BN).concat(G.record), G.hc ? G.hc.h : 0) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
-    const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
+    const zeni = G.friend || G.record.length < 10 ? 0 : 100;   // おたがい合わせて10手未満で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）
     G.zeniBase = S.zeni || 0;
     // キャラクターに何勝したか：静馬に会って（マイルームが開いて）から数える。アタリ碁（小春）は数えない
     if (win && !G.friend && !G.atari && !(G.bot && G.bot.nyumon) && S.prog && (S.prog.all || (S.prog.seen && S.prog.seen.room))) { const k = A.VARIANTS[oppChara(G.bot)].key; S.vs[k] = (S.vs[k] || 0) + 1; }
@@ -1216,6 +1252,8 @@
     const size = m.key === 'go13' ? 13 : 9;
     const h = S.history.find(x => (x.size === 13 ? 13 : 9) === size && !x.friend);
     if (h && m.g && typeof m.d === 'number') h.delta = m.d;
+    // チャートの最後の点も、サーバーのレートに
+    const lg = S.rateLog && S.rateLog[m.key]; if (lg && lg.length && m.g && typeof m.rating === 'number' && Date.now() - lg[lg.length - 1][0] < 120000) lg[lg.length - 1][1] = m.rating;
     saveLocal(); renderHome();
     // 結果の画面が出ていれば、数字をサーバーのものに
     if (!$('#result').hidden && !$('#resRate').hidden && typeof m.d === 'number' && m.g) {

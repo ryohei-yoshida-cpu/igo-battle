@@ -77,8 +77,24 @@
 .sec-h { margin: 4px 0 0; font-size: 13px; letter-spacing: .1em; color: var(--muted); font-weight: 800; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .sec-h small { font-size: 11px; letter-spacing: 0; font-weight: 500; }
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.history li { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 14px; background: var(--lac); border: 1px solid transparent; }
+.history li { display: grid; grid-template-columns: 34px auto 1fr auto auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 14px; background: var(--lac); border: 1px solid transparent; }
 .history li.rec { cursor: pointer; }
+.history li:not(:has(.hi)) .hn { grid-column: 2 / 4; }
+.history .hi { position: relative; width: 38px; height: 38px; border-radius: 12px; overflow: visible; }
+.history .hi > svg, .history .hi > img:first-child { width: 38px; height: 38px; border-radius: 12px; display: block; }
+.history .hi .pb-chara { width: 20px; height: 20px; right: -5px; bottom: -5px; }
+.rate-chart { margin: 10px 0; padding: 10px 12px 6px; border-radius: 16px; background: var(--lac); border: 1px solid var(--line); }
+.rate-chart svg { width: 100%; height: auto; display: block; }
+.rc-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.rc-h b { font-size: 13px; color: var(--kin); }
+.rc-h small { font-size: 11px; opacity: .75; }
+.rc-empty { margin: 4px 0; font-size: 12px; opacity: .8; text-align: center; }
+.rc-th { stroke: rgba(232, 196, 110, .25); stroke-dasharray: 3 3; stroke-width: 1; }
+.rc-lb, .rc-ax { fill: rgba(244, 233, 216, .65); font-size: 9px; }
+.rc-area { fill: rgba(232, 120, 60, .16); stroke: none; }
+.rc-line { fill: none; stroke: #f08a4b; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.rc-dot { fill: #ffd98a; stroke: #7a3d10; stroke-width: 1.5; }
+.rc-now { fill: #ffd98a; font-size: 11px; font-weight: 800; }
 .history li.rec:hover { border-color: var(--line); }
 .history .hk { font-weight: 900; font-size: 22px; text-align: center; }
 .history .hk.w { color: var(--shu); } .history .hk.l { color: var(--muted); } .history .hk.d { color: var(--kin); }
