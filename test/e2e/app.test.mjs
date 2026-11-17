@@ -32,7 +32,7 @@ async function open(tag, birth = '1990-01-01') {
   await p.evaluate(bd => {
     const S = window.APP.S; S.birth = bd;
     S.prog = { games: 60, seen: { haru: 1, rec: 1, av: 1, room: 1, kotto: 1, gk: 1 }, all: true, intro: true };
-    S.tutDone = { base: 1, pvp: 1, rec: 1, av: 1, room: 1, kotto: 1, gk: 1 };
+    S.tutDone = { base: 1, pvp: 1, rec: 1, av: 1, room: 1, kotto: 1, gk: 1, chara: 1 };
     window.APP.save(); document.querySelectorAll('.agree-back').forEach(x => x.remove());
   }, birth);
   await p.mouse.click(200, 120);
@@ -135,6 +135,12 @@ test('新しいキャラの知らせは、結果画面の裏では出さず、�
   await p.waitForSelector('#confirm:not([hidden])', { timeout: 3000 });
   await p.click('#cfYes'); await p.waitForTimeout(400);
   assert.equal(await screen(p), 'chara');
+});
+
+test('はじめて仲間が増えたとき（静馬のあと）は、小春がキャラクター選択を案内する', async () => {
+  const p = await open('charaGuide');
+  await p.evaluate(() => { const S = window.APP.S; delete S.tutDone.chara; S.charaGot = (S.charaGot || []).concat('hinata'); S.charaOpenN = 1; window.APP.save(); window.APP.renderHome(); });
+  await p.waitForFunction(() => /仲間になりました/.test((document.querySelector('.tut') || {}).textContent || ''), null, { timeout: 10000 });
 });
 
 test('一度開放したキャラは、降格しても開いたまま（もう一度知らせない）', async () => {

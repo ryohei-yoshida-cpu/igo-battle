@@ -143,7 +143,7 @@ test('ひなたのエピソードを読むと、ひなたが来る（お祝い30
   assert.ok(await p.evaluate(() => window.APP.S.avOwned.includes('body:b05')));
 });
 
-test('10局：静馬（800銭のクーポン）→ 碁盤を買う → もようがえで置く', async () => {
+test('10局：静馬（800銭のクーポン）→ 碁盤を試し置きして、場所を選んで買う → 小春：座布団を置く', async () => {
   await p.evaluate(() => { window.APP.showScreen('home'); });
   await games(10); await through();
   await guideTap('#openHub');
@@ -151,19 +151,40 @@ test('10局：静馬（800銭のクーポン）→ 碁盤を買う → もよう
   await guideTap('#roomDock [data-dock="shop"]');
   await guideTap('#rsNav [data-kind="floor"]').catch(() => {});
   await guideTap('#rsGrid [data-try="goban"]');
+  // 場所を選ぶ：案内のあいだも、部屋の碁盤をドラッグできる（まわりがふさがれていない）
+  await p.waitForFunction(() => /ドラッグして選べる/.test((document.querySelector('.tut-say') || {}).textContent || '') && [...document.querySelectorAll('.tut-block')].every(b => parseFloat(b.style.width || '0') === 0), null, { timeout: 8000 });   // 自由にさわれる
   await guideTap('#rsCart .rs-buy');
   await confirmYes();
   await p.waitForTimeout(800); if (await p.$('.sj')) await through();
-  if (await p.$('#confirm:not([hidden])')) await p.click('#cfNo');   // いいえ：倉庫へ（このあと自分で置く）
+  if (await p.$('#confirm:not([hidden])')) await p.click('#cfYes');   // 今の模様替え（選んだ場所）を反映
   await guideEnd();
-  assert.ok(await p.evaluate(() => (window.APP.S.room.ownedItems.goban | 0) >= 1));
-  // 置こう
+  assert.ok(await p.evaluate(() => window.ROOM.state().placed('goban') >= 1), '選んだ場所に碁盤');
+  // 小春：座布団（はじめから持っている）を置く
   await guideTap('#roomDock [data-dock="edit"]');
-  await guideTap('[data-place="goban"]');
+  await guideTap('[data-place="zabuton"]');
   await guideTap('.rm-edit-h [data-dock="edit"]');
   await guideEnd();
-  assert.ok(await p.evaluate(() => window.ROOM.state().placed('goban') >= 1));
+  assert.ok(await p.evaluate(() => window.ROOM.state().placed('zabuton') >= 1));
   assert.equal(await p.evaluate(() => window.APP.S.sp || null), null);
+  assert.equal(await p.evaluate(() => !!(window.APP.S.tutDone && window.APP.S.tutDone.room)), true, 'マイルームの案内はしない（済みにする）');
+});
+
+test('静馬から5局：小春が囲碁日記をすすめる → 勝った対局の棋譜をえらんで、日記をつける', async () => {
+  await p.evaluate(() => { window.APP.showScreen('home'); const S = window.APP.S; S.history = [{ win: false, rec: [40, 41], size: 9, op: 'Bot A', t: Date.now(), color: 1 }, { win: true, rec: [40, 41, 30], size: 9, op: 'Bot B', t: Date.now() - 1000, color: 1 }].concat(S.history || []); window.APP.save(); });
+  await games(14); await p.waitForTimeout(1500);
+  assert.equal(await p.$('.sj'), null, '4局ではまだ');
+  await games(15); await through();
+  await guideTap('#homeDiary');
+  await p.waitForTimeout(2600);   // 日記帳がひらく
+  await guideTap('#bkKifu [data-pick]');
+  await guideTap('#kpList [data-k="1"]');   // いちばん新しい勝ち（2つ目）
+  assert.match(await p.textContent('#bkKifu'), /棋譜を外す/);
+  await p.fill('#bkTitle', 'はじめての日記'); await p.fill('#bkText', '石を取れてうれしかった。');
+  await p.click('.bk-btns [data-save]');
+  await p.waitForSelector('.bk-in.read', { timeout: 10000 });
+  await guideEnd();
+  assert.equal(await p.evaluate(() => window.APP.S.sp || null), null);
+  await p.evaluate(() => { const c = document.querySelector('.bk-btns [data-close], [data-close]'); if (c) c.click(); window.APP.showScreen('home'); });
 });
 
 test('20局：玄斎がドライフラワーを投げ捨てる → 骨董屋で売る', async () => {
@@ -191,7 +212,7 @@ test('骨董屋から30局で碁会所。闇落ち玄斎まで読むとキャラ
   await p.evaluate(() => { window.APP.S.prog.games = 50; });
   assert.equal(await p.evaluate(() => window.PROG.ready('gk')), true);
   await p.evaluate(() => { for (const id of ['ep_shima', 'ep_tomoe', 'ep_mike', 'ep_tono', 'ep_dgensai']) window.APP.S.solo.read[id] = true; window.APP.renderHome(); });
-  assert.match((await goals())[0], /キャラクターミッション.*みけ＆こむぎ（10級）に3勝/);
+  assert.match((await goals())[0], /キャラクターミッション.*（10級）に3勝/);
 });
 
 test('特別ミッションをクリアするたびに「クリア」のハンコが出た', () => { assert.ok(stamps >= 6, 'ハンコ ' + stamps); });

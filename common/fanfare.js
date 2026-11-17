@@ -129,7 +129,7 @@
     run(who, steps, o);
   }
   /* ---------- キャラクターの登場シーン（障子が開いて、奥からズームアップ → セリフを順番に）----------
-   *   scene({ who, doors:true, steps:[{ text, opts:[[k,label]], pick(k) → 追加のセリフ（配列）を返してもよい, items, title, party, shake（画面がゆれる） }], then })
+   *   scene({ who, doors:true, steps:[{ text, opts:[[k,label]] または input:{ placeholder, max }, pick(k) → 追加のセリフ（配列）を返してもよい, items, title, party, shake（画面がゆれる） }], then })
    */
   function scene(o) { run(o.who || 'koharu', o.steps.slice(), o); }
   function run(who, steps, o) {
@@ -144,8 +144,10 @@
       clearInterval(typing); full = st.text; let n = 0; t.textContent = '';
       typing = setInterval(() => { n++; t.textContent = full.slice(0, n); if (n >= full.length) clearInterval(typing); }, 40);
       tag.hidden = !st.tag; tag.textContent = st.tag || '';
-      opts.innerHTML = (st.opts || []).map(([k, l]) => `<button type="button" class="btn ${k ? 'primary' : 'lac'} small" data-k="${k}">${esc(l)}</button>`).join('');
-      el.classList.toggle('asking', !!st.opts);
+      opts.innerHTML = st.input ? `<input type="text" class="thx-in" maxlength="${st.input.max || 12}" placeholder="${esc(st.input.placeholder || '')}" value="${esc(st.input.value || '')}" autocomplete="off"><button type="button" class="btn primary small" data-k="__in">${esc(st.input.ok || '決定')}</button>`
+        : (st.opts || []).map(([k, l]) => `<button type="button" class="btn ${k ? 'primary' : 'lac'} small" data-k="${k}">${esc(l)}</button>`).join('');
+      el.classList.toggle('asking', !!(st.opts || st.input));
+      if (st.input) setTimeout(() => { const f = opts.querySelector('.thx-in'); if (f) f.focus({ preventScroll: true }); }, 400);
       itemsEl.innerHTML = st.items ? `${st.title ? `<div class="thx-title">${esc(st.title)}</div>` : ''}<div class="ff-items">${st.items.slice(0, 6).map((it, j) => `<figure style="--i:${j}"><div class="ff-thumb">${it.thumb || ''}</div><figcaption>${esc(it.name || '')}</figcaption></figure>`).join('')}</div>` : '';
       if (st.coin && P) { P.sound('coin'); setTimeout(() => P.sound('coin'), 200); }
       if (st.party) { stop = confetti(el.querySelector('canvas'), 2400); if (P) { P.sound('fanfare'); setTimeout(() => P.sound('coin'), 420); } if (navigator.vibrate) try { navigator.vibrate([30, 40, 60]); } catch (e) {} }
@@ -157,7 +159,7 @@
     function next() {
       if (busy) return;
       if (t.textContent.length < full.length) { clearInterval(typing); t.textContent = full; return; }   // まず全部表示
-      if (steps[i] && steps[i].opts) return;   // えらぶまで進まない
+      if (steps[i] && (steps[i].opts || steps[i].input)) return;   // えらぶ・入れるまで進まない
       i++;
       if (i >= steps.length) { end(); return; }
       show(steps[i]);
@@ -169,6 +171,12 @@
     }
     el.addEventListener('click', e => {
       const b = e.target.closest('[data-k]');
+      if (e.target.closest && e.target.closest('.thx-in')) return;   // 文字を入れているところ
+      if (b && b.dataset.k === '__in') {   // 文字を入れた（名前など）
+        const st = steps[i], v = el.querySelector('.thx-in').value.trim();
+        if (!v) { el.querySelector('.thx-in').focus(); return; }
+        st.input = null; const more = st.pick ? st.pick(v) : null; if (Array.isArray(more)) steps.splice(i + 1, 0, ...more); el.classList.remove('asking'); next(); return;
+      }
       if (b) { const st = steps[i]; st.opts = null; const more = st.pick ? st.pick(b.dataset.k) : null; if (Array.isArray(more)) steps.splice(i + 1, 0, ...more); el.classList.remove('asking'); next(); return; }
       next();
     });

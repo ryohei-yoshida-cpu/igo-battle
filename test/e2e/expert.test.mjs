@@ -28,10 +28,11 @@ before(async () => {
 });
 after(async () => { await browser.close(); server.kill(); });
 
-test('経験者をえらぶと、Botの強さを聞かれて、ソロモードで強さの場所を案内される', async () => {
+test('経験者をえらぶと、名前とBotの強さを聞かれて、ソロモードで強さの場所を案内される', async () => {
   const said = [];
   for (let k = 0; k < 120; k++) {
     await p.waitForTimeout(400);
+    if (await p.$('.sj .thx-in')) { await p.fill('.sj .thx-in', 'たろう'); await p.click('.sj [data-k="__in"]'); continue; }   // お名前
     if (await p.$('.sj .thx-opts [data-k]')) {
       if (await p.$('.sj [data-k="expert"]')) await p.click('.sj [data-k="expert"]', { timeout: 1500 }).catch(() => {});
       else if (await p.$('.sj [data-k="6"]')) await p.click('.sj [data-k="6"]', { timeout: 1500 }).catch(() => {});
@@ -42,6 +43,7 @@ test('経験者をえらぶと、Botの強さを聞かれて、ソロモード�
     if (said.some(t => /強さを変えて/.test(t))) break;
   }
   assert.ok(said.some(t => /ここで選んだ強さのBot（いまは4級）/.test(t)), 'Botの強さの案内');
+  assert.equal(await p.evaluate(() => window.APP.S.name), 'たろう', '名前を聞かれた');
   assert.deepEqual(await p.evaluate(() => [window.APP.S.solo.mode, window.APP.S.solo.bot, document.querySelector('#soloBot').value]), ['expert', 6, '6']);
 });
 

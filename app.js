@@ -60,7 +60,7 @@
   const save = () => { if (syncHook) S._at = Date.now(); saveLocal(); if (syncHook) syncHook(); };
 
   // キャラクターは段級位で順に使えるようになる（三段で全員）
-  const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 12, dgensai: 12 };
+  const UNLOCK = { koharu: 0, hinata: 2, mike: 4, shima: 6, tomoe: 8, gensai: 10, tono: 11, dgensai: 12 };
   // キャラは 9路・13路の高いほうの段級位で開く。勾玉で先に開くこともできる（S.charaBuy）
   // キャラの開放：段級位が届いた・勾玉で買った・前に一度開放した（降格しても、開放したキャラはそのまま）
   const charaOpen = i => { const k = A.VARIANTS[i].key; return Math.max(displayRank(9), displayRank(13)) >= (UNLOCK[k] || 0) || (S.charaBuy || []).includes(k) || (S.charaGot || []).includes(k); };
@@ -309,6 +309,7 @@
   function askChara(name) {
     S.charaOpenN = A.VARIANTS.filter((v, i) => charaOpen(i)).length; saveLocal();   // ホームで、もう一度きかない
     if (window.PROG && !window.PROG.isOpen('room')) { toast(`新しいキャラ「${name}」が仲間になりました！`, 5000); return; }
+    if (window.PROG && window.PROG.charaGuide(name)) return;   // 静馬のあと、はじめて仲間が増えたとき：小春がキャラクター選択を案内
     confirmBox(`新しいキャラ「${name}」が仲間になりました！ キャラクター選択画面に行きますか？`, () => {
       // 上にかぶさっているもの（結果画面・設定など）を閉じてから移る
       for (const id of ['result', 'settings', 'giftBox', 'dmBox', 'scorePanel']) { const e = $('#' + id); if (e) e.hidden = true; }
@@ -330,7 +331,7 @@
     const nOpen = A.VARIANTS.filter((v, i) => charaOpen(i)).length;
     const onHome = () => !$('#home').hidden && $('#result').hidden && !document.body.classList.contains('on-title');
     if (S.charaOpenN != null && nOpen > S.charaOpenN) {
-      if (onHome()) {
+      if (onHome() && !(window.PROG && window.PROG.busy()) && !S.sp && !(window.TUTORIAL && window.TUTORIAL.busy())) {   // 案内・特別ミッションのさいちゅうは、あとで
         const nv = A.VARIANTS.filter((v, i) => charaOpen(i) && UNLOCK[v.key] > 0).sort((a, b) => UNLOCK[b.key] - UNLOCK[a.key])[0];
         if (nv) setTimeout(() => askChara(nv.name), 900);
         S.charaOpenN = nOpen; saveLocal();
@@ -1840,6 +1841,8 @@
     drawGrid, pointXY, stoneFx, myCharaSrc, myFaceSrc, charaIdx, jissen, confirmBox, startMatch, openPvp, askChara,
     rankOf: rating => rankFromRating(rating), saveLocal, econOn, FR, openReview, setReviewBack: f => { reviewBack = f; }, giftReq: request, charaOpen, UNLOCK,
     // キャラクター戦の強さ（目標から「〇〇と対局」を押したとき）
+    // 名前（はじめの小春との会話でも）。サーバーにも知らせる
+    setName(v) { S.name = String(v || '').trim().slice(0, 12) || defName(); save(); renderHome(); if (NET.ok) netHello(); },
     setBotLevel(v) { S.botLevel = v; save(); for (const s of [$('#botLevel'), $('#botLevelQuick')]) if (s) s.value = String(v); }, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // ---------- 銭・持ち物（サーバーが正。つながっていないときは使えない） ----------
     // レクチャー初クリア・ドリル正解・開放・チュートリアルの銭：サーバーが1回だけ出す。つながっていなければ、つながったときに送る

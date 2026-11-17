@@ -95,6 +95,8 @@
       next();
     });
   }
+  // at：光らせる場所（文字か、そのときに決める関数）
+  const atOf = st => st && (typeof st.at === 'function' ? st.at() : st.at);
   function rectOf(sel) {
     const t = sel && document.querySelector(sel);
     if (!t || !t.offsetParent) return null;
@@ -181,22 +183,23 @@
     el.querySelector('.tut-hole').hidden = true;
     if (st.go) { try { st.go(); } catch (e) {} await wait(500); }
     if (!el) return;
-    const t = st.at && document.querySelector(st.at);
+    const t = atOf(st) && document.querySelector(atOf(st));
     if (t) { t.scrollIntoView({ block: 'center', behavior: 'auto' }); await wait(200); }
     if (!el) return;
-    const r = rectOf(st.at);
+    const r = rectOf(atOf(st));
     hole(r);
     await moveTo(place(r));
     if (!el) return;
     speak(st.say);
     if (n > 0) P.sound('tap');
-    if (st.until) block(r);
+    if (st.until) block(st.free ? 'free' : r);
     busy = false;
   }
   // 「やってみよう」：光っている場所のまわりを、4つの板でふさぐ（光っている場所だけ押せる）
   function block(r) {
     const bs = el.querySelectorAll('.tut-block'); if (!bs.length) return;
     const W = window.innerWidth, H = window.innerHeight, pad = 6;
+    if (r === 'free') { for (const b of bs) b.style.width = '0'; return; }   // 自由にさわれる（部屋の家具をドラッグ・文字を書く）
     if (!r) { Object.assign(bs[0].style, { left: 0, top: 0, width: W + 'px', height: H + 'px' }); for (const b of [bs[1], bs[2], bs[3]]) b.style.width = '0'; return; }
     const L = Math.max(0, r.left - pad), T = Math.max(0, r.top - pad), R = Math.min(W, r.right + pad), Bt = Math.min(H, r.bottom + pad);
     Object.assign(bs[0].style, { left: 0, top: 0, width: W + 'px', height: T + 'px' });
@@ -214,12 +217,12 @@
     if (!st || !st.until) return;
     if (st.until()) { nextStep(); return; }
     if (m) return;
-    const r = rectOf(st.at);
+    const r = rectOf(atOf(st));
     if (r) {
       GD.lost = 0;
       // 場所が動いたときだけ、光る枠を追いかける（毎回つけなおすと、点滅がはじめからになって画面がちらつく）
       const key = [r.left, r.top, r.width, r.height].map(Math.round).join(',');
-      if (key !== GD.rk) { GD.rk = key; moveHole(r); block(r); }
+      if (key !== GD.rk) { GD.rk = key; moveHole(r); block(st.free ? 'free' : r); }
     }
     else if (++GD.lost > 8 && st.go) { GD.lost = 0; try { st.go(); } catch (e) {} }   // 場所が見つからない（別の画面に行った）：もう一度案内する
   }
@@ -284,7 +287,7 @@
     if (!SECS[sec] || (S.tutDone && S.tutDone[sec])) { if (then) then(); return; }
     open(sec, 0, then);
   }
-  window.addEventListener('resize', () => { if (el && i >= 0 && !busy) { const r = rectOf(STEPS[i].at); hole(r); const p = place(r); pos = null; moveTo(p); } });
+  window.addEventListener('resize', () => { if (el && i >= 0 && !busy) { const r = rectOf(atOf(STEPS[i])); hole(r); const p = place(r); pos = null; moveTo(p); } });
   // 途中から再開（アプリを開き直したとき）
   function resume(n, then) { open(S.tutSec && (S.tutSec === 'all' || SECS[S.tutSec]) ? S.tutSec : 'all', n, then); }
   // 特別ミッションの案内

@@ -30,11 +30,11 @@ export function dailyGift(r, now) {
 }
 // アカウントに銭・持ち物・部屋がなければ作る。前のバージョンのデータがあれば、上限つきで引き継ぐ
 export function ensureEcon(r) {
-  // はじめて：3000銭のプレゼント（プレゼントボックスへ）。持ち物も部屋も空っぽから（碁盤は静馬からもらう）
+  // はじめて：3000銭のプレゼント（プレゼントボックスへ）。持ち物は座布団1つだけ・部屋は空っぽから（碁盤は静馬のクーポンで買う）
   if (!r.owned) {
     r.zeni = 0;
     addGift(r, 'welcome', WELCOME, 'はじめてのプレゼント', Date.now());
-    r.owned = { items: {}, floors: ['wood'], walls: ['plain'], av: [] };
+    r.owned = { items: { zabuton: 1 }, floors: ['wood'], walls: ['plain'], av: [] };   // 座布団は、はじめから1つ（碁盤といっしょに置く案内で使う）
     r.room = { floor: 'wood', wall: 'plain', items: [], walls: [] };
     r.daily = { day: '', bot: 0 }; r.claims = {};
     r.welcome = true;

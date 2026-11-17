@@ -13,7 +13,7 @@
   const read = id => !!(S.solo && S.solo.read && S.solo.read[id]);
   const STORIES = ['haru', 'yugen', 'kenkaku', 'ep_hinata', 'ep_shima', 'ep_tomoe', 'ep_mike', 'ep_tono', 'ep_dgensai'];
   const titleOf = id => ((window.STORIES || []).find(s => s.id === id) || {}).title || id;
-  const CH_LV = [0, 2, 4, 6, 8, 9, 12];   // キャラクターミッション：Botの強さ（10級みけ → 8級ひなた → 6級静馬 → 4級巴 → 2級殿 → 1級玄斎 → 三段ダーク玄斎）
+  const CH_LV = [0, 2, 4, 6, 8, 10, 11, 12];   // キャラクターミッション：Botの強さ（10級小春 → 8級ひなた → 6級みけ → 4級静馬 → 2級巴 → 初段玄斎 → 二段殿 → 三段ダーク玄斎）
   const nameOf = key => (A.VARIANTS.find(v => v.key === key) || {}).name || key;
 
   // 初心者ミッション（ソロの物語）。読み終わったら null

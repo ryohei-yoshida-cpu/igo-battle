@@ -400,7 +400,7 @@
   function unlocked() {
     const mine = A.VARIANTS[P.charaIdx()].key;
     // 段級位で解放されたキャラだけが、5勝したら遊びに来る
-    return A.VARIANTS.map((v, idx) => ({ v, idx })).filter(({ v, idx }) => P.charaOpen(idx) && (v.key === mine ? (S.wins || 0) >= 5 : (S.vs[v.key] || 0) >= 5));
+    return A.VARIANTS.map((v, idx) => ({ v, idx })).filter(({ v }) => (v.key === mine ? (S.wins || 0) >= 5 : (S.vs[v.key] || 0) >= 5));
   }
   // 遊びに来られるキャラ（いまは部屋の中には描かず、部屋の左下に一人ずつ出す）
   let guests = [], curGuest = null;
@@ -774,9 +774,9 @@
     const mine = A.VARIANTS[P.charaIdx()].key;
     return `<p class="rm-help">5勝すると遊びに来ます（自分のキャラは通算5勝、ほかのキャラはそのキャラに5勝）。「部屋に呼ぶ」で、いまの部屋に1人ずつ置けます。</p><div class="rm-guests">` +
       A.VARIANTS.map((v, i) => {
-        const n = v.key === mine ? (S.wins || 0) : (S.vs[v.key] || 0), open = P.charaOpen(i), ok = n >= 5 && open;
+        const n = v.key === mine ? (S.wins || 0) : (S.vs[v.key] || 0), ok = n >= 5;   // 部屋に呼べるのは5勝で（級＝キャラの開放とは別）
         const at = ok ? charaWhere(v.key) : -1, here = at === cur;
-        const need = !open ? `${P.RANKS[P.UNLOCK[v.key] || 0]}になると会えます` : `あと ${5 - n} 勝${v.key === mine ? '（通算）' : ''}`;
+        const need = `あと ${5 - n} 勝${v.key === mine ? '（通算）' : ''}`;
         const btn = !ok ? '' : here ? `<button type="button" class="btn lac small" data-uncall="${v.key}">帰ってもらう</button>` : `<button type="button" class="btn primary small" data-call="${v.key}">${at >= 0 ? 'この部屋へ呼ぶ' : '部屋に呼ぶ'}</button>`;
         const where = here ? `部屋${cur + 1}にいます` : at >= 0 ? `部屋${at + 1}にいます` : '遊びに来ます';
         return `<div class="rm-guest ${ok ? 'ok' : ''}"><img src="${A.faceUri(i)}" alt=""><div><b>${v.name}</b><small>${ok ? where : need}</small></div>${btn}</div>`;

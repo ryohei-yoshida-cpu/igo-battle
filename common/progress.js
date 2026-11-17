@@ -98,10 +98,14 @@
           opts: [['expert', '知っている（対局できる）'], ['beginner', 'まだ知らない・自信がない']],
           pick: k => {
             mode = k;
-            if (k !== 'expert') return [{ text: '大丈夫です！ 私も最初はそうでした。「初心者モード」で、物語を読みながら少しずつ覚えていきましょう！' }];
+            // お名前（強さより先に）
+            const name = { text: 'そうだ、お名前を教えてもらえますか？', input: { placeholder: '名前（12文字まで）', max: 12 },
+              pick: v => { P.setName(v); return [{ text: `${S.name}さん、ですね！ よろしくお願いします！` }]; } };
+            if (k !== 'expert') return [{ text: '大丈夫です！ 私も最初はそうでした。「初心者モード」で、物語を読みながら少しずつ覚えていきましょう！' }, name];
             // 経験者：ソロモードのBotの強さを、はじめに決める
             return [
               { text: 'すごい！ じゃあ「経験者モード」で、物語を読みながらBotと対局してみてくださいね。物語の続きは、Botに勝つと読めます。' },
+              name,
               { text: 'どのくらいの強さのBotと打ちたいですか？',
                 opts: BOT_PICK.map(([lv, label]) => [String(lv), label]),
                 pick: v => { S.solo.bot = +v; P.save(); return [{ text: `${P.RANKS[+v]}のBotですね！ 強さは、ソロモードの画面でいつでも変えられますよ。` }]; } }
@@ -240,6 +244,7 @@
     const k = ORDER.find(k => !g.seen[k] && ready(k));
     if (!k) {
       const t = pendingTour(); if (t) { tour(t, () => setTimeout(check, 600)); return; }
+      if (diaryReady() && !S.sp && !spBusy) { diaryScene(); return; }
       if (S.sp && !spBusy) spCheck();
       return;
     }
@@ -253,10 +258,33 @@
       // キャラの登場のあと：案内 → 特別ミッション
       if (k === 'rec') tour('rec', () => special('rec_look'));
       else if (k === 'av') { P.claimUnlock('av'); doneTour('av'); special('buy_parka'); }
-      else if (k === 'room') { P.claimUnlock('room'); tour('room', () => special('buy_goban')); }
+      else if (k === 'room') { P.claimUnlock('room'); doneTour('room'); g.roomAt = g.games | 0; P.save(); special('buy_goban'); }
       else if (k === 'kotto') { doneTour('kotto'); P.claimUnlock('kotto', () => special('sell_flower')); }
       else tour(k, go);
     } });
+  }
+  // 囲碁日記：静馬に会ってから5局打ったら、小春がすすめる → 書き方の案内（特別ミッション）
+  const DIARY_AFTER = 5;
+  const diaryReady = () => { const g = prog(); return !g.all && !!g.seen.room && !g.seen.diary && (g.games | 0) >= (g.roomAt | 0) + DIARY_AFTER; };
+  function diaryScene() {
+    playing = true;
+    window.FANFARE.scene({ who: 'koharu', steps: [
+      { text: 'ここまで、たくさん打ちましたね！' },
+      { text: '巴ちゃんも言ってましたが、囲碁は振り返れば振り返るほど強くなります。日記なんて、オススメです！' }
+    ], then: () => { playing = false; prog().seen.diary = 1; P.save(); special('write_diary'); } });
+  }
+  // キャラが仲間になったとき（静馬のあと、はじめて級が上がって開いたとき）：キャラクター選択の案内
+  function charaGuide(name, then) {
+    S.tutDone = S.tutDone || {};
+    if (S.tutDone.chara || !window.TUTORIAL || window.TUTORIAL.busy() || playing || spBusy) return false;
+    S.tutDone.chara = 1; P.save();
+    window.TUTORIAL.guide({ who: 'koharu', steps: [
+      { go: home, say: `「${name}」が仲間になりました！ 段級位が上がると、こうして仲間がどんどん増えていくんです。` },
+      { go: home, at: '#openHub', say: 'あなたのキャラクターは、「ルーム」の「キャラクター」で選べます。', until: () => !$$('#hub').hidden },
+      { go: () => window.AVATAR_UI.openHub(), at: '#openChara', say: '「キャラクター」をタップ！', until: () => !$$('#chara').hidden },
+      { at: '#avGrid', say: '好きなキャラを選んでくださいね。早くみんなに会いたいな！' }
+    ], then: () => { home(); if (then) then(); }, later: () => home() });
+    return true;
   }
   const doneTour = k => { S.tutDone = S.tutDone || {}; S.tutDone[k] = 1; P.save(); };
 
@@ -325,22 +353,35 @@
         { go: () => window.ROOM.open(), at: '#roomDock [data-dock="shop"]', say: '下の「ショップ」が、俺の店だ。', until: () => RM().mode === 'shop' },
         { at: '#rsNav [data-kind="floor"]', say: '「床の家具」を見てくれ。', until: () => RM().shopKind === 'floor', skip: () => RM().shopKind === 'floor' },
         { light: true, at: '#rsGrid [data-try="goban"]', say: '……碁盤だ。タップすると、部屋に試し置きできる。', until: () => RM().trying('goban') || RM().owned('goban') >= 1 },
-        { light: true, at: '#rsCart .rs-buy', say: 'よければ「購入」を押してくれ。', until: () => RM().owned('goban') >= 1 }
+        { free: true, light: true, at: '#rsCart .rs-buy', say: '置く場所は、部屋の碁盤をドラッグして選べる。決まったら「購入」を押してくれ。', until: () => RM().owned('goban') >= 1 }
       ],
       lines: ['……ありがとう。いい碁盤だ。大事にしてくれ。'],
-      next: 'place_goban'
+      next: 'place_zabuton'
     },
-    place_goban: {
-      title: '家具を置いてみよう', who: 'koharu',
-      done: () => !!S.spSeen,
+    // 小春：碁盤には座布団（はじめから1つ持っている）。倉庫から置いて、ドラッグで場所を選ぶ
+    place_zabuton: {
+      title: '家具を置いてみよう（座布団）', who: 'koharu',
+      done: () => !!S.zabutonDone,
       steps: [
-        { say: '碁盤、買えましたね！ 次は、お部屋に置いてみましょう！' },
+        { go: () => window.ROOM.open(), say: '碁盤には座布団がつきもの！ 私もよく足が痺れちゃいます。' },
+        { say: 'お家に座布団ありますね、素敵です！ では、座布団を置いてみましょう。' },
         { go: () => window.ROOM.open(), at: '#roomDock [data-dock="edit"]', say: '「もようがえ」をタップ！', until: () => RM().mode === 'edit' },
-        { light: true, at: '[data-place="goban"]', say: '倉庫の碁盤をタップすると、お部屋に置けます。', until: () => RM().placed('goban') >= 1, skip: () => RM().placed('goban') >= 1 },
-        { say: '置いた家具は、ドラッグで好きな場所に動かせますよ。' },
-        { at: '.rm-edit-h [data-dock="edit"]', say: 'できたら「もようがえを終わる」をタップ！', until: () => { if (RM().mode === 'view' && RM().placed('goban') >= 1) S.spSeen = 1; return !!S.spSeen; } }
+        { light: true, at: '[data-place="zabuton"]', say: '倉庫の座布団をタップすると、お部屋に置けます。', until: () => RM().placed('zabuton') >= 1, skip: () => RM().placed('zabuton') >= 1 },
+        { free: true, light: true, at: '.rm-edit-h [data-dock="edit"]', say: '座布団をドラッグして、好きな場所へ。碁盤のそばがおすすめです！ できたら「もようがえを終わる」をタップ！', until: () => { if (RM().mode === 'view' && RM().placed('zabuton') >= 1) { S.zabutonDone = 1; P.save(); } return !!S.zabutonDone; } }
       ],
-      lines: ['すてきなお部屋になりましたね！ 碁盤をタップすると、対人戦にも行けますよ。']
+      lines: ['いい感じです！ これで、いつでもお家で碁が打てますね。']
+    },
+    // 囲碁日記：日記を書く → さいきん勝った対局の棋譜をえらぶ → 題と本文を書いて、つける
+    write_diary: {
+      title: '囲碁日記を書いてみよう', who: 'koharu',
+      done: () => !!S.diaryDone,
+      steps: [
+        { go: home, at: '#homeDiary', say: 'ホームの「日記を書く」をタップ！', until: () => !!$$('#bkTitle') || !!$$('.bk-in.read') },
+        { at: '#bkKifu [data-pick]', say: 'まずは、さいきん勝った対局の棋譜をえらびましょう。', until: () => !$$('#kifuPick').hidden || !!$$('#bkKifu .sc-x'), skip: () => !!$$('.bk-in.read') || winIdx() < 0 },
+        { at: () => `#kpList [data-k="${winIdx()}"]`, say: 'この対局にしましょう！', until: () => !!$$('#bkKifu .sc-x'), skip: () => !!$$('.bk-in.read') || winIdx() < 0 || !!$$('#bkKifu .sc-x') },
+        { free: true, at: '.bk-btns [data-save]', say: 'タイトルと中身を書いたら、完成です！ 簡単に書いちゃいましょう！', until: () => { if ($$('.bk-in.read')) { S.diaryDone = 1; P.save(); } return !!S.diaryDone; } }
+      ],
+      lines: ['すてきな日記ですね！ あとで読み返すと、強くなった自分に気づけますよ。']
     },
     sell_flower: {
       title: '骨董屋で売ってみよう', who: 'koharu',
@@ -398,7 +439,9 @@
     if (S.sp === 'rec_look' && e.detail === 'record' && !S.spSeen) { S.spSeen = 1; P.save(); }
     if (e.detail === 'home') setTimeout(spCheck, 300);
   });
-  document.addEventListener('kuro9room', e => { if (S.sp === 'place_goban' && e.detail === 'editdone' && RM().placed('goban') >= 1) { S.spSeen = 1; P.save(); } });
+  document.addEventListener('kuro9room', e => { if (S.sp === 'place_zabuton' && e.detail === 'editdone' && RM().placed('zabuton') >= 1) { S.zabutonDone = 1; P.save(); } });
+  // 日記：棋譜のリストの中で、いちばん新しい勝ち
+  function winIdx() { const list = (S.history || []).filter(h => h.rec && h.rec.length); return list.findIndex(h => h.win); }
   document.addEventListener('kuro9sold', e => { if (S.sp === 'sell_flower' && e.detail === 'w_dryflower') { S.spSeen = 1; P.save(); } });
   // ホームの目標用
   function spInfo() { const d = SP[S.sp]; return d ? { id: S.sp, title: d.title } : null; }
@@ -429,5 +472,5 @@
     check();
   }
 
-  window.PROG = { busy: () => playing || spBusy, isOpen, ready, refresh, check, start, haruDone, intro, gamesLeft, spInfo, runSpecial, beginner, NEED, GK_AFTER };
+  window.PROG = { charaGuide, busy: () => playing || spBusy, isOpen, ready, refresh, check, start, haruDone, intro, gamesLeft, spInfo, runSpecial, beginner, NEED, GK_AFTER };
 })();

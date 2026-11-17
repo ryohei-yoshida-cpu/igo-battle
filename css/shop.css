@@ -169,6 +169,8 @@
 .thx-title { text-align: center; font-weight: 900; color: #c23a28; margin-bottom: 4px; }
 .thx-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .thx-opts:empty { display: none; }
+.thx-opts:has(.thx-in) { grid-template-columns: minmax(0, 1fr) auto; }
+.thx-opts .thx-in { min-width: 0; padding: 9px 10px; border-radius: 10px; border: 1px solid #c9a86a; background: #fffaf0; color: #3a2a18; font: inherit; font-size: 16px; }
 .thx-opts .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* 数が奇数のときだけ、最後を横いっぱいに */
 .thx-opts .btn.lac { color: #fff; background: linear-gradient(#a2865a, #7d6340); border-color: #6a5233; text-shadow: 0 1px 1px rgba(0, 0, 0, .35); }
 .thx-next { align-self: flex-end; font-size: 11px; color: #8a6a3a; animation: ffPulse .8s ease-in-out infinite alternate; }
