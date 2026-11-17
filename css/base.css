@@ -284,5 +284,15 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 .tut.live .tut-next { color: #ffd98a; animation: tutBlink 1.3s ease-in-out infinite; }
 @keyframes tutBlink { 50% { opacity: .45; } }
 .tut.light .tut-hole { box-shadow: 0 0 0 200vmax rgba(10, 6, 3, .16); }
+.tut.light .tut-hole.pulse { animation-name: tutPulseL; }   /* 点滅のときも、うす暗いまま */
+@keyframes tutPulseL { 50% { border-color: #fff4cc; box-shadow: 0 0 0 200vmax rgba(10, 6, 3, .16), 0 0 22px 6px rgba(255, 217, 138, .75); } }
+.tut.free { background: none !important; }
+.tut.free .tut-hole, .tut.free .tut-k { box-shadow: none; }
+.tut.free .tut-hole.pulse { animation-name: tutPulseF; }   /* 暗くしない（光る枠だけ） */
+@keyframes tutPulseF { 50% { border-color: #fff4cc; box-shadow: 0 0 22px 6px rgba(255, 217, 138, .75); } }
+.tut.free .tut-k { opacity: 0 !important; }
+.tut.free .tut-say { top: auto !important; bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; left: 10px !important; right: 10px !important; width: auto !important; max-width: none !important; padding: 6px 12px 4px; opacity: .96; }
+.tut.free .tut-say p { min-height: 0; font-size: 13px; line-height: 1.5; }
+.tut.free .tut-say b, .tut.free .tut-next { display: none; }
 .tut.away { pointer-events: none; }
 .tut.away > * { visibility: hidden; }
