@@ -414,7 +414,7 @@
     'ひなた': { wrong: 'ぶっぶー！ そこじゃないよ〜。', retry: 'おしい！ もう一回！', illegal: 'そこには打てないみたい！', kou: 'コウだから、すぐ取り返しちゃダメ〜。', escape: 'あー、逃げられちゃった！', dead: 'そこだと取られちゃうよ！', next: 'いいね、いいね！', cont: '白が逃げたよ！ 追いかけて！' },
     '静馬': { wrong: '……ちがう。', retry: '惜しい。もう一回、考えてみろ。', illegal: 'そこには打てない。', kou: 'コウだ。すぐには取り返せない。', escape: '逃げられたな。……もう一回だ。', dead: 'それだと取られる。', next: '……いい手だ。', cont: '白が逃げた。続けろ。' },
     'ダーク玄斎': { wrong: 'ちげえな……。闇が足りねえ。', retry: '惜しいじゃねえか。もう一回、深く読め。', illegal: 'そこには打てねえよ。', kou: 'コウだ。……想いと同じで、すぐには取り返せねえ。', escape: '逃げられたか。……あの子みてえにな。', dead: 'それじゃ取られる。', next: '……悪くねえ。', cont: '逃げたぞ。追え。' },
-    '巴': { wrong: '違う。もう一太刀。', retry: '惜しい。構え直せ。', illegal: 'そこには打てぬ。', kou: 'コウだ。焦るな。', escape: '逃げられた。やり直せ。', dead: 'それでは斬られる。', next: '見事。', cont: '白が逃げた。追え。' },
+    '巴': { wrong: 'ち、違うわよ！ もう一回！', retry: '惜しいわね……。もう一回、構え直して！', illegal: 'そこには打てないわ。', kou: 'コウよ。……焦っちゃだめ。', escape: '逃げられちゃった……。や、やり直しよ！', dead: 'それだと、斬られちゃうわ。', next: 'や、やるじゃない……！', cont: '白が逃げたわ。追いかけて！' },
     'みけ': { wrong: '……ちがう。', retry: '……おしい。', illegal: '……うてない。', kou: '……コウ。まって。', escape: '……にげられた。', dead: '……とられる。', next: '……にゃ。', cont: '……つづけて。' },
     'こむぎ': { wrong: 'ちがうワン！', retry: 'おしいワン！ もう一回だワン！', illegal: 'そこには打てないワン！', kou: 'コウだから、すぐはダメだワン！', escape: '逃げられたワン……。', dead: 'そこだと取られちゃうワン！', next: 'その調子だワン！', cont: '白が逃げたワン！ 追いかけるワン！' },
     '殿': { wrong: 'ちがうぞ。もう一度じゃ。', retry: '惜しいのう。', illegal: 'そこは打てぬ場所じゃ。', kou: 'コウじゃ。慌てるでない。', escape: '曲者に逃げられたわ！', dead: 'それでは討ち取られるぞ。', next: '天晴れ！', cont: '曲者が逃げた。追うのじゃ！' }
@@ -422,6 +422,9 @@
   const V = who => voice[who] || voice['小春'];
   function runLesson(lesson, onDone) {
     LS = { l: lesson, onDone, phase: 'talk', i: 0, pi: 0, board: new Array(81).fill(0), ko: -1, marks: [], last: -1, lock: false, solved: false };
+    // 前のレクチャーの先生の顔が一瞬見えないように：新しい顔が読みこめるまで隠す
+    const face = $('#lsFace'), src = faceOf(whoOf(lesson.talk && lesson.talk[0] || {}) || lesson.teacher);
+    if (face.getAttribute('src') !== src) { face.style.visibility = 'hidden'; face.onload = face.onerror = () => { face.style.visibility = ''; face.onload = face.onerror = null; }; face.src = src; }
     P.showScreen('lesson');
     $('#lsTitle').textContent = lesson.drill ? lesson.title : 'レクチャー：' + lesson.title;
     $('#lsChoices').hidden = true;

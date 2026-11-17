@@ -72,7 +72,9 @@ async function guideTap(sel) {
   await p.waitForTimeout(600);
 }
 // お店の人のお礼など（.ff）：タップでとじる
-async function ffClose() { if (!(await p.$('.ff'))) return false; await p.click('.ff', { position: { x: 200, y: 300 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(500); return true; }
+async function ffClose() { if (!(await p.$('.ff'))) return false;
+  const btn = await p.$('.ff-clerk [data-a="no"]') || await p.$('.ff-clerk [data-a]');   // 玄斎の「これも持っていくかい？」（ときどき出る）
+  if (btn) { await p.waitForTimeout(400); await btn.click({ timeout: 1500 }).catch(() => {}); await p.waitForTimeout(500); return true; } await p.click('.ff', { position: { x: 200, y: 300 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(500); return true; }
 async function confirmYes() { await p.waitForSelector('#confirm:not([hidden])', { timeout: 8000 }); await p.click('#cfYes'); await p.waitForTimeout(500); }
 // 案内が終わるまで（最後のセリフをタップ）
 async function guideEnd() {

@@ -226,6 +226,8 @@
 .gf-list { position: relative; list-style: none; margin: 46px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .gf-list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 246, 234, .07); border: 1px solid var(--line); }
 .gf-ic { font-size: 22px; }
+.gf-ic.th { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.gf-ic.th > svg, .gf-ic.th > img, .gf-ic.th > div { width: 100%; height: 100%; display: block; object-fit: contain; }
 .gf-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .gf-t b { font-size: 13.5px; }
 .gf-t small { font-size: 11px; color: var(--muted); }

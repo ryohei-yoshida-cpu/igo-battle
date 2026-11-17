@@ -197,7 +197,11 @@
       id: 'kakeme', title: '欠け眼', teacher: '小春',
       talk: [
         { who: '小春', text: '眼に見えても、本物じゃない眼があります。それが「欠け眼」。', board: bot('OOOOOOO..', 'OXXXXX.O.', 'OX.XX.XO.'), marks: ['G2'] },
-        { who: '玄斎', text: '端の眼は、ななめの2か所とも自分の石じゃなきゃ本物にならねえ。G2を白に打たれりゃ、F1は欠け眼だ。' }
+        { who: '玄斎', text: '端の眼は、ななめの2か所とも自分の石じゃなきゃ本物にならねえ。G2を白に打たれりゃ、F1は欠け眼だ。' },
+        { who: '小春', text: 'なんで眼にならないか、見てみましょう。白がG2に打つと……G1の黒石が、仲間から切りはなされて、アタリになっちゃうんです。', board: bot('OOOOOOO..', 'OXXXXXOO.', 'OX.XX.XO.'), marks: ['G1'] },
+        { who: '玄斎', text: 'G1の呼吸点はF1だけ。だから白は、眼の中のF1に打てる。打てば黒G1が取れるからな。', board: bot('OOOOOOO..', 'OXXXXXOO.', 'OX.XX.XO.'), marks: ['F1'] },
+        { who: '小春', text: 'G1を取られたら、F1はもう眼じゃなくなります。相手が入ってこられる眼は、ニセモノの眼。……だから「欠け眼」なんです！', board: bot('OOOOOOO..', 'OXXXXXOO.', 'OX.XXO.O.'), marks: ['F1', 'G1'] },
+        { who: '玄斎', text: 'ほんとうの眼は、相手が中に打っても、その石がすぐ取れる眼だ。まわりもななめも、自分の石で守っておけ。' }
       ],
       problems: [
         { type: 'save', target: 'B2', depth: 9, text: '黒番。欠け眼にされないように、守って生きて！', board: bot('OOOOOOO..', 'OXXXXX.O.', 'OX.XX.XO.'), good: 'これで眼がふたつとも本物！', hint: '右の眼の、ななめ上が空いていますね。' }

@@ -59,7 +59,7 @@
     const el = layer('ff-buy');
     el.innerHTML = `<canvas class="ff-cv"></canvas><div class="ff-rays"></div>
       <div class="ff-card">
-        <div class="ff-ribbon">お買い上げ</div>
+        <div class="ff-ribbon">${esc(o.ribbon || 'お買い上げ')}</div>
         <div class="ff-title">${esc(o.title || 'ありがとうございます！')}</div>
         <div class="ff-items">${items.map((it, i) => `<figure style="--i:${i}"><div class="ff-thumb">${it.thumb || ''}</div><figcaption>${esc(it.name || '')}</figcaption></figure>`).join('')}${more > 0 ? `<span class="ff-more">ほか ${more} 点</span>` : ''}</div>
         ${o.note ? `<div class="ff-note">${esc(o.note)}</div>` : ''}

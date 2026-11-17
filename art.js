@@ -19,7 +19,6 @@
   const clampI = i => (i >= 0 && i < VARIANTS.length) ? i : 0;
   const charaUri = i => 'img/' + VARIANTS[clampI(i)].key + '.jpg';
   const faceUri = i => 'img/' + VARIANTS[clampI(i)].key + '_face.jpg';
-  // Botの強さで対局相手が変わる：10〜9級 みけ＆こむぎ → ひなた → 静馬 → 巴 → 殿 → 1級 玄斎
   // Botの強さ → キャラ（開放する級とそろえる）：10・9級 小春／8・7級 ひなた／6・5級 みけ／4・3級 静馬／2・1級 巴／初段 玄斎／二段 殿／三段・四段 ダーク玄斎
   const RIVAL_BY_LEVEL = [0, 0, 2, 2, 5, 5, 3, 3, 4, 4, 1, 6, 7, 7];
   function rivalOf(me, level) {

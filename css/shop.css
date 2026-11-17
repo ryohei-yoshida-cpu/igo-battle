@@ -60,7 +60,7 @@
 @keyframes ffGlow { to { box-shadow: 0 0 4px rgba(255, 214, 107, .5); } }
 .ff-thumb > * { max-width: 100%; max-height: 100%; }
 .ff-thumb svg, .ff-thumb img { width: 100%; height: 100%; object-fit: contain; }
-.ff-items figcaption { font-size: 11px; margin-top: 4px; line-height: 1.3; }
+.ff-items figcaption { font-size: 11px; margin-top: 4px; line-height: 1.3; white-space: pre-line; }
 .ff-more { align-self: center; font-size: 13px; }
 .ff-tap { font-size: 11px; opacity: .6; margin-top: 12px; }
 
@@ -187,7 +187,7 @@
 .ln-where { flex: 1 0 100%; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .ln-where select { flex: 1; min-width: 0; padding: 5px 6px; border-radius: 8px; font: inherit; font-size: 12px; }
 .gf-in { display: block; color: var(--kin) !important; line-height: 1.4; }
-.ff-note { font-size: 12px; margin-top: 10px; color: #6b4a26; }
+.ff-note { font-size: 12px; margin-top: 10px; color: #6b4a26; white-space: pre-line; }
 .ff-buy .ff-items { max-height: 52vh; overflow: auto; }
 .thx-say { overflow: visible; max-height: none; }
 .thx-say .ff-tag { margin: 0 auto 2px; }

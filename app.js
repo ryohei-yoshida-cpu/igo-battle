@@ -942,6 +942,7 @@
     if (win) rv.w++; else rv.l++;
     const once = ev => { if (rv.seen.includes(ev)) return null; rv.seen.push(ev); return { key, ev }; };
     if (win && rv.w === 3) return once('w3');
+    if (win && rv.w === 5) return once('w5');   // 約束どおり、部屋に遊びに来る
     if (rv.w - rv.l >= 10) return once('strong');
     if (win && rv.w === 10) { const d = rv.w - rv.l; if (Math.abs(d) <= 2) return once('rival'); if (d < -2) return once('catch'); }
     return null;
@@ -959,6 +960,12 @@
       const last = steps[steps.length - 1];
       last.opts = [['ok', 'もちろん！']];
       last.pick = () => { const st = (RIVAL_OK[ev.key] || 'じゃあ、あと2回勝ったら、遊びに行くね！').split('　').map(t => ({ text: t })); st[st.length - 1].tag = '5勝すると、部屋に遊びに来ます'; return st; };
+    }
+    if (ev.ev === 'w5') {   // 遊びに来た：マイルームへ
+      const last = steps[steps.length - 1];
+      last.tag = 'マイルームに遊びに来ました';
+      last.opts = [['go', 'マイルームへ'], ['', 'あとで']];
+      last.pick = k => { if (k === 'go') setTimeout(() => { if (window.ROOM) window.ROOM.open(); }, 400); return []; };
     }
     if (window.FANFARE && window.FANFARE.scene) window.FANFARE.scene({ who: ev.key, doors: true, steps });
   }

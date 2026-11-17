@@ -66,12 +66,18 @@
     return out;
   }
   // 中身の表示：銭・勾玉・アイテム
+  // 一覧のアイコン：中身の絵（アイテムがあれば1つ目）・銭は💰・勾玉は🟢
+  function giftIcon(g) {
+    const c = contents(g).find(x => !/ff-emoji/.test(x.thumb));
+    if (c && c.thumb) return `<span class="gf-ic th">${c.thumb}</span>`;
+    return `<span class="gf-ic">${g.tama && !g.amount ? '🟢' : g.amount ? '💰' : (ICON[g.kind] || '🎁')}</span>`;
+  }
   const what = g => [g.amount ? `${g.amount.toLocaleString()}銭` : '', g.tama ? `勾玉${g.tama}` : '', (g.av || []).length + (g.items || []).length ? `アイテム${(g.av || []).length + (g.items || []).length}点` : ''].filter(Boolean).join('＋') || '—';
   function draw() {
     const list = $('#giftList');
     list.innerHTML = gifts.length ? gifts.slice().reverse().map(g => g.kind === 'freq'
       ? `<li class="gf-freq"><span class="gf-ic">${ICON.freq}</span><span class="gf-t"><b>${esc(g.label)}</b><small>${new Date(g.t).toLocaleDateString('ja-JP')}・部屋番号 ${esc(g.pid)}</small></span><span class="gf-btns"><button type="button" class="btn primary small" data-fok="${esc(g.pid)}">許可</button><button type="button" class="btn lac small" data-fng="${esc(g.pid)}">ことわる</button></span></li>`
-      : `<li><span class="gf-ic">${ICON[g.kind] || '🎁'}</span><span class="gf-t"><b>${esc(g.label)}</b>${contents(g).length ? `<small class="gf-in">${contents(g).map(c => esc(c.name)).join('・')}</small>` : ''}<small>${new Date(g.t).toLocaleDateString('ja-JP')}</small></span><span class="gf-z">${what(g)}</span><button type="button" class="btn primary small" data-id="${g.id}">受け取る</button></li>`).join('')
+      : `<li>${giftIcon(g)}<span class="gf-t"><b>${esc(g.label)}</b>${contents(g).length ? `<small class="gf-in">${contents(g).map(c => esc(c.name)).join('・')}</small>` : ''}<small>${new Date(g.t).toLocaleDateString('ja-JP')}</small></span><span class="gf-z">${what(g)}</span><button type="button" class="btn primary small" data-id="${g.id}">受け取る</button></li>`).join('')
       : '<p class="gf-empty">いまはプレゼントがありません。<br>毎日ログインすると100銭、昇級すると1000銭が届きます。</p>';
     $('#giftAll').hidden = gifts.filter(g => g.kind !== 'freq').length < 2;
   }
@@ -79,12 +85,17 @@
     const taking = gifts.filter(g => g.kind !== 'freq' && (id === 'all' || g.id === id));
     const done = (got, things) => {
       if (!got && !things) return;
-      if (things) {
+      if (things || taking.length > 1) {   // 全部受け取ったときも、何をもらったか一覧で見せる
         // 何を受け取ったか、絵と名前で見せる
-        const items = [].concat(...taking.map(contents));
-        if (got) items.unshift({ thumb: '<span class="ff-emoji">💰</span>', name: `${got.toLocaleString()}銭` });
+        // もらったものを、プレゼントごとに（銭・勾玉・アイテム）
+        const items = [];
+        for (const g of taking) {
+          if (g.amount) items.push({ thumb: '<span class="ff-emoji">💰</span>', name: `${g.label || ''}\n${g.amount.toLocaleString()}銭` });
+          items.push(...contents(g));
+        }
+        if (!items.length && got) items.push({ thumb: '<span class="ff-emoji">💰</span>', name: `${got.toLocaleString()}銭` });
         P.renderHome();
-        window.FANFARE.celebrate({ items, title: '受け取りました！', note: 'アバターはクローク、家具は部屋の倉庫に入りました' });
+        window.FANFARE.celebrate({ items, ribbon: 'プレゼント', title: taking.length > 1 ? `${taking.length}つ受け取りました！` : '受け取りました！', note: (got && taking.length > 1 ? `銭は合わせて ${got.toLocaleString()}銭\n` : '') + (things ? 'アバターはクローク、家具は部屋の倉庫に入りました' : '') });
         return;
       }
       P.sound('ok'); P.toast(`${got.toLocaleString()}銭を受け取りました！`);

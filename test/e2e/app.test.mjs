@@ -203,7 +203,7 @@ test('ライバル台詞は、障子が開いてキャラが話す（3勝：「�
 
 test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
   const p = await open('rv');
-  const ok = await p.evaluate(() => window.ART.VARIANTS.every(v => ['w3', 'strong', 'rival', 'catch'].every(k => window.RIVAL_LINES[v.key] && window.RIVAL_LINES[v.key][k])));
+  const ok = await p.evaluate(() => window.ART.VARIANTS.every(v => ['w3', 'w5', 'strong', 'rival', 'catch'].every(k => window.RIVAL_LINES[v.key] && window.RIVAL_LINES[v.key][k])));
   assert.ok(ok);
 });
 
