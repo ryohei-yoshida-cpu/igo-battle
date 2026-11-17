@@ -398,8 +398,9 @@
 
   /* ---------- 遊びに来るキャラ ---------- */
   function unlocked() {
+    if (window.PROG && !window.PROG.isOpen('room')) return [];   // マイルームが開くまで（静馬のあと）は、だれも来ない
     const mine = A.VARIANTS[P.charaIdx()].key;
-    // 段級位で解放されたキャラだけが、5勝したら遊びに来る
+    // 5勝したキャラが遊びに来る（自分のキャラは通算5勝）
     return A.VARIANTS.map((v, idx) => ({ v, idx })).filter(({ v }) => (v.key === mine ? (S.wins || 0) >= 5 : (S.vs[v.key] || 0) >= 5));
   }
   // 遊びに来られるキャラ（いまは部屋の中には描かず、部屋の左下に一人ずつ出す）

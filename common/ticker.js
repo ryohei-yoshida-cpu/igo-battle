@@ -120,6 +120,9 @@
     $('#tkList').hidden = true;
     const i = dest.indexOf(':'), k = i < 0 ? dest : dest.slice(0, i), v = i < 0 ? '' : dest.slice(i + 1);
     const R = window.ROOM;
+    // まだ開いていない場所へは行けない（マイルーム・日記・ルーム探訪は静馬のあと、クロークは巴のあと、碁会所は骨董屋から30局）
+    const need = { room: 'room', diary: 'room', avatar: 'rec', guild: 'gk' }[k];
+    if (need && window.PROG && !window.PROG.isOpen(need)) { P.toast('まだ開いていません。対局を重ねると開きます'); return; }
     if (k === 'room') { if (v && v !== String(S.pid)) R.visit(v); else R.open(); }
     else if (k === 'diary') { if (v && v !== 'me' && v !== String(S.pid)) R.visit(v); else if (window.DIARY) window.DIARY.openHub(); else R.open('diary'); }
     else if (k === 'avatar') window.AVATAR_UI.open();

@@ -937,6 +937,7 @@
   function rivalCount(win, draw) {
     if (!G.bot || G.bot.human || G.friend || G.online || G.solo || G.bot.nyumon || G.atari || draw) return null;
     if (G.record.length < 10) return null;   // すぐ終わった対局（おたがい合わせて10手未満）は数えない
+    if (window.PROG && !window.PROG.isOpen('room')) return null;   // ライバルの勝ち負け（3勝・5勝の台詞）は、マイルームが開いてから（静馬のあと）
     const key = A.VARIANTS[oppChara(G.bot)].key, rv = S.rival[key] = S.rival[key] || { w: 0, l: 0, seen: [] };
     if (win) rv.w++; else rv.l++;
     const once = ev => { if (rv.seen.includes(ev)) return null; rv.seen.push(ev); return { key, ev }; };
