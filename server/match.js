@@ -39,10 +39,12 @@ export class MatchMethods {
     while (q.length >= 2) {
       const a = q.shift();
       let bi = -1, best = Infinity;
+      // 相手の強さの希望（want）：near 近い強さ（待つほど広げる）／up 自分と同じ以上／any だれでも
+      const ok = (x, y) => x.want === 'any' ? true : x.want === 'up' ? y.rating >= x.rating - 50 : Math.abs(x.rating - y.rating) <= gap(x);
       q.forEach((b, i) => {
         if ((b.size || 9) !== (a.size || 9)) return;   // 同じ盤の大きさどうし
         const d = Math.abs(a.rating - b.rating);
-        if (d > Math.max(gap(a), gap(b))) return;   // 強さが離れすぎ
+        if (!ok(a, b) || !ok(b, a)) return;   // おたがいの希望に合う相手だけ
         if (d < best) { best = d; bi = i; }
       });
       if (bi < 0) continue;

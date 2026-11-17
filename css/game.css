@@ -349,6 +349,10 @@ body.fx-shake #app { animation: fxShake .35s; }
 .bot-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; flex: none; align-items: stretch; }
 .bot-row .bot-now { min-width: 0; padding-right: 10px; }
 .bot-row .bot-now i { display: none; }
+.rm-want { display: flex; align-items: center; gap: 10px; margin-top: -4px; padding: 6px 10px; border-radius: 14px; background: var(--lac); border: 1px solid var(--line); }
+.rm-want small { flex: none; font-size: 12px; color: var(--kin); font-weight: 800; }
+.rm-want .select { flex: 1; min-width: 0; width: auto; padding: 8px 6px; font-size: 14px; }
+.mt-want { margin: 0 0 4px; width: 100%; }
 .bot-lv { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 18px; background: var(--lac); border: 1px solid var(--line); }
 .bot-lv small { flex: none; font-size: 12px; color: var(--kin); font-weight: 800; }
 .bot-lv .select { flex: 1; min-width: 0; width: auto; padding: 8px 6px; font-size: 14px; }

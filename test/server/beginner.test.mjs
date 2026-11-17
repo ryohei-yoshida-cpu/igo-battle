@@ -24,3 +24,22 @@ test('レート差が大きいと、待ち始めてすぐには当たらない�
   await new Promise(r => setTimeout(r, 1100));
   assert.ok(a.inbox.some(x => x.t === 'start'), '待てば当たる');
 });
+
+test('ランダムマッチの相手の希望：「だれでも」どうしならレート差が大きくてもすぐ当たる', async () => {
+  const { core } = makeCore();
+  const a = await user(core, 1), b = await user(core, 2);
+  for (const p of core.players.values()) if (p.acct === b.id) p.rates = { go9: 1800, go13: 1050 };
+  a.send({ t: 'seek', size: 9, want: 'any' }); b.send({ t: 'seek', size: 9, want: 'any' }); await wait(30);
+  assert.ok(a.inbox.some(x => x.t === 'start'));
+});
+test('ランダムマッチの相手の希望：「同じ以上」は、自分より弱い人とは当たらない（相手が「だれでも」でも）', async () => {
+  const { core, clock } = makeCore();
+  const a = await user(core, 1), b = await user(core, 2);
+  for (const p of core.players.values()) if (p.acct === a.id) p.rates = { go9: 1300, go13: 1050 };   // A は 1300、B は 1050
+  a.send({ t: 'seek', size: 9, want: 'up' }); b.send({ t: 'seek', size: 9, want: 'any' }); await wait(30);
+  clock.t += 60000; await new Promise(r => setTimeout(r, 1100));
+  assert.ok(!a.inbox.some(x => x.t === 'start'), '弱い人とは当たらない');
+  // 待っているあいだに「だれでも」に変える → 当たる
+  a.send({ t: 'seek', size: 9, want: 'any' }); await wait(30);
+  assert.ok(a.inbox.some(x => x.t === 'start'));
+});

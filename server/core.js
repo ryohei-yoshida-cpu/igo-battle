@@ -145,7 +145,7 @@ export class Core {
       case 'fjoin': this.fjoin(pl, m); break;
       case 'fcancel': this.closeRoom(pl); break;
       case 'rematch': this.rematch(pl, m); break;
-      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; { const k = 'go' + pl.size; pl.rating = pl.rates && pl.rates[k] ? pl.rates[k] : m.rating ? Math.max(0, Math.min(4000, m.rating | 0)) : pl.rating; } pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
+      case 'seek': if (!pl.game) { this.closeRoom(pl); pl.size = m.size === 13 ? 13 : 9; { const k = 'go' + pl.size; pl.rating = pl.rates && pl.rates[k] ? pl.rates[k] : m.rating ? Math.max(0, Math.min(4000, m.rating | 0)) : pl.rating; } pl.want = ['near', 'up', 'any'].includes(m.want) ? m.want : 'near'; pl.seekAt = pl.seekAt || this.now() || 1; this.match(); this.lobby(); } break;
       case 'cancel': pl.seekAt = 0; this.lobby(); break;
       case 'move': this.move(pl, m); break;
       case 'resign': { const g = this.gameOf(pl, m.g); if (g && !g.over) this.finish(g, 3 - g.colorOf[pl.cid], '中押し'); break; }

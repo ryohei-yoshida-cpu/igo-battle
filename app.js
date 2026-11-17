@@ -1048,7 +1048,7 @@
       NET.ok = true; NET.retry = 0;
       netAuth();
       netHello();
-      if (M && !M.found && !M.friend) netSend({ t: 'seek', size: M.size, rating: RS(M.size).rating });
+      if (M && !M.found && !M.friend) netSend({ t: 'seek', size: M.size, rating: RS(M.size).rating, want: S.rmWant });
       if (M && M.friend && !M.found && M.redo) M.redo();   // フレンドマッチ：つながってから部屋をつくる／入る
       clearInterval(NET.pingT); NET.pingT = setInterval(() => netSend({ t: 'ping' }), 40000);   // つながっているかの確認（40秒ごと）
     };
@@ -1369,7 +1369,7 @@
   const hcStones = (h, n) => h >= 2 ? HC_PTS[n === 13 ? 13 : 9].slice(0, h) : [];
   // 棋譜用：置き石を「黒・白パス・黒…」として先頭に入れる（検討モードでそのまま並ぶ）
   const hcRec = (h, n) => { const r = []; hcStones(h, n).forEach((p, i, a) => { r.push(p); if (i < a.length - 1) r.push(-1); }); return r; };
-  function openPvp() { stopMatch(); showScreen('pvp'); fillBotPick(); if (window.FRIEND) window.FRIEND.renderPvp(); }
+  function openPvp() { stopMatch(); showScreen('pvp'); fillBotPick(); fillRmWant(); if (window.FRIEND) window.FRIEND.renderPvp(); }
   function openFriend() { showScreen('friend'); if (window.FRIEND) window.FRIEND.open(); }
   // フレンドマッチ：つながっていなければ、つないでから送る
   function friendSend(msg, extra) {
@@ -1434,12 +1434,29 @@
     $('#optNoBot').checked = !!S.noBot;
     $('#mtNoBotNote').hidden = !S.noBot;
     $('#mtTitle').textContent = `対戦相手を探しています（${size}路）`;
-    if (NET_URL) { if (NET.ok) { netHello(); netSend({ t: 'seek', size, rating: RS(size).rating }); } else netConnect(); }
+    if (NET_URL) { if (NET.ok) { netHello(); netSend({ t: 'seek', size, rating: RS(size).rating, want: S.rmWant }); } else netConnect(); }
+    fillRmWant();
     M.timer = setInterval(matchTick, 250);
     matchTick();
   }
+  // ランダムマッチの相手の強さ（S.rmWant）：near 近い強さ／up 同じ以上／any だれでも。待っているあいだも変えられる
+  const RM_WANT = [['near', '近い強さ（おすすめ）'], ['up', '自分と同じ以上'], ['any', 'だれでも（早く見つかる）']];
+  function fillRmWant() {
+    if (!RM_WANT.some(([k]) => k === S.rmWant)) S.rmWant = 'near';
+    for (const sel of [$('#rmWant'), $('#mtWant')]) { if (!sel) continue; sel.innerHTML = RM_WANT.map(([k, l]) => `<option value="${k}">${l}</option>`).join(''); sel.value = S.rmWant; }
+  }
+  function wantText() {
+    const r = M ? M.myRank : rankFromRating(RS(9).rating), R = i => RANKS[Math.max(0, Math.min(RANKS.length - 1, i))];
+    return S.rmWant === 'up' ? `${R(r)}と同じか、上の相手` : S.rmWant === 'any' ? 'どの強さの相手でも' : `${R(r - 1)}〜${R(r + 1)}くらいの相手`;
+  }
+  for (const id of ['#rmWant', '#mtWant']) $(id).addEventListener('change', e => {
+    S.rmWant = e.target.value; save(); fillRmWant();
+    if (M && !M.found && !M.friend && NET.ok) netSend({ t: 'seek', size: M.size, rating: RS(M.size).rating, want: S.rmWant });   // 待っているあいだに変えた
+    if (M) matchTick();
+  });
+  fillRmWant();
   function matchRange() {
-    if (NET.ok) return `オンライン ${NET.online}人・対戦待ち ${NET.seeking}人`;
+    if (NET.ok) return `${wantText()}・オンライン ${NET.online}人・対戦待ち ${NET.seeking}人`;
     if (S.noBot) return `${RANKS[Math.max(0, M.myRank - 1)]}〜${RANKS[Math.min(RANKS.length - 1, M.myRank + 1)]} のプレイヤー`;
     return `${RANKS[Math.max(0, Math.min(BOT_MAX, M.myRank) - 1)]}〜${RANKS[Math.min(BOT_MAX, M.myRank + 1)]} の相手`;
   }
@@ -1486,7 +1503,7 @@
   // chara：「キャラクターと対局」（えらんだ強さ）。ないとき：人が見つからなかった代わり（いつも近い強さ）
   function matchFound(chara) {
     M.found = true; clearInterval(M.timer);
-    const up = upLevels(), want = chara ? S.botLevel : 'auto';
+    const up = upLevels(), want = chara ? S.botLevel : S.rmWant === 'up' ? 'up' : 'auto';   // 人の代わりのBotも、ランダムマッチの希望に合わせる
     M.fixed = want !== 'auto' && want !== 'up' && want !== 'nyumon';
     const lv = want === 'nyumon' ? 0 : M.fixed ? Math.min(BOT_MAX, want) : want === 'up' ? up[Math.floor(Math.random() * up.length)] : Math.max(0, Math.min(BOT_MAX, M.myRank + Math.floor(Math.random() * 3) - 1));
     const bot = want === 'nyumon' ? Object.assign(nyumonBot(), { name: 'アタリ碁' }) : { level: lv, rating: botRating(lv), name: `Bot ${RANKS[lv]}` };
