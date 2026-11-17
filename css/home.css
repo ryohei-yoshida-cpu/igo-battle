@@ -289,5 +289,12 @@
 .goal s { flex: none; text-decoration: none; opacity: .6; }
 .goal.sp { border-color: #ffd98a; background: linear-gradient(90deg, rgba(120, 64, 18, .95), rgba(70, 36, 12, .95)); box-shadow: 0 0 0 1px rgba(255, 217, 138, .35) inset, 0 0 16px rgba(255, 196, 90, .25); animation: goalGlow 2.4s ease-in-out infinite; }
 .goal.sp > i { background: #ffd98a; color: #5a2e08; }
+.goal small u { margin-left: 6px; padding: 0 6px; border-radius: 99px; background: #e2483a; color: #fff; font-size: 9.5px; font-weight: 900; text-decoration: none; letter-spacing: .08em; vertical-align: 1px; }
+.goal.new { border-color: #ffd98a; }
+.goal-newban { position: fixed; z-index: 75; left: 50%; top: calc(18% + env(safe-area-inset-top, 0px)); transform: translate(-50%, -10px) scale(.9); opacity: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: min(80vw, 320px); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 16px; background: linear-gradient(#7a3d10, #4a230a); border: 2px solid #ffd98a; color: #fff6e2; box-shadow: 0 12px 30px rgba(0, 0, 0, .5); text-align: center; pointer-events: none; animation: goalBan .45s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+.goal-newban b { font-size: 22px; letter-spacing: .06em; color: #ffd98a; font-style: italic; }
+.goal-newban span { font-size: 13px; font-weight: 800; line-height: 1.5; }
+.goal-newban.out { opacity: 0 !important; transition: opacity .5s; }
+@keyframes goalBan { to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes goalGlow { 50% { box-shadow: 0 0 0 1px rgba(255, 217, 138, .55) inset, 0 0 22px rgba(255, 196, 90, .45); } }
 @media (prefers-reduced-motion: reduce) { .goal.sp { animation: none; } }

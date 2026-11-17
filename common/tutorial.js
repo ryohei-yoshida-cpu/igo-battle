@@ -84,7 +84,7 @@
   let el = null, i = -1, typing = 0, full = '', busy = false, pos = null;
   function buildEl(who) {
     who = WHO[who] ? who : 'koharu';
-    el = document.createElement('div'); el.className = 'tut';
+    el = document.createElement('div'); el.className = 'tut' + (GD ? ' gd' : '');   // gd：やってみよう案内（明るさを一定に）
     el.innerHTML = `<div class="tut-hole" hidden></div>${GD ? '<i class="tut-block"></i><i class="tut-block"></i><i class="tut-block"></i><i class="tut-block"></i>' : ''}
       <div class="tut-k"><img src="img/visit_${who}.webp" alt="${WHO[who]}"></div>
       <div class="tut-say"><b>${WHO[who]}</b><p></p><small class="tut-next">タップで次へ ▶</small></div>

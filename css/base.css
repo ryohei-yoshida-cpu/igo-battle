@@ -294,5 +294,13 @@ body.tut-on #confirm { z-index: 90; } body.tut-on .toast { z-index: 95; }
 .tut.free .tut-say { top: auto !important; bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; left: 10px !important; right: 10px !important; width: auto !important; max-width: none !important; padding: 6px 12px 4px; opacity: .96; }
 .tut.free .tut-say p { min-height: 0; font-size: 13px; line-height: 1.5; }
 .tut.free .tut-say b, .tut.free .tut-next { display: none; }
+/* やってみよう案内（特別ミッション）：話すところも、さわるところも、同じうす暗さ（明るくなったり暗くなったりしない） */
+.tut.gd.dim { background: rgba(10, 6, 3, .16); }
+.tut.gd .tut-hole { box-shadow: 0 0 0 200vmax rgba(10, 6, 3, .16); }
+.tut.gd .tut-hole.pulse { animation-name: tutPulseL; }
+.tut.gd.free { background: none !important; }
+.tut.gd.free .tut-hole { box-shadow: none; }
+.tut.gd.free .tut-hole.pulse { animation-name: tutPulseF; }
+.tut.away { background: none !important; }   /* キャラの登場・確認が出ているあいだは、暗さも消す（会計のあと暗いまま、にならない） */
 .tut.away { pointer-events: none; }
 .tut.away > * { visibility: hidden; }

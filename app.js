@@ -825,7 +825,8 @@
     if (reason === '切断') label = win ? '切断勝ち' : '切断負け';
     if (reason === 'アタリ碁') label = win ? '石を取って勝ち！' : '石を取られた…';
     // 開放のための対局数（負けもBot戦も数える。すぐ終わった対局は数えない。アタリ碁は数える）
-    if ((G.record.length >= 10 || G.atari) && !G.noCount) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
+    // イベントの局数：対人戦メニューの対局（10手以上）と、目標の「アタリ碁を打ってみよう」だけ。ソロの物語の中の対局と、小春との最初のアタリ碁は数えない
+    if (G.atari ? !G.noCount : (!G.solo && G.record.length >= 10)) { S.prog = S.prog || {}; S.prog.games = (S.prog.games | 0) + 1; }
     const r = G.solo ? null : (G.friend || reason === '無効試合') ? friendRecord(win, draw, G.me, G.bot.name, label, hcRec(G.hc ? G.hc.h : 0, BN).concat(G.record), G.hc ? G.hc.h : 0) : applyRating(draw ? 0.5 : win ? 1 : 0, G.bot.rating, G.me, G.bot.name, label, G.record.slice(), BN, !G.bot.human);
     // 銭：対局1回につき100（勝ち負けに関係なく。フレンド戦はなし）。勝った相手のキャラは「5勝で遊びに来る」の数にかぞえる
     const zeni = G.friend || G.record.length < (G.online ? 10 : 16) ? 0 : 100;   // 10手未満（Botは16手未満）で終わった対局は、銭なし（すぐ投了してかせぐのを防ぐ）

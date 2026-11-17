@@ -86,7 +86,7 @@ const games = n => p.evaluate(n => { window.APP.S.prog.games = n; window.APP.sav
 test('はじめ：初心者ミッションと共通ミッションが出る', async () => {
   const g = await goals();
   assert.match(g[0], /初心者ミッション.*幽玄の間の約束/);
-  assert.match(g[1], /共通ミッション.*一局、対人戦メニューから打ってみよう/);
+  assert.match(g[1], /共通ミッション.*対人戦メニューで 3 局打ってみよう.*0\/3/);
   assert.doesNotMatch(g.join(), /巴|ひなた|静馬/, 'だれが来るかは出さない');
 });
 
@@ -104,12 +104,18 @@ test('3回打ったら「アタリ碁を打ってみよう」は消える（押�
   assert.equal(g.length, 1); assert.match(g[0], /だれかが来たみたい/);
 });
 
-test('3局：巴 →「戦歴を見てみよう」→ お駄賃の扇子 →「クロークで扇子を持ってみよう」', async () => {
+test('3局：巴 →「戦歴を見てみよう」→ お駄賃の扇子 → 3局あと「クロークで扇子を持ってみよう」', async () => {
   await games(3); await through();
   assert.match((await goals())[0], /特別ミッション.*戦歴/);
   await guideTap('#openRecord');
   await through();   // 巴：お駄賃
   await p.waitForFunction(() => (window.APP.S.avOwned || []).includes('tool:t13'), null, { timeout: 8000 });
+  await guideEnd();
+  // 扇子に着がえる案内は、3局あと
+  await p.evaluate(() => { window.APP.showScreen('home'); });
+  await games(5); await p.waitForTimeout(1200);
+  assert.equal(await p.$('.tut'), null, '2局ではまだ');
+  await games(6); await p.waitForTimeout(800);
   // 扇子を持つ：ルーム → クローク → 道具 → 扇子 → この姿にする
   await guideTap('#openHub');
   await guideTap('#openAvatar');
@@ -143,9 +149,9 @@ test('ひなたのエピソードを読むと、ひなたが来る（お祝い30
   assert.ok(await p.evaluate(() => window.APP.S.avOwned.includes('body:b05')));
 });
 
-test('10局：静馬（800銭のクーポン）→ 碁盤を試し置きして、場所を選んで買う → 小春：座布団を置く', async () => {
+test('14局：静馬（800銭のクーポン）→ 碁盤を試し置きして、場所を選んで買う → 小春：座布団を置く', async () => {
   await p.evaluate(() => { window.APP.showScreen('home'); });
-  await games(10); await through();
+  await games(14); await through();
   await guideTap('#openHub');
   await guideTap('#openRoom');
   await guideTap('#roomDock [data-dock="shop"]');
@@ -171,9 +177,9 @@ test('10局：静馬（800銭のクーポン）→ 碁盤を試し置きして�
 
 test('静馬から5局：小春が囲碁日記をすすめる → 勝った対局の棋譜をえらんで、日記をつける', async () => {
   await p.evaluate(() => { window.APP.showScreen('home'); const S = window.APP.S; S.history = [{ win: false, rec: [40, 41], size: 9, op: 'Bot A', t: Date.now(), color: 1 }, { win: true, rec: [40, 41, 30], size: 9, op: 'Bot B', t: Date.now() - 1000, color: 1 }].concat(S.history || []); window.APP.save(); });
-  await games(14); await p.waitForTimeout(1500);
+  await games(18); await p.waitForTimeout(1500);
   assert.equal(await p.$('.sj'), null, '4局ではまだ');
-  await games(15); await through();
+  await games(19); await through();
   await guideTap('#homeDiary');
   await p.waitForTimeout(2600);   // 日記帳がひらく
   await guideTap('#bkKifu [data-pick]');
@@ -187,9 +193,9 @@ test('静馬から5局：小春が囲碁日記をすすめる → 勝った対�
   await p.evaluate(() => { const c = document.querySelector('.bk-btns [data-close], [data-close]'); if (c) c.click(); window.APP.showScreen('home'); });
 });
 
-test('20局：玄斎がドライフラワーを投げ捨てる → 骨董屋で売る', async () => {
+test('25局：玄斎がドライフラワーを投げ捨てる → 骨董屋で売る', async () => {
   await p.evaluate(() => { window.APP.showScreen('home'); });
-  await games(20); await through();
+  await games(25); await through();
   await p.waitForFunction(() => (window.APP.S.room.ownedItems.w_dryflower | 0) >= 1, null, { timeout: 8000 });
   await guideTap('#openShop');
   await guideTap('#shopKotto');
@@ -207,9 +213,9 @@ test('20局：玄斎がドライフラワーを投げ捨てる → 骨董屋で�
 test('骨董屋から30局で碁会所。闇落ち玄斎まで読むとキャラクターミッション', async () => {
   await p.evaluate(() => { window.APP.showScreen('home'); });
   assert.equal(await p.evaluate(() => window.PROG.ready('gk')), false);
-  await p.evaluate(() => { window.APP.S.prog.games = 49; });
+  await p.evaluate(() => { window.APP.S.prog.games = 54; });
   assert.equal(await p.evaluate(() => window.PROG.ready('gk')), false);
-  await p.evaluate(() => { window.APP.S.prog.games = 50; });
+  await p.evaluate(() => { window.APP.S.prog.games = 55; });
   assert.equal(await p.evaluate(() => window.PROG.ready('gk')), true);
   await p.evaluate(() => { for (const id of ['ep_shima', 'ep_tomoe', 'ep_mike', 'ep_tono', 'ep_dgensai']) window.APP.S.solo.read[id] = true; window.APP.renderHome(); });
   assert.match((await goals())[0], /キャラクターミッション.*（10級）に3勝/);

@@ -14,7 +14,8 @@
   'use strict';
   const P = window.APP, S = P.S;
   const $ = window.U.$;
-  const NEED = { rec: 3, av: 5, room: 10, kotto: 20 }, GK_AFTER = 30;   // 碁会所は、骨董屋が開いてから30局
+  // イベントの間かく（Bot相手なら1局がすぐなので、少しはなす）：3局 巴 → +3局 扇子に着がえる → +3局 ひなた → +5局 静馬
+  const NEED = { rec: 3, av: 9, room: 14, kotto: 25 }, GK_AFTER = 30, FAN_AFTER = 3;   // 碁会所は、骨董屋が開いてから30局
   const ORDER = ['rec', 'av', 'room', 'kotto', 'gk'];
   const LOCKS = [
     ['pvp', ['#startMatch']],
@@ -245,6 +246,7 @@
     if (!k) {
       const t = pendingTour(); if (t) { tour(t, () => setTimeout(check, 600)); return; }
       if (diaryReady() && !S.sp && !spBusy) { diaryScene(); return; }
+      if (g.fanAt && !g.seen.fan && (g.games | 0) >= g.fanAt && !S.sp && !spBusy) { g.seen.fan = 1; P.save(); special('equip_fan'); return; }
       if (S.sp && !spBusy) spCheck();
       return;
     }
@@ -256,7 +258,7 @@
       P.save(); refresh(); P.toast(sc.toast, 4500);
       const go = () => setTimeout(check, 600);
       // キャラの登場のあと：案内 → 特別ミッション
-      if (k === 'rec') tour('rec', () => special('rec_look'));
+      if (k === 'rec') { doneTour('rec'); special('rec_look'); }   // 戦歴の案内は、特別ミッション（巴に言われて見る）だけ
       else if (k === 'av') { P.claimUnlock('av'); doneTour('av'); special('buy_parka'); }
       else if (k === 'room') { P.claimUnlock('room'); doneTour('room'); g.roomAt = g.games | 0; P.save(); special('buy_goban'); }
       else if (k === 'kotto') { doneTour('kotto'); P.claimUnlock('kotto', () => special('sell_flower')); }
@@ -311,7 +313,8 @@
           prog().seen.recLook = 1; P.save();
           P.claimUnlock('rec', () => {
             if (beginner()) P.toast('ソロモードで「ひなたの夏祭り囲碁大作戦」が読めるようになりました！', 4500);
-            then('equip_fan');
+            const g = prog(); g.fanAt = (g.games | 0) + FAN_AFTER; P.save();   // 扇子に着がえる案内は、3局あと
+            then();
           });
         } });
       }
@@ -320,7 +323,7 @@
       title: 'クロークで扇子を持ってみよう', who: 'koharu',
       done: () => !!(S.av && S.av.tool === 't13'),
       steps: [
-        { go: home, say: '巴ちゃんから扇子をもらいましたね！ さっそく、アバターに持たせてみましょう！' },
+        { go: home, say: 'そういえば、巴ちゃんから扇子をもらっていましたね！ アバターに持たせてみましょう！' },
         { go: home, at: '#openHub', say: 'まずは「ルーム」を開いてください。', until: () => !$$('#hub').hidden },
         { go: () => window.AVATAR_UI.openHub(), at: '#openAvatar', say: '「クローク」をタップ！ 持っている服に着がえられる場所です。', until: () => avIs('クローク') },
         { go: () => window.AVATAR_UI.open('closet', null, 'hub'), at: '#avTabs [data-slot="tool"]', say: '「道具」のタブを開いて……', until: () => avTab('tool'), skip: () => avTab('tool') },
