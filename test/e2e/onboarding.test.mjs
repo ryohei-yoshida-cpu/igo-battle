@@ -207,7 +207,7 @@ test('25局：玄斎がドライフラワーを投げ捨てる → 骨董屋で�
   await confirmYes();
   await p.waitForTimeout(800); if (await p.$('.sj')) await through().catch(() => {}); else await ffClose();
   await guideEnd();
-  for (let k = 0; k < 30 && await p.evaluate(() => !!window.APP.S.sp); k++) { if (await stampClose()) stamps++; else if (await p.$('.sj')) await through().catch(() => {}); else if (!(await ffClose())) await p.waitForTimeout(300); }
+  for (let k = 0; k < 80 && await p.evaluate(() => !!window.APP.S.sp); k++) { if (await stampClose()) stamps++; else if (await p.$('.sj')) await through().catch(() => {}); else if (await ffClose()) continue; else if (await p.$('#confirm:not([hidden])')) await p.click('#cfNo').catch(() => {}); else if (await p.$('.tut:not(.away)')) { await tapTut(); await p.waitForTimeout(300); } else await p.waitForTimeout(300); }
   assert.equal(await p.evaluate(() => window.APP.S.sp || null), null, '特別ミッションが終わった');
   assert.equal(await p.evaluate(() => window.APP.S.room.ownedItems.w_dryflower | 0), 0);
   assert.equal(await p.evaluate(() => window.PROG.isOpen('kotto')), true);
