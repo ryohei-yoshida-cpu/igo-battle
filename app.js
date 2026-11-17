@@ -936,7 +936,7 @@
    *   3勝 → w3（遊びに行ってもいい？）／ 勝ち越し10 → strong ／ 10勝目で五分 → rival ／ 10勝目で負け越し → catch */
   function rivalCount(win, draw) {
     if (!G.bot || G.bot.human || G.friend || G.online || G.solo || G.bot.nyumon || G.atari || draw) return null;
-    if (G.record.length < 16) return null;   // すぐ終わった対局は数えない
+    if (G.record.length < 10) return null;   // すぐ終わった対局（おたがい合わせて10手未満）は数えない
     const key = A.VARIANTS[oppChara(G.bot)].key, rv = S.rival[key] = S.rival[key] || { w: 0, l: 0, seen: [] };
     if (win) rv.w++; else rv.l++;
     const once = ev => { if (rv.seen.includes(ev)) return null; rv.seen.push(ev); return { key, ev }; };
@@ -945,17 +945,33 @@
     if (win && rv.w === 10) { const d = rv.w - rv.l; if (Math.abs(d) <= 2) return once('rival'); if (d < -2) return once('catch'); }
     return null;
   }
+  // ライバル台詞は、イベントのように障子が開いて、キャラが話す（文ごとに区切って、タップで次へ）
   function rivalSay(ev) {
     const L = window.RIVAL_LINES && window.RIVAL_LINES[ev.key], text = L && L[ev.ev]; if (!text) return;
-    const i = A.VARIANTS.findIndex(v => v.key === ev.key), rv = S.rival[ev.key];
-    let el = $('#rivalSay');
-    if (!el) { el = document.createElement('div'); el.id = 'rivalSay'; el.className = 'rival-say'; document.body.append(el); }
-    el.innerHTML = `<div class="rvl-card" role="dialog" aria-modal="true"><img class="rvl-face" src="${A.charaUri(i)}" alt=""><div class="rvl-body"><b>${window.U.esc(A.VARIANTS[i].name)}</b><small>あなたとの対戦成績 ${rv.w}勝${rv.l}敗</small><p>${window.U.esc(text)}</p><button type="button" class="btn primary small">うん</button></div></div>`;
-    el.hidden = false; sound('ok');
-    const close = () => { el.hidden = true; };
-    el.querySelector('button').onclick = () => { sound('tap'); close(); };
-    el.onclick = e => { if (e.target === el) close(); };
+    const rv = S.rival[ev.key];
+    // みけ＆こむぎのように「だれ「…」」が並ぶときは、話す人ごと。ほかは2文ずつ
+    const steps = [];
+    if (text.includes('「')) text.split('　').filter(Boolean).forEach(t => steps.push({ text: t.trim() }));
+    else { const parts = (text.match(/[^。！？!?]+[。！？!?…]*/g) || [text]).map(t => t.trim()).filter(Boolean); for (let i = 0; i < parts.length; i += 2) steps.push({ text: parts.slice(i, i + 2).join('') }); }
+    steps[0].tag = `あなたとの対戦成績 ${rv.w}勝${rv.l}敗`;
+    if (ev.ev === 'w3') {   // 「遊びに行ってもいい？」→ こたえる → あと2勝で本当に来る
+      const last = steps[steps.length - 1];
+      last.opts = [['ok', 'もちろん！']];
+      last.pick = () => { const st = (RIVAL_OK[ev.key] || 'じゃあ、あと2回勝ったら、遊びに行くね！').split('　').map(t => ({ text: t })); st[st.length - 1].tag = '5勝すると、部屋に遊びに来ます'; return st; };
+    }
+    if (window.FANFARE && window.FANFARE.scene) window.FANFARE.scene({ who: ev.key, doors: true, steps });
   }
+  // 「もちろん！」へのこたえ（キャラの口調で）
+  const RIVAL_OK = {
+    koharu: 'やったぁ！ じゃあ、あと2回勝ったら、遊びに行きますね！ 楽しみです！',
+    gensai: '……おう。じゃあ、あと2回勝ったら行ってやる。茶ぐらい出せよ。',
+    hinata: 'やったー！ じゃあ、あと2回勝ったら遊びに行くね！ 約束だよ！',
+    shima: '……そうか。では、あと2回勝ったら……邪魔させてもらう。',
+    tomoe: 'べ、別に行きたいわけじゃないけど！ ……あと2回勝ったら、行ってあげるわ。',
+    mike: 'こむぎ「やったワン！ あと2回かったら、みけと いっしょに あそびにいくワン！」　みけ「……にゃ」',
+    tono: 'うむ、苦しゅうない！ あと2局勝てば、余が直々に参ろう！',
+    dgensai: '……フン。あと2度、俺を倒してみせろ。そうすれば、行ってやる。'
+  };
   function sayEnd(el, look, win, dir) {
     const a = lnText(look, win > 0 ? 'w' : win < 0 ? 'l' : ''), e = lnText(look, 'e');
     if (a) { sayAt(el, a, dir, 2600); if (e) setTimeout(() => sayAt(el, e, dir, 3000), 2900); }
@@ -1899,6 +1915,7 @@
     // キャラクター戦の強さ（目標から「〇〇と対局」を押したとき）
     // 名前（はじめの小春との会話でも）。サーバーにも知らせる
     setName(v) { S.name = String(v || '').trim().slice(0, 12) || defName(); save(); renderHome(); if (NET.ok) netHello(); },
+    rivalSay(key, ev) { S.rival[key] = S.rival[key] || { w: 3, l: 1, seen: [] }; rivalSay({ key, ev }); },   // テスト・確認用
     setBotLevel(v) { S.botLevel = v; save(); for (const s of [$('#botLevel'), $('#botLevelQuick')]) if (s) s.value = String(v); }, displayRank, HC_PTS, HC_NAME, hcStones, MAIN_MS,
     // ---------- 銭・持ち物（サーバーが正。つながっていないときは使えない） ----------
     // レクチャー初クリア・ドリル正解・開放・チュートリアルの銭：サーバーが1回だけ出す。つながっていなければ、つながったときに送る

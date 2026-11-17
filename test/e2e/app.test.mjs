@@ -190,6 +190,17 @@ test('中押し：「盤面を見る」で形勢（推定）と投了の理由�
   await p.waitForFunction(() => !document.querySelector('#result').hidden, null, { timeout: 5000 });
 });
 
+test('ライバル台詞は、障子が開いてキャラが話す（3勝：「もちろん！」→ あと2勝で来る）', async () => {
+  const p = await open('rivalScene');
+  await p.evaluate(() => window.APP.rivalSay('hinata', 'w3'));
+  await p.waitForSelector('.sj.doors.hinata', { timeout: 5000 });
+  for (let k = 0; k < 30 && !(await p.$('.sj [data-k="ok"]')); k++) { await p.click('.sj', { position: { x: 200, y: 200 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(300); }
+  await p.click('.sj [data-k="ok"]');
+  await p.waitForFunction(() => /あと2回勝ったら/.test((document.querySelector('.sj .thx-t') || {}).textContent || ''), null, { timeout: 8000 });
+  for (let k = 0; k < 20 && await p.$('.sj'); k++) { await p.click('.sj', { position: { x: 200, y: 200 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(400); }
+  assert.equal(await p.$('.sj'), null);
+});
+
 test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
   const p = await open('rv');
   const ok = await p.evaluate(() => window.ART.VARIANTS.every(v => ['w3', 'strong', 'rival', 'catch'].every(k => window.RIVAL_LINES[v.key] && window.RIVAL_LINES[v.key][k])));
