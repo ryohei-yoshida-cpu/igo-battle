@@ -161,7 +161,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) BGM.stop(); else if (S.settings.bgm) setTimeout(kick, 300); });
 
   window.FX = { stamp };
-  window.GIFT = { open, refresh, setGifts };
+  window.GIFT = { open, refresh, setGifts, list: () => gifts.slice() };
   window.BGM = BGM;
   setTimeout(refresh, 1500);
 })();

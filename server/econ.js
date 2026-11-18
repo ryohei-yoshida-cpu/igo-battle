@@ -22,11 +22,17 @@ export function addGift(r, kind, amount, label, t, extra) {
   r.gifts = r.gifts || []; r.giftSeq = (r.giftSeq || 0) + 1;
   r.gifts.push(Object.assign({ id: r.giftSeq, kind, amount, label, t }, extra || {})); if (r.gifts.length > 50) r.gifts.shift();
 }
-// 毎日はじめてつないだら 100銭（日本時間の日付）
+// ログインボーナス：7日間つづけて来ると、だんだん増えて、7日目は1000銭。1日でも空くと1日目から。7日目のつぎも1日目から
+export const LOGIN7 = [100, 150, 200, 250, 300, 400, 1000];
+const jstDay = t => new Date(t + 9 * 3600e3).toISOString().slice(0, 10);   // 日本時間の日付
 export function dailyGift(r, now) {
-  const day = new Date(now + 9 * 3600e3).toISOString().slice(0, 10);
+  const day = jstDay(now);
   if (r.loginDay === day) return false;
-  r.loginDay = day; addGift(r, 'daily', DAILY, 'ログインボーナス（' + day.slice(5).replace('-', '/') + '）', now); return true;
+  const yday = jstDay(now - 86400e3);
+  r.loginStreak = r.loginDay === yday ? ((r.loginStreak | 0) % 7) + 1 : 1;
+  r.loginDay = day;
+  addGift(r, 'daily', LOGIN7[r.loginStreak - 1], `ログインボーナス ${r.loginStreak}日目`, now);
+  return true;
 }
 // アカウントに銭・持ち物・部屋がなければ作る。前のバージョンのデータがあれば、上限つきで引き継ぐ
 export function ensureEcon(r) {
@@ -56,7 +62,7 @@ export function antiqueGift(r, x) {
 }
 // 2026/11/15 取りやめた家具（線で描いた家具・角度の合わない絵の家具）と、その値段。持っていた人には、銭をおかえし
 // 足もとのないアバターの服（2026/11/14 取りやめ）。持っていた人には、銭をおかえし
-export function pubEcon(r) { return { dm: missionsOf(r, Date.now()), zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {}, rates: { go9: rateOf(r, 'go9'), go13: rateOf(r, 'go13') } }; }
+export function pubEcon(r) { return { login: r.loginDay ? { day: r.loginDay, n: r.loginStreak | 0 } : null, dm: missionsOf(r, Date.now()), zeni: r.zeni, owned: r.owned, room: r.room, rooms2: r.rooms2 || [], av: r.av || null, pid: r.pid || null, gifts: r.gifts || [], tama: r.tama || {}, charas: r.charas || {}, stats: r.stats || {}, rates: { go9: rateOf(r, 'go9'), go13: rateOf(r, 'go13') } }; }
 /* ---------- 勾玉（課金石）：アプリ（ゲーム）ごとに持つ。お金で買った分は、そのアプリの中だけで使う（Google Play のきまり） ---------- */
 export const TAMA = globalThis.AVATAR.TAMA || {}, TAMA_ZENI = 10, TAMA_CHARA = 300;
 export const tamaOf = (r, g) => (r.tama && r.tama[g]) | 0;

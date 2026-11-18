@@ -61,3 +61,15 @@ test('ゲームの記念品：同じゲームの中ではもらえない。ほ�
   gamePack(r, 'othello', 4);
   assert.equal(packs().length, 1, '2回目はもらえない');
 });
+
+test('ログインボーナス：つづけて来ると100→150→…→7日目1000。1日空くと1日目から。7日目のつぎは1日目', async () => {
+  const { dailyGift, LOGIN7 } = await import('../../server/econ.js');
+  const r = { gifts: [] }, D = 86400e3, t0 = Date.UTC(2026, 10, 1, 3);
+  const amounts = [];
+  for (let i = 0; i < 8; i++) { assert.equal(dailyGift(r, t0 + i * D), true); assert.equal(dailyGift(r, t0 + i * D + 3600e3), false, '同じ日は1回'); amounts.push(r.gifts[r.gifts.length - 1].amount); }
+  assert.deepEqual(amounts, LOGIN7.concat(LOGIN7[0]));
+  assert.equal(LOGIN7[6], 1000);
+  dailyGift(r, t0 + 8 * D); assert.equal(r.loginStreak, 2);
+  dailyGift(r, t0 + 10 * D); assert.equal(r.loginStreak, 1, '1日空いたら1日目から');
+  assert.match(r.gifts[r.gifts.length - 1].label, /ログインボーナス 1日目/);
+});

@@ -1199,6 +1199,7 @@
     if (typeof e.zeni === 'number') S.zeni = e.zeni;
     if (e.gifts && window.GIFT) window.GIFT.setGifts(e.gifts);
     if (e.dm && window.DM) window.DM.set(e.dm);   // デイリーミッション
+    if (e.login && window.LOGINBONUS) window.LOGINBONUS.set(e.login);   // ログインボーナス（7日間）
     if (e.welcome) setTimeout(() => toast('ようこそ！ プレゼントボックスに3000銭が届いています', 5000), 1200);
     const r = S.room = S.room || {};
     if (e.owned) { r.ownedItems = Object.assign({}, e.owned.items); r.owned = { floors: e.owned.floors.slice(), walls: e.owned.walls.slice() }; S.avOwned = (e.owned.av || []).slice(); }

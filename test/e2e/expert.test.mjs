@@ -23,7 +23,7 @@ before(async () => {
   await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuro9.agree', '3'); });
   await p.reload();
   await p.waitForFunction(() => window.APP && window.APP.S);
-  await p.evaluate(() => { window.APP.S.birth = '1990-01-01'; window.APP.save(); document.querySelectorAll('.agree-back').forEach(x => x.remove()); });
+  await p.evaluate(() => { window.APP.S.birth = '1990-01-01'; window.APP.S.loginSeen = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);  /* ログインボーナスの表は出さない */ window.APP.save(); document.querySelectorAll('.agree-back').forEach(x => x.remove()); });
   await p.reload(); await p.waitForTimeout(800); await p.mouse.click(200, 120);
 });
 after(async () => { await browser.close(); server.kill(); });

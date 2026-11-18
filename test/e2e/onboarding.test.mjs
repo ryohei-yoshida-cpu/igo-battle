@@ -25,7 +25,7 @@ before(async () => {
   await p.waitForFunction(() => window.APP && window.APP.S);
   // 初心者：小春の登場・はじめの案内・春告げは済み。対局はまだ0局
   await p.evaluate(() => {
-    const S = window.APP.S; S.birth = '1990-01-01';
+    const S = window.APP.S; S.birth = '1990-01-01'; S.loginSeen = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // ログインボーナスの表は、テストでは出さない（別のテストで確かめる）
     S.prog = { games: 0, seen: { haru: 1 }, all: false, intro: true };
     S.tutDone = { base: 1, pvp: 1, rec: 1, room: 1, gk: 1 };
     S.solo.mode = 'beginner'; S.solo.read = { haru: true };

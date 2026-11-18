@@ -91,7 +91,7 @@
     const keyOf = x => x.key || (x.kind + ':' + x.text);
     const fresh = cur.filter(x => !S.goalAck[keyOf(x)] && !(S.goalShown || {})[keyOf(x)]);
     box.innerHTML = cur.map((x, i) => `<button type="button" class="goal${x.sp ? ' sp' : ''}${S.goalAck[keyOf(x)] ? '' : ' new'}" data-goal="${i}"><i aria-hidden="true">${x.icon}</i><span><small>${esc(x.kind)}${S.goalAck[keyOf(x)] ? '' : '<u>NEW</u>'}</small><b>${esc(x.text)}</b></span>${x.of ? `<em>${x.n}/${x.of}</em>` : ''}<s aria-hidden="true">›</s></button>`).join('');
-    if (fresh.length && !document.querySelector('.sj, .tut, .ff')) {
+    if (fresh.length && !document.querySelector('.sj, .tut, .ff, .lb') && !(window.LOGINBONUS && window.LOGINBONUS.pending())) {   // ログインボーナスが出ているあいだは、あとで
       S.goalShown = S.goalShown || {}; fresh.forEach(x => { S.goalShown[keyOf(x)] = 1; }); P.save();
       newMission(fresh.map(x => x.text));
     }

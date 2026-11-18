@@ -30,7 +30,7 @@ async function open(tag, birth = '1990-01-01') {
   await p.reload();
   await p.waitForFunction(() => window.APP && window.APP.S);
   await p.evaluate(bd => {
-    const S = window.APP.S; S.birth = bd;
+    const S = window.APP.S; S.birth = bd; S.loginSeen = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // ログインボーナスの表は、テストでは出さない（別のテストで確かめる）
     S.prog = { games: 60, seen: { haru: 1, rec: 1, av: 1, room: 1, kotto: 1, gk: 1 }, all: true, intro: true };
     S.tutDone = { base: 1, pvp: 1, rec: 1, av: 1, room: 1, kotto: 1, gk: 1, chara: 1 };
     window.APP.save(); document.querySelectorAll('.agree-back').forEach(x => x.remove());
@@ -199,6 +199,20 @@ test('ライバル台詞は、障子が開いてキャラが話す（3勝：「�
   await p.waitForFunction(() => /あと2回勝ったら/.test((document.querySelector('.sj .thx-t') || {}).textContent || ''), null, { timeout: 8000 });
   for (let k = 0; k < 20 && await p.$('.sj'); k++) { await p.click('.sj', { position: { x: 200, y: 200 }, timeout: 1500 }).catch(() => {}); await p.waitForTimeout(400); }
   assert.equal(await p.$('.sj'), null);
+});
+
+test('ログインボーナス：7日ぶんの表が出て、今日と明日がわかる。「受け取る」で銭が増える', async () => {
+  const p = await open('loginBonus');
+  await p.evaluate(() => { window.APP.S.loginSeen = ''; window.APP.save(); });
+  await p.reload(); await p.waitForTimeout(800); await p.mouse.click(200, 120);
+  await p.waitForSelector('.lb', { timeout: 20000 });
+  assert.equal(await p.$$eval('.lb-c', a => a.length), 7);
+  assert.match(await p.textContent('.lb-c.today'), /1日目.*100銭.*今日/);
+  assert.match(await p.textContent('.lb-c.next'), /2日目.*150銭.*明日/);
+  assert.match(await p.textContent('.lb-c.big'), /7日目.*1,000銭/);
+  const z0 = await p.evaluate(() => window.APP.S.zeni);
+  await p.click('.lb-ok');
+  await p.waitForFunction(z => window.APP.S.zeni >= z + 100 && !document.querySelector('.lb'), z0, { timeout: 8000 });
 });
 
 test('ライバル台詞が8人ぶん・4場面そろっている', async () => {
